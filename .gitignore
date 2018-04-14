@@ -1,0 +1,7 @@
+.vscode/*
+*.code-workspace
+Dropbox*
+*out.*
+*.o
+main
+main-serial

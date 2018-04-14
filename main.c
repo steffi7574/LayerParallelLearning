@@ -175,16 +175,15 @@ my_Access(braid_App          app,
           braid_Vector       u,
           braid_AccessStatus astatus)
 {
-    int   done;
     int   idx;
+   char  filename[255];
 
-    braid_AccessStatusGetDone(astatus, &done);
     braid_AccessStatusGetTIndex(astatus, &idx);
 
     if (idx == app->ntimes)
     {
-
-        write_data("Yout.pint.dat", u->Ytrain, app->nbatch * app->nchannels);
+        sprintf(filename, "%s.%03d", "Yout.pint", app->myid);
+        write_data(filename, u->Ytrain, app->nbatch * app->nchannels);
     }
 
     return 0;
@@ -314,7 +313,7 @@ int main (int argc, char *argv[])
 
     /* Set some Braid parameters */
     braid_SetPrintLevel( core, 1);
-    braid_SetMaxLevels(core, 1);
+    braid_SetMaxLevels(core, 2);
     braid_SetAbsTol(core, 1.0e-06);
     braid_SetCFactor(core, -1, 2);
     braid_SetAccessLevel(core, 1);

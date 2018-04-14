@@ -18,7 +18,8 @@ typedef struct _braid_App_struct
     int     ntimes;      /* number of time-steps / layers */
     double  alpha;       /* Relaxation parameter   */
     double  theta0;      /* Initial design value */
-
+    double *Ytarget;     /* Target data */
+    double  deltaT;      /* Time-step size on fine grid */
 } my_App;
 
 
@@ -250,7 +251,120 @@ my_BufUnpack(braid_App           app,
     *u_ptr = u;
     return 0;
 }
+
+
+int 
+my_ObjectiveT(braid_App              app,
+              braid_Vector           u,
+              braid_ObjectiveStatus  ostatus,
+              double                *objective_ptr)
+{
+    double obj = 0.0;
+    int    idx;
  
+    /* Get the time index*/
+    braid_ObjectiveStatusGetTIndex(ostatus, &idx);
+ 
+    /* Evaluate the objective function at last layer*/
+    if ( idx == app->ntimes)
+    {
+       /* Evaluate objective */
+       obj = 1./app->nbatch * loss(u->Ytrain, app->Ytarget, app->batch,  app->nbatch, app->nchannels);
+    }
+
+    /* Add regularization term */
+    obj += app->alpha * regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+
+    *objective_ptr = obj;
+    
+    return 0;
+}
+
+
+int
+my_ObjectiveT_diff(braid_App            app,
+                  braid_Vector          u,
+                  braid_Vector          u_bar,
+                  braid_Real            f_bar,
+                  braid_ObjectiveStatus ostatus)
+{
+    
+
+    /* Loss: Partial derivative wrt u times f_bar */
+ 
+    /* Relaxation: Partial derivative wrt design times f_bar*/
+ 
+    /* Update u_bar and gradient */
+    // u_bar->value  += du;
+    // app->gradient += ddesign;
+
+   return 0;
+}
+
+int
+my_Step_diff(braid_App              app,
+                braid_Vector        u,
+                braid_Vector        u_bar,
+                braid_StepStatus    status)
+{
+
+    return 0;
+}
+ 
+int 
+my_AccessGradient(braid_App app)
+{
+   /* Print the gradient */
+
+   return 0;
+}
+
+int
+my_AllreduceGradient(braid_App app, 
+                     MPI_Comm comm)
+{
+
+   /* Collect sensitivities from all time-processors */
+
+   return 0;
+}                  
+
+
+int 
+my_ResetGradient(braid_App app)
+{
+   /* Set the gradient to zero */
+
+   return 0;
+}
+
+int
+my_GradientNorm(braid_App app,
+                double   *gradient_norm_prt)
+
+{
+
+   /* Norm of gradient */
+
+
+   return 0;
+}
+    
+
+int 
+my_DesignUpdate(braid_App app, 
+                double    objective,
+                double    rnorm,
+                double    rnorm_adj)
+{
+
+   /* Hessian approximation */
+
+   /* Design update */
+
+   return 0;
+}             
+
 
 int main (int argc, char *argv[])
 {
@@ -258,6 +372,7 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double *design;       /**< Design variables for the network */
+    double *Ytarget;      /**< Target data */
     int    *batch;        /**< Contains indicees of the batch elements */
     int     nexamples;    /**< Number of elements in the training data */
     int     nbatch;       /**< Size of a batch */
@@ -267,6 +382,7 @@ int main (int argc, char *argv[])
     double  T;            /**< Final time */
     double  theta0;       /**< Initial design value */
     int     myid;         /**< Processor rank */
+    double deltaT;        /**< Time step size */
 
     /* Problem setup */ 
     nexamples = 5000;
@@ -277,6 +393,11 @@ int main (int argc, char *argv[])
 
     nbatch  = nexamples;
     ndesign = (nchannels * nchannels + 1 )* ntimes;
+    deltaT  = T / ntimes;
+
+    /* Read the target data */
+    Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
+    read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
 
     /* Initialize the design */
     design  = (double*) malloc(ndesign*sizeof(double));
@@ -307,13 +428,14 @@ int main (int argc, char *argv[])
     app->nchannels = nchannels;
     app->ntimes    = ntimes;
     app->theta0    = theta0;
+    app->deltaT    = deltaT;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
 
     /* Set some Braid parameters */
     braid_SetPrintLevel( core, 1);
-    braid_SetMaxLevels(core, 2);
+    braid_SetMaxLevels(core, 1);
     braid_SetAbsTol(core, 1.0e-06);
     braid_SetCFactor(core, -1, 2);
     braid_SetAccessLevel(core, 1);

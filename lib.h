@@ -24,6 +24,13 @@ sigma(double x);
 
 
 /**
+ * Derivative of activation function 
+ */
+double
+sigma_diff(double x);
+
+
+/**
  * Return maximum of two doubles */
 double 
 max(double a,

@@ -30,6 +30,25 @@ sigma(double x)
    return sigma;
 }
 
+double
+sigma_diff(double x)
+{
+    double ddx;
+    double tmp;
+
+    /* ReLu actionvation */
+    // if (max(0,x) > 0)
+        // ddx = 1.0;
+    // else 
+        // ddx = 0.0;
+
+    /* tanh activation */
+    tmp      = tanh(x);
+    ddx = 1. - tmp * tmp;
+
+    return ddx;
+}
+
 
 int
 take_step(double* Y,

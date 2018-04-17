@@ -12,6 +12,7 @@ typedef struct _braid_App_struct
 {
     int     myid;        /* Processor rank*/
     double *design;      /* Design variables */
+    double *gradient;    /* Gradient of objective function wrt design */
     int    *batch;       /* List of Indicees of the batch elements */
     int     nbatch;      /* Number of elements in the batch */
     int     nchannels;   /* Width of the network */
@@ -290,16 +291,72 @@ my_ObjectiveT_diff(braid_App            app,
                   braid_Real            f_bar,
                   braid_ObjectiveStatus ostatus)
 {
-    
-
-    /* Loss: Partial derivative wrt u times f_bar */
+    int    ts;
+    int    idx, idx1;
+    int    batch_id;
+    int    nbatch    = app->nbatch;
+    int    nchannels = app->nchannels;
+    int    ntimes    = app->ntimes;
+    double ddu, ddesign;
  
-    /* Relaxation: Partial derivative wrt design times f_bar*/
- 
-    /* Update u_bar and gradient */
-    // u_bar->value  += du;
-    // app->gradient += ddesign;
+    /* Get the time index*/
+    braid_ObjectiveStatusGetTIndex(ostatus, &ts); 
 
+    if ( ts == app->ntimes)
+    {
+        for (int ibatch = 0; ibatch < nbatch; ibatch ++)
+        {
+            /* Get batch_id */
+            batch_id = app->batch[ibatch];
+
+            /* Partial derivative of Loss wrt u times f_bar */
+            for (int ichannel = 0; ichannel < nchannels; ichannel++)
+            {
+                idx = batch_id * nchannels + ichannel;
+                ddu = u->Ytrain[idx] - app->Ytarget[idx];
+                ddu = 1./nbatch * ddu * f_bar;
+
+                /* Update */
+                u_bar->Ytrain[ibatch] += ddu;
+            }
+        }
+    }
+    else
+    {
+       /* Partial derivative of relaxation wrt design times f_bar*/
+        /* K(theta)-part */
+        for (int ichannel = 0; ichannel < nchannels; ichannel++)
+        {
+            for (int jchannel = 0; jchannel < nchannels; jchannel++)
+            {
+                idx  = ts       * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
+                idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
+
+                ddesign = app->design[idx];
+                if (ts < ntimes - 1)
+                {
+                    ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
+                }
+                ddesign = app->alpha * ddesign * f_bar;
+                /* Update */
+                app->gradient[idx] += ddesign;
+            }
+        }
+
+        /* b(theta)-part */
+        idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
+        idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
+        ddesign = app->design[idx];
+        if (ts < ntimes - 1)
+        {
+            ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
+        }
+        ddesign = app->alpha * ddesign * f_bar;
+        /* Update */
+        app->gradient[idx] += ddesign;
+    }
+  
+ 
    return 0;
 }
 
@@ -310,13 +367,105 @@ my_Step_diff(braid_App              app,
                 braid_StepStatus    status)
 {
 
+    double tstop, tstart, deltaT;
+    int    ts, batch_id;
+    int     th_idx, u_idx, ub_idx, g_idx;
+    double  Ky, sum, sum_ub, tmp;
+    double *ddu;
+    int     nchannels = app->nchannels;
+    int     nbatch    = app->nbatch;
+
+
+    /* Get time and time step that have been */
+    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    braid_StepStatusGetTIndex(status, &ts);
+    deltaT = tstop - tstart;
+
+    ddu     = (double*)malloc(nchannels * sizeof(double)); 
+
+    /* iterate over all batch elements */ 
+    for (int i = 0; i < nbatch; i++)
+    {
+        batch_id = app->batch[i];
+ 
+        /* Iterate over all channels */
+        for (int ichannel = 0; ichannel < nchannels; ichannel++)
+        {
+            /* Apply differentiated weights and activation */
+            sum = 0.0;
+            sum_ub = 0.0;
+            for (int jchannel = 0; jchannel < nchannels; jchannel++)
+            {
+                /* Get Ky inside the activation function */
+                Ky = 0.0;
+                for (int kchannel = 0; kchannel < nchannels; kchannel++)
+                {
+                    th_idx = ts * (nchannels * nchannels + 1) + kchannel * nchannels + jchannel; 
+                    u_idx  = batch_id * nchannels + kchannel;
+                    Ky += app->design[th_idx] * u->Ytrain[u_idx];
+                }
+                tmp = sigma_diff(Ky);
+
+                /* apply K and ub */
+                th_idx = ts * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel; 
+                ub_idx = batch_id * nchannels + jchannel;
+                sum += app->design[th_idx] * tmp * u_bar->Ytrain[ub_idx];
+                sum_ub += u_bar->Ytrain[ub_idx];
+
+                /* Gradient update K-part */
+                u_idx   = batch_id * nchannels + ichannel;
+                ub_idx = batch_id * nchannels + jchannel;
+                g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+                app->gradient[g_idx] += deltaT * tmp * u->Ytrain[u_idx] * u_bar->Ytrain[ub_idx];
+            }
+
+            /* Compute the u-update */
+            ddu[ichannel] = u_bar->Ytrain[ichannel] + deltaT * sum;
+        }
+
+        /* Gradient update b-part */
+        g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
+        app->gradient[g_idx] += deltaT * sum_ub;
+
+        /* Update u */
+        for (int ichannel = 0; ichannel < nchannels; ichannel++)
+        {
+            ub_idx = batch_id * nchannels + ichannel;
+            u_bar->Ytrain[ub_idx] = ddu[ichannel];
+        }
+    }       
+ 
+    free(ddu);
+
     return 0;
 }
  
 int 
 my_AccessGradient(braid_App app)
 {
+    int g_idx;
+    double nchannels = app->nchannels;
+    double ntimes    = app->ntimes;
+
    /* Print the gradient */
+    printf("Gradient:\n"); 
+
+    for (int ts = 0; ts < ntimes; ts++)
+    {
+
+        for (int ichannel = 0; ichannel < nchannels; ichannel++)
+        {
+            
+            for (int jchannel = 0; jchannel < nchannels; jchannel++)
+            {
+                g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+                printf("%d %d %d %d %1.14e\n", ts, ichannel, jchannel, g_idx, app->gradient[g_idx]);
+            }
+        }
+        g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
+        printf("%d     %d %1.14e\n", ts, g_idx, app->gradient[g_idx]);
+
+    }
 
    return 0;
 }
@@ -335,9 +484,15 @@ my_AllreduceGradient(braid_App app,
 int 
 my_ResetGradient(braid_App app)
 {
-   /* Set the gradient to zero */
+    double ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
 
-   return 0;
+    /* Set the gradient to zero */
+    for (int idesign = 0; idesign < ndesign; idesign++)
+    {
+        app->gradient[idesign] = 0.0;
+    }
+
+    return 0;
 }
 
 int
@@ -345,11 +500,20 @@ my_GradientNorm(braid_App app,
                 double   *gradient_norm_prt)
 
 {
+    double ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    double gnorm;
 
-   /* Norm of gradient */
+    /* Norm of gradient */
+    gnorm = 0.0;
+    for (int idesign = 0; idesign < ndesign; idesign++)
+    {
+        gnorm += app->gradient[idesign] * app->gradient[idesign];
+    }
+    gnorm = sqrt(gnorm);
 
-
-   return 0;
+    *gradient_norm_prt = gnorm;
+    
+    return 0;
 }
     
 
@@ -374,6 +538,7 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double *design;       /**< Design variables for the network */
+    double *gradient;     /**< Gradient of objective function wrt design */
     double *Ytarget;      /**< Target data */
     int    *batch;        /**< Contains indicees of the batch elements */
     int     nexamples;    /**< Number of elements in the training data */
@@ -389,7 +554,7 @@ int main (int argc, char *argv[])
     /* Problem setup */ 
     nexamples = 5000;
     nchannels = 4;
-    ntimes    = 32;
+    ntimes    = 5;
     T         = 10.0;
     theta0    = 1e-2;
 
@@ -401,12 +566,17 @@ int main (int argc, char *argv[])
     Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
     read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
 
-    /* Initialize the design */
-    design  = (double*) malloc(ndesign*sizeof(double));
+    /* Initialize the design and gradient */
+    design   = (double*) malloc(ndesign*sizeof(double));
+    gradient = (double*) malloc(ndesign*sizeof(double));
     for (int idesign = 0; idesign < ndesign; idesign++)
     {
-        design[idesign] = theta0; 
+        design[idesign]   = theta0; 
+        gradient[idesign] = 0.0; 
     }
+
+    /* DEBUG: Finite differences */
+    design[66] += 1e-7;
 
     /* Initialize the batch (same as examples for now) */
     batch   = (int*) malloc(nbatch*sizeof(int));
@@ -425,15 +595,20 @@ int main (int argc, char *argv[])
     app = (my_App *) malloc(sizeof(my_App));
     app->myid      = myid;
     app->design    = design;
+    app->gradient  = gradient;
     app->batch     = batch;
     app->nbatch    = nbatch;
     app->nchannels = nchannels;
     app->ntimes    = ntimes;
     app->theta0    = theta0;
     app->deltaT    = deltaT;
+    app->Ytarget   = Ytarget;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
+
+    /* Initialize adjoint XBraid */
+    braid_InitOptimization( my_ObjectiveT, my_Step_diff,  my_ObjectiveT_diff, my_AllreduceGradient, my_ResetGradient,  my_AccessGradient, my_GradientNorm, my_DesignUpdate, &core);
 
     /* Set some Braid parameters */
     braid_SetPrintLevel( core, 1);
@@ -441,15 +616,17 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core, 1.0e-06);
     braid_SetCFactor(core, -1, 2);
     braid_SetAccessLevel(core, 1);
-    braid_SetMaxIter(core, 20);
+    braid_SetMaxIter(core, 1);
     braid_SetSkip(core, 0);
 
+    braid_SetMaxOptimIter(core, 0);
 
     /* Run a Braid simulation */
     braid_Drive(core);
 
     /* Clean up */
     free(design);
+    free(gradient);
     free(batch);
     free(app);
 

@@ -43,7 +43,7 @@ sigma_diff(double x)
         // ddx = 0.0;
 
     /* tanh activation */
-    tmp      = tanh(x);
+    tmp = tanh(x);
     ddx = 1. - tmp * tmp;
 
     return ddx;
@@ -78,18 +78,17 @@ take_step(double* Y,
          sum = 0.0;
          for (int jchannel = 0; jchannel < nchannels; jchannel++)
          {
-            th_idx = ts * ( nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
+            th_idx = ts * ( nchannels * nchannels + 1) + jchannel * nchannels + ichannel;
             sum += theta[th_idx] * Y[batch_id * nchannels + jchannel];
          }
          update[ichannel] = sum;
-
 
          /* Apply activation */
          update[ichannel] = sigma(update[ichannel]);
 
          /* Apply bias */
-         update[ichannel] += theta[ts * nchannels * nchannels];
-
+         th_idx = ts * (nchannels * nchannels + 1) + nchannels*nchannels;
+         update[ichannel] += theta[th_idx];
       }
 
       /* Apply transposed weights, if necessary, and update */
@@ -111,7 +110,6 @@ take_step(double* Y,
 
      
          int idx = batch_id * nchannels + ichannel;
-         
          Y[idx] += dt * sum;
  
         //  if (batch_id == 0) printf("upd %f * %1.14e ", dt, sum);
@@ -201,6 +199,7 @@ loss(double  *Y,
        {
           idx = batch_id * nchannels + ichannel;
           objective += 1./2. * (Y[idx] - Ytarget[idx]) * (Y[idx] - Ytarget[idx]);
+        //   printf("OBJ LOSS idx %d\n", idx );
        }
    }
 
@@ -217,30 +216,30 @@ regularization(double* theta,
    double relax = 0.0;
    int idx, idx1;
 
-  /* K(theta)-part */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
-   {
-      for (int jchannel = 0; jchannel < nchannels; jchannel++)
-      {
-         idx  = ts       * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
-         idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
+    /* K(theta)-part */
+    for (int ichannel = 0; ichannel < nchannels; ichannel++)
+    {
+        for (int jchannel = 0; jchannel < nchannels; jchannel++)
+        {
+            idx  = ts       * (nchannels * nchannels + 1) + ichannel *  nchannels + jchannel;
+            idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel *  nchannels + jchannel;
+  
+            relax += 1./2.* theta[idx] * theta[idx];
+            if (ts < ntime - 1) 
+            {
+               relax += 1./2. * (theta[idx1] - theta[idx]) * (theta[idx1] - theta  [idx]) / dt;
+            } 
+        }
+    }
 
-         relax += theta[idx] * theta[idx];
-         if (ts < ntime - 1) 
-         {
-            relax += (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
-         }
-      }
-   }
+    /* b(theta)-part */
+    idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
+    relax += 1./2. * theta[idx] * theta[idx];
+    if (ts < ntime - 1)
+    {
+        idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
+        relax += 1./2. * (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
+    }
 
-   /* b(theta)-part */
-   idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
-   idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
-   relax += theta[idx] * theta[idx];
-   if (ts < ntime - 1)
-   {
-        relax += (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
-   }
-
-   return relax;
+    return relax;
 }        

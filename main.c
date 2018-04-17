@@ -17,7 +17,7 @@ typedef struct _braid_App_struct
     int     nbatch;      /* Number of elements in the batch */
     int     nchannels;   /* Width of the network */
     int     ntimes;      /* number of time-steps / layers */
-    double  alpha;       /* Relaxation parameter   */
+    double  gamma;       /* Relaxation parameter   */
     double  theta0;      /* Initial design value */
     double *Ytarget;     /* Target data */
     double  deltaT;      /* Time-step size on fine grid */
@@ -260,6 +260,7 @@ my_ObjectiveT(braid_App              app,
               braid_ObjectiveStatus  ostatus,
               double                *objective_ptr)
 {
+    double tmp;
     double obj = 0.0;
     int    idx;
  
@@ -275,7 +276,8 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Add regularization term */
-        obj += app->alpha * regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+        tmp = app->gamma* regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+        obj =  tmp;
     }
 
     *objective_ptr = obj;
@@ -317,7 +319,7 @@ my_ObjectiveT_diff(braid_App            app,
                 ddu = 1./nbatch * ddu * f_bar;
 
                 /* Update */
-                u_bar->Ytrain[ibatch] += ddu;
+                u_bar->Ytrain[idx] += ddu;
             }
         }
     }
@@ -337,7 +339,7 @@ my_ObjectiveT_diff(braid_App            app,
                 {
                     ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
                 }
-                ddesign = app->alpha * ddesign * f_bar;
+                ddesign = app->gamma * ddesign * f_bar;
                 /* Update */
                 app->gradient[idx] += ddesign;
             }
@@ -345,13 +347,13 @@ my_ObjectiveT_diff(braid_App            app,
 
         /* b(theta)-part */
         idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
-        idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
         ddesign = app->design[idx];
         if (ts < ntimes - 1)
         {
+            idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
             ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
         }
-        ddesign = app->alpha * ddesign * f_bar;
+        ddesign = app->gamma * ddesign * f_bar;
         /* Update */
         app->gradient[idx] += ddesign;
     }
@@ -407,20 +409,22 @@ my_Step_diff(braid_App              app,
                 tmp = sigma_diff(Ky);
 
                 /* apply K and ub */
-                th_idx = ts * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel; 
-                ub_idx = batch_id * nchannels + jchannel;
-                sum += app->design[th_idx] * tmp * u_bar->Ytrain[ub_idx];
+                th_idx  = ts * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel; 
+                ub_idx  = batch_id * nchannels + jchannel;
+                sum    += app->design[th_idx] * tmp * u_bar->Ytrain[ub_idx];
                 sum_ub += u_bar->Ytrain[ub_idx];
 
                 /* Gradient update K-part */
-                u_idx   = batch_id * nchannels + ichannel;
+                u_idx  = batch_id * nchannels + ichannel;
                 ub_idx = batch_id * nchannels + jchannel;
-                g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+                g_idx  = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+
                 app->gradient[g_idx] += deltaT * tmp * u->Ytrain[u_idx] * u_bar->Ytrain[ub_idx];
             }
 
             /* Compute the u-update */
-            ddu[ichannel] = u_bar->Ytrain[ichannel] + deltaT * sum;
+            u_idx = batch_id * nchannels + ichannel;
+            ddu[ichannel] = u_bar->Ytrain[u_idx] + deltaT * sum;
         }
 
         /* Gradient update b-part */
@@ -539,6 +543,7 @@ int main (int argc, char *argv[])
 
     double *design;       /**< Design variables for the network */
     double *gradient;     /**< Gradient of objective function wrt design */
+    double  gamma;        /**< Relaxation parameter */
     double *Ytarget;      /**< Target data */
     int    *batch;        /**< Contains indicees of the batch elements */
     int     nexamples;    /**< Number of elements in the training data */
@@ -549,14 +554,15 @@ int main (int argc, char *argv[])
     double  T;            /**< Final time */
     double  theta0;       /**< Initial design value */
     int     myid;         /**< Processor rank */
-    double deltaT;        /**< Time step size */
+    double  deltaT;        /**< Time step size */
 
     /* Problem setup */ 
     nexamples = 5000;
     nchannels = 4;
-    ntimes    = 5;
+    ntimes    = 32;
     T         = 10.0;
     theta0    = 1e-2;
+    gamma     = 1e-2;
 
     nbatch  = nexamples;
     ndesign = (nchannels * nchannels + 1 )* ntimes;
@@ -576,7 +582,7 @@ int main (int argc, char *argv[])
     }
 
     /* DEBUG: Finite differences */
-    design[66] += 1e-7;
+    // design[16] += 1e-8;
 
     /* Initialize the batch (same as examples for now) */
     batch   = (int*) malloc(nbatch*sizeof(int));
@@ -603,6 +609,7 @@ int main (int argc, char *argv[])
     app->theta0    = theta0;
     app->deltaT    = deltaT;
     app->Ytarget   = Ytarget;
+    app->gamma     = gamma;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -611,7 +618,7 @@ int main (int argc, char *argv[])
     braid_InitOptimization( my_ObjectiveT, my_Step_diff,  my_ObjectiveT_diff, my_AllreduceGradient, my_ResetGradient,  my_AccessGradient, my_GradientNorm, my_DesignUpdate, &core);
 
     /* Set some Braid parameters */
-    braid_SetPrintLevel( core, 1);
+    braid_SetPrintLevel( core, 0);
     braid_SetMaxLevels(core, 1);
     braid_SetAbsTol(core, 1.0e-06);
     braid_SetCFactor(core, -1, 2);
@@ -623,6 +630,79 @@ int main (int argc, char *argv[])
 
     /* Run a Braid simulation */
     braid_Drive(core);
+
+
+
+
+    /** ---------------------------------------------------------- 
+     * DEBUG: Finite difference testing 
+     * Perturb design and run another braid simulation
+     * ---------------------------------------------------------- */
+    printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
+    double obj_orig, obj_perturb;
+    double findiff, relerror, err_norm;
+    double *err = (double*)malloc(ndesign*sizeof(double));
+    double EPS    = 1e-8;
+    double tolerr = 1e-2;
+    // int    idx = 1;
+
+    err_norm = 0.0;
+    for (int idx = 1; idx < ndesign; idx++)
+    {
+
+        // int idx = 1;
+
+        /* store the original objective */
+        obj_orig = _braid_CoreElt(core, optim)->objective;
+        
+        /* Perturb the design */
+        app->design[idx] += EPS;
+
+        /* Destroy the core and Init a new one core */
+        braid_Destroy(core);
+        braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
+        braid_InitOptimization( my_ObjectiveT, my_Step_diff,  my_ObjectiveT_diff, my_AllreduceGradient, my_ResetGradient,  my_AccessGradient, my_GradientNorm, my_DesignUpdate, &core);
+
+        /* Set parameters */
+        braid_SetPrintLevel( core, 0);
+        braid_SetMaxLevels(core, 1);
+        braid_SetAbsTol(core, 1.0e-06);
+        braid_SetCFactor(core, -1, 2);
+        braid_SetAccessLevel(core, 1);
+        braid_SetMaxIter(core, 1);
+        braid_SetSkip(core, 0);
+        braid_SetMaxOptimIter(core, 0);
+        braid_SetGradientAccessLevel(core, 0);
+
+       
+        /* Reset the gradient from previous run */
+        my_ResetGradient(app);
+        /* Run a Braid simulation */
+        braid_Drive(core);
+
+        /* Get perturbed objective */
+        obj_perturb = _braid_CoreElt(core, optim)->objective;
+
+        /* Finite differences */
+        findiff  = (obj_perturb - obj_orig) / EPS;
+        relerror = (app->gradient[idx] - findiff) / findiff;
+        err[idx] = relerror;
+        err_norm += relerror*relerror;
+        printf("\n %d: obj_orig %1.14e, obj_perturb %1.14e\n", idx, obj_orig, obj_perturb );
+        printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, app->gradient[idx], relerror );
+
+        if (abs(relerror) > tolerr)
+        {
+            printf("\n\n RELATIVE ERROR TO BIG! DEBUG! \n\n");
+            exit(1);
+        }
+
+    }
+    err_norm = sqrt(err_norm)/ndesign;
+    printf("\n\n FINITE DIFFERENCES ERRORNORM: %1.14e\n\n", err_norm);
+
+
+    free(err);
 
     /* Clean up */
     free(design);

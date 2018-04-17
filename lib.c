@@ -52,7 +52,7 @@ take_step(double* Y,
    {
       batch_id = batch[i];
 
-      /* Iterate over all channels of that batch element */
+      /* Iterate over all channels */
       for (int ichannel = 0; ichannel < nchannels; ichannel++)
       {
          /* Apply weights */
@@ -161,8 +161,8 @@ write_data(char *filename, double *var, int size)
 }
 
 double  
-loss(double*  Y,
-     double*  Ytarget,
+loss(double  *Y,
+     double  *Ytarget,
      int     *batch,
      int      nbatch,
      int      nchannels)
@@ -198,27 +198,29 @@ regularization(double* theta,
    double relax = 0.0;
    int idx, idx1;
 
+  /* K(theta)-part */
    for (int ichannel = 0; ichannel < nchannels; ichannel++)
    {
-      /* K(theta)-part */
       for (int jchannel = 0; jchannel < nchannels; jchannel++)
       {
          idx  = ts       * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
          idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
 
          relax += theta[idx] * theta[idx];
-
          if (ts < ntime - 1) 
          {
             relax += (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
          }
       }
+   }
 
-      /* b(theta)-part */
-      idx  = ( ts+1 ) * nchannels * nchannels;
-      idx1 = ( ts+2 ) * nchannels * nchannels;
-      relax += theta[idx] * theta[idx];
-      relax += (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
+   /* b(theta)-part */
+   idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
+   idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
+   relax += theta[idx] * theta[idx];
+   if (ts < ntime - 1)
+   {
+        relax += (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
    }
 
    return relax;

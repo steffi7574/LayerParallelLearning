@@ -271,9 +271,11 @@ my_ObjectiveT(braid_App              app,
        /* Evaluate objective */
        obj = 1./app->nbatch * loss(u->Ytrain, app->Ytarget, app->batch,  app->nbatch, app->nchannels);
     }
-
-    /* Add regularization term */
-    obj += app->alpha * regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+    else
+    {
+        /* Add regularization term */
+        obj += app->alpha * regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+    }
 
     *objective_ptr = obj;
     

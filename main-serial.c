@@ -59,19 +59,21 @@ int main()
 
     /* Time-loop */
     objective = 0.0;
-    for (int ts = 0; ts < ntimes; ts++)
+    for (int ts = 0; ts <= ntimes; ts++)
     {
+        /* Compute regularization term */
+        objective += alpha * regularization(design, ts, deltat, ntimes, nchannels);
+
         /* Move to next layer */
         take_step(Ytrain, design, ts, deltat, batch, nbatch, nchannels, 0);
 
-        /* Evaluate objective function */
-        if ( ts == ntimes-1 )
+        /* If last layer: Compute loss */
+        if ( ts == ntimes )
         {
-            objective += 1./ nbatch * loss(Ytrain, Ytarget, batch, nbatch, nchannels);
+            double tmp = 1./ nbatch * loss(Ytrain, Ytarget, batch, nbatch, nchannels);
+            objective += tmp;
         }
 
-        /* Add regularization term */
-        objective += alpha * regularization(design, ts, deltat, ntimes, nchannels);
     }
 
     /* output */

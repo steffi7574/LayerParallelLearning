@@ -12,21 +12,21 @@
 /* Define the app structure */
 typedef struct _braid_App_struct
 {
-    int     myid;        /* Processor rank*/
-    double *design;      /* Design variables */
-    double *design0;      /* Design variables */
-    double *gradient;    /* Gradient of objective function wrt design */
-    double *gradient0;    /* Gradient of objective function wrt design */
-    double *Hessian;     /* Hessian matrix */
-    int    *batch;       /* List of Indicees of the batch elements */
-    int     nbatch;      /* Number of elements in the batch */
-    int     nchannels;   /* Width of the network */
-    int     ntimes;      /* number of time-steps / layers */
-    double  gamma;       /* Relaxation parameter   */
-    double  theta0;      /* Initial design value */
-    double *Ytarget;     /* Target data */
-    double  deltaT;      /* Time-step size on fine grid */
-    double  stepsize;    /* Stepsize for design updates */
+    int      myid;        /* Processor rank*/
+    double  *design;      /* Design variables */
+    double  *design0;     /* Design variables */
+    double  *gradient;    /* Gradient of objective function wrt design */
+    double  *gradient0;   /* Gradient of objective function wrt design */
+    // double      *Hessian;     /* Hessian matrix */
+    int     *batch;       /* List of Indicees of the batch elements */
+    int      nbatch;      /* Number of elements in the batch */
+    int      nchannels;   /* Width of the network */
+    int      ntimes;      /* number of time-steps / layers */
+    double   gamma;       /* Relaxation parameter   */
+    double   theta0;      /* Initial design value */
+    double  *Ytarget;     /* Target data */
+    double   deltaT;      /* Time-step size on fine grid */
+    double   stepsize;    /* Stepsize for design updates */
 } my_App;
 
 
@@ -45,7 +45,7 @@ my_Step(braid_App        app,
         braid_Vector     u,
         braid_StepStatus status)
 {
-    int ts;
+    int    ts;
     double tstart, tstop;
     double deltaT;
     
@@ -168,7 +168,7 @@ my_SpatialNorm(braid_App     app,
     dot = 0.0;
     for (int i = 0; i < nchannels * nbatch; i++)
     {
-       dot += (u->Ytrain)[i]*(u->Ytrain)[i];
+       dot += pow( getValue(u->Ytrain[i]), 2 );
     }
  
    *norm_ptr = sqrt(dot);
@@ -218,9 +218,9 @@ my_BufPack(braid_App           app,
            void               *buffer,
            braid_BufferStatus  bstatus)
 {
-    double *dbuffer = (double*) buffer;
-    int     nchannels = app->nchannels;
-    int     nbatch    = app->nbatch;
+    double *dbuffer   = (double*) buffer;
+    int          nchannels = app->nchannels;
+    int          nbatch    = app->nbatch;
     
     for (int i = 0; i < nchannels * nbatch; i++)
     {
@@ -240,10 +240,10 @@ my_BufUnpack(braid_App           app,
              braid_Vector       *u_ptr,
              braid_BufferStatus  bstatus)
 {
-    my_Vector *u         = NULL;
-    double    *dbuffer   = (double*) buffer;
-    int        nchannels = app->nchannels;
-    int        nbatch    = app->nbatch;
+    my_Vector   *u         = NULL;
+    double *dbuffer   = (double*) buffer;
+    int          nchannels = app->nchannels;
+    int          nbatch    = app->nbatch;
  
      /* Allocate the vector */
      u = (my_Vector *) malloc(sizeof(my_Vector));
@@ -268,15 +268,15 @@ my_ObjectiveT(braid_App              app,
 {
     double tmp;
     double obj = 0.0;
-    int    idx;
+    int    ts;
  
     /* Get the time index*/
-    braid_ObjectiveStatusGetTIndex(ostatus, &idx);
+    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
-    if (idx < app->ntimes)
+    if (ts < app->ntimes)
     {
         /* Compute regularization term */
-        tmp = app->gamma* regularization(app->design, idx, app->deltaT, app->ntimes, app->nchannels);
+        tmp = app->gamma * regularization(app->design, ts, app->deltaT, app->ntimes, app->nchannels);
         obj = tmp;
     }
     else
@@ -286,7 +286,7 @@ my_ObjectiveT(braid_App              app,
        obj = tmp;
     }
 
-    *objective_ptr = obj;
+    *objective_ptr = getValue(obj);
     
     return 0;
 }
@@ -299,72 +299,75 @@ my_ObjectiveT_diff(braid_App            app,
                   braid_Real            f_bar,
                   braid_ObjectiveStatus ostatus)
 {
-    int    ts;
-    int    idx, idx1;
-    int    batch_id;
     int    nbatch    = app->nbatch;
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
-    double ddu, ddesign;
+    int    ndesign   = (nchannels * nchannels + 1 ) * ntimes;
+    int    nstate    = nchannels * nbatch;
+    int    ts;
+    RealReverse obj;
  
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts); 
 
-    if ( ts == app->ntimes)
+    /* Set up CoDiPack */
+    RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
+    codiTape.setActive();
+
+    /* Register input */
+    RealReverse* Ycodi;  /* CodiType for the state */
+    RealReverse* design; /* CodiType for the design */
+    Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
+    design = (RealReverse*) malloc(ndesign * sizeof(RealReverse));
+    for (int i = 0; i < nstate; i++)
     {
-        for (int ibatch = 0; ibatch < nbatch; ibatch ++)
-        {
-            /* Get batch_id */
-            batch_id = app->batch[ibatch];
+        Ycodi[i] = u->Ytrain[i];
+        codiTape.registerInput(Ycodi[i]);
+    }
+    /* Register design as input */
+    for (int i = 0; i < ndesign; i++)
+    {
+        design[i] = app->design[i];
+        codiTape.registerInput(design[i]);
+    }
 
-            /* Partial derivative of Loss wrt u times f_bar */
-            for (int ichannel = 0; ichannel < nchannels; ichannel++)
-            {
-                idx = batch_id * nchannels + ichannel;
-                ddu = u->Ytrain[idx] - app->Ytarget[idx];
-                ddu = 1./nbatch * ddu * f_bar;
-
-                /* Update */
-                u_bar->Ytrain[idx] += ddu;
-            }
-        }
+    /* Tape the objective function evaluation */
+    if (ts < app->ntimes)
+    {
+        /* Compute regularization term */
+        obj = app->gamma * regularization(design, ts, app->deltaT, ntimes, nchannels);
     }
     else
     {
-       /* Partial derivative of relaxation wrt design times f_bar*/
-        /* K(theta)-part */
-        for (int ichannel = 0; ichannel < nchannels; ichannel++)
-        {
-            for (int jchannel = 0; jchannel < nchannels; jchannel++)
-            {
-                idx  = ts       * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
-                idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
+        /* Evaluate loss at last layer*/
+       obj = 1./app->nbatch * loss(Ycodi, app->Ytarget, app->batch,  nbatch, nchannels);
+    } 
 
-                ddesign = app->design[idx];
-                if (ts < ntimes - 1)
-                {
-                    ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
-                }
-                ddesign = app->gamma * ddesign * f_bar;
-                /* Update */
-                app->gradient[idx] += ddesign;
-            }
-        }
+    
+    /* Set the seed */
+    codiTape.setPassive();
+    obj.setGradient(f_bar);
 
-        /* b(theta)-part */
-        idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
-        ddesign = app->design[idx];
-        if (ts < ntimes - 1)
-        {
-            idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
-            ddesign += -1./(app->deltaT * app->deltaT) * (app->design[idx1] - app->design[idx]);
-        }
-        ddesign = app->gamma * ddesign * f_bar;
-        /* Update */
-        app->gradient[idx] += ddesign;
+    /* Evaluate the tape */
+    codiTape.evaluate();
+
+    /* Update adjoint variables and gradient */
+    for (int i = 0; i < nstate; i++)
+    {
+        u_bar->Ytrain[i] = Ycodi[i].getGradient();
     }
-  
- 
+    for (int i = 0; i < ndesign; i++)
+    {
+        app->gradient[i] += design[i].getGradient();
+    }
+
+    /* Reset the codi tape */
+    codiTape.reset();
+
+    /* Clean up */
+    free(Ycodi);
+    free(design);
+
    return 0;
 }
 
@@ -377,110 +380,106 @@ my_Step_diff(braid_App         app,
              braid_StepStatus  status)
 {
 
-    double tstop, tstart, deltaT;
-    int    ts, batch_id;
-    int     th_idx, u_idx, ub_idx, g_idx;
-    double  Ky, sum, sum_ub, tmp;
-    double *ddu;
+    double  tstop, tstart, deltaT;
+    int     ts;
     int     nchannels = app->nchannels;
     int     nbatch    = app->nbatch;
+    int     ntimes    = app->ntimes;
+    int     ndesign   = (nchannels * nchannels + 1 ) * ntimes;
+    int     nstate    = nchannels * nbatch;
 
-
-    /* Get time and time step that have been */
+    /* Get time and time step */
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
-    ddu     = (double*)malloc(nchannels * sizeof(double)); 
+    /* Prepare CodiPack Tape */
+    RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
+    codiTape.setActive();
 
-    /* iterate over all batch elements */ 
-    for (int i = 0; i < nbatch; i++)
+    /* Register input */
+    RealReverse* Ycodi;  /* CodiType for the state */
+    RealReverse* Ynext;  /* CodiType for the state, next time-step */
+    RealReverse* design; /* CodiType for the design */
+    Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
+    Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
+    design = (RealReverse*) malloc(ndesign * sizeof(RealReverse));
+    for (int i = 0; i < nstate; i++)
     {
-        batch_id = app->batch[i];
- 
-        /* Iterate over all channels */
-        for (int ichannel = 0; ichannel < nchannels; ichannel++)
-        {
-            /* Apply differentiated weights and activation */
-            sum = 0.0;
-            sum_ub = 0.0;
-            for (int jchannel = 0; jchannel < nchannels; jchannel++)
-            {
-                /* Get Ky inside the activation function */
-                Ky = 0.0;
-                for (int kchannel = 0; kchannel < nchannels; kchannel++)
-                {
-                    th_idx = ts * (nchannels * nchannels + 1) + kchannel * nchannels + jchannel; 
-                    u_idx  = batch_id * nchannels + kchannel;
-                    Ky += app->design[th_idx] * u->Ytrain[u_idx];
-                }
-                tmp = sigma_diff(Ky);
+        Ycodi[i] = u->Ytrain[i];
+        codiTape.registerInput(Ycodi[i]);
+        Ynext[i] = Ycodi[i];
+    }
+    /* Register design as input */
+    for (int i = 0; i < ndesign; i++)
+    {
+        design[i] = app->design[i];
+        codiTape.registerInput(design[i]);
+    }
+    
+    /* Take one forward step */
+    take_step(Ynext, design, ts, deltaT, app->batch, nbatch, nchannels, 0);
 
-                /* apply K and ub */
-                th_idx  = ts * (nchannels * nchannels + 1) + ichannel * nchannels + jchannel; 
-                ub_idx  = batch_id * nchannels + jchannel;
-                sum    += app->design[th_idx] * tmp * u_bar->Ytrain[ub_idx];
-                sum_ub += u_bar->Ytrain[ub_idx];
+    /* Set the adjoint variables */
+    codiTape.setPassive();
+    for (int i = 0; i < nchannels * nbatch; i++)
+    {
+        Ynext[i].setGradient(u_bar->Ytrain[i]);
+    }
 
-                /* Gradient update K-part */
-                u_idx  = batch_id * nchannels + ichannel;
-                ub_idx = batch_id * nchannels + jchannel;
-                g_idx  = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+    /* Evaluate the tape */
+    codiTape.evaluate();
 
-                app->gradient[g_idx] += deltaT * tmp * u->Ytrain[u_idx] * u_bar->Ytrain[ub_idx];
-            }
+    /* Update adjoint variables and gradient */
+    for (int i = 0; i < nstate; i++)
+    {
+        u_bar->Ytrain[i] = Ycodi[i].getGradient();
+    }
+    for (int i = 0; i < ndesign; i++)
+    {
+        app->gradient[i] += design[i].getGradient();
+    }
 
-            /* Compute the u-update */
-            u_idx = batch_id * nchannels + ichannel;
-            ddu[ichannel] = u_bar->Ytrain[u_idx] + deltaT * sum;
-        }
+    /* Reset the codi tape */
+    codiTape.reset();
 
-        /* Gradient update b-part */
-        g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
-        app->gradient[g_idx] += deltaT * sum_ub;
-
-        /* Update u */
-        for (int ichannel = 0; ichannel < nchannels; ichannel++)
-        {
-            ub_idx = batch_id * nchannels + ichannel;
-            u_bar->Ytrain[ub_idx] = ddu[ichannel];
-        }
-    }       
- 
-    free(ddu);
+    /* Clean up */
+    free(Ycodi);
+    free(Ynext);
+    free(design);
 
     return 0;
 }
  
-int 
-my_AccessGradient(braid_App app)
-{
-    int g_idx;
-    double nchannels = app->nchannels;
-    double ntimes    = app->ntimes;
+// int 
+// my_AccessGradient(braid_App app)
+// {
+//     int g_idx;
+//     double nchannels = app->nchannels;
+//     double ntimes    = app->ntimes;
 
-   /* Print the gradient */
-    // printf("Gradient:\n"); 
+//    /* Print the gradient */
+//     // printf("Gradient:\n"); 
 
-    for (int ts = 0; ts < ntimes; ts++)
-    {
+//     for (int ts = 0; ts < ntimes; ts++)
+//     {
 
-        for (int ichannel = 0; ichannel < nchannels; ichannel++)
-        {
+//         for (int ichannel = 0; ichannel < nchannels; ichannel++)
+//         {
             
-            for (int jchannel = 0; jchannel < nchannels; jchannel++)
-            {
-                g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
-                printf("%d %d %d %d %1.14e\n", ts, ichannel, jchannel, g_idx, app->gradient[g_idx]);
-            }
-        }
-        g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
-        // printf("%d     %d %1.14e\n", ts, g_idx, app->gradient[g_idx]);
+//             for (int jchannel = 0; jchannel < nchannels; jchannel++)
+//             {
+//                 g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+//                 printf("%d %d %d %d %1.14e\n", ts, ichannel, jchannel, g_idx, app->gradient[g_idx]);
+//             }
+//         }
+//         g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
+//         // printf("%d     %d %1.14e\n", ts, g_idx, app->gradient[g_idx]);
 
-    }
+//     }
 
-   return 0;
-}
+//    return 0;
+// }
 
 int
 my_AllreduceGradient(braid_App app, 
@@ -496,7 +495,7 @@ my_AllreduceGradient(braid_App app,
 int 
 my_ResetGradient(braid_App app)
 {
-    double ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    int ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
 
     /* Set the gradient to zero */
     for (int idesign = 0; idesign < ndesign; idesign++)
@@ -519,7 +518,7 @@ my_GradientNorm(braid_App app,
     gnorm = 0.0;
     for (int idesign = 0; idesign < ndesign; idesign++)
     {
-        gnorm += app->gradient[idesign] * app->gradient[idesign];
+        gnorm += pow(getValue(app->gradient[idesign]), 2);
     }
     gnorm = sqrt(gnorm);
 
@@ -529,49 +528,49 @@ my_GradientNorm(braid_App app,
 }
     
 
-int 
-my_DesignUpdate(braid_App app, 
-                double    objective,
-                double    rnorm,
-                double    rnorm_adj)
-{
-    double upd;
-    int    ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
-    double *sk     = (double*)malloc(ndesign*sizeof(double));
-    double *yk     = (double*)malloc(ndesign*sizeof(double));
+// int 
+// my_DesignUpdate(braid_App app, 
+//                 double    objective,
+//                 double    rnorm,
+//                 double    rnorm_adj)
+// {
+//     double upd;
+//     int    ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+//     double *sk     = (double*)malloc(ndesign*sizeof(double));
+//     double *yk     = (double*)malloc(ndesign*sizeof(double));
 
-    /* Hessian approximation  */
+//     /* Hessian approximation  */
     
-    for (int idesign = 0; idesign < ndesign; idesign++)
-    {
-        sk[idesign] = app->design[idesign] - app->design0[idesign];
-        yk[idesign] = app->gradient[idesign] - app->gradient0[idesign];
-    }
-    bfgs_update(ndesign, sk, yk, app->Hessian);
+//     for (int idesign = 0; idesign < ndesign; idesign++)
+//     {
+//         sk[idesign] = app->design[idesign] - app->design0[idesign];
+//         yk[idesign] = app->gradient[idesign] - app->gradient0[idesign];
+//     }
+//     bfgs_update(ndesign, sk, yk, app->Hessian);
 
 
-    for (int idesign = 0; idesign < ndesign; idesign++)
-    {
-        /* Store old design and gradient */
-        app->design0[idesign]   = app->design[idesign];
-        app->gradient0[idesign] = app->gradient[idesign];
+//     for (int idesign = 0; idesign < ndesign; idesign++)
+//     {
+//         /* Store old design and gradient */
+//         app->design0[idesign]   = app->design[idesign];
+//         app->gradient0[idesign] = app->gradient[idesign];
 
-        /* Design update */
-        upd = 0.0;
-        for (int jdesign = 0; jdesign < ndesign; jdesign++)
-        {
-            upd += app->Hessian[idesign*ndesign + jdesign] * app->gradient[jdesign];
-        }
-        app->design[idesign] -= app->stepsize * upd;
-    }
+//         /* Design update */
+//         upd = 0.0;
+//         for (int jdesign = 0; jdesign < ndesign; jdesign++)
+//         {
+//             upd += app->Hessian[idesign*ndesign + jdesign] * app->gradient[jdesign];
+//         }
+//         app->design[idesign] -= app->stepsize * upd;
+//     }
 
-    printf("\n");
+//     printf("\n");
 
-    free(sk);
-    free(yk);
+//     free(sk);
+//     free(yk);
 
-   return 0;
-}             
+//    return 0;
+// }             
 
 
 int main (int argc, char *argv[])
@@ -581,24 +580,25 @@ int main (int argc, char *argv[])
 
     double *design;       /**< Design variables for the network */
     double *design0;      /**< Design variables for the network */
-    double *gradient;     /**< Gradient of objective function wrt design */
-    double *gradient0;    /**< Gradient of objective function wrt design */
-    double  gamma;        /**< Relaxation parameter */
-    double *Ytarget;      /**< Target data */
-    int    *batch;        /**< Contains indicees of the batch elements */
-    int     nexamples;    /**< Number of elements in the training data */
-    int     nbatch;       /**< Size of a batch */
-    int     ndesign;      /**< dimension of the design variables */
-    int     ntimes;       /**< Number of layers / time steps */
-    int     nchannels;    /**< Number of channels of the netword (width) */
-    double  T;            /**< Final time */
-    double  theta0;       /**< Initial design value */
-    int     myid;         /**< Processor rank */
-    double  deltaT;       /**< Time step size */
-    double  stepsize;     /**< Stepsize for design updates */
-    double *Hessian;      /**< Hessian matrix */
-    double  objective;    /**< Objective function */
-    double  findiff;      /**< flag: test gradient with finite differences (1) */
+    double       objective;    /**< Objective function */
+    double      *gradient;     /**< Gradient of objective function wrt design */
+    double      *gradient0;    /**< Gradient of objective function wrt design */
+    double       gnorm;        /**< Norm of the gradient */
+    double       gamma;        /**< Relaxation parameter */
+    double      *Ytarget;      /**< Target data */
+    int         *batch;        /**< Contains indicees of the batch elements */
+    int          nexamples;    /**< Number of elements in the training data */
+    int          nbatch;       /**< Size of a batch */
+    int          ndesign;      /**< dimension of the design variables */
+    int          ntimes;       /**< Number of layers / time steps */
+    int          nchannels;    /**< Number of channels of the netword (width) */
+    double       T;            /**< Final time */
+    double       theta0;       /**< Initial design value */
+    int          myid;         /**< Processor rank */
+    double       deltaT;       /**< Time step size */
+    double       stepsize;     /**< Stepsize for design updates */
+    // double *Hessian;      /**< Hessian matrix */
+    double       findiff;      /**< flag: test gradient with finite differences (1) */
 
 
     /* Problem setup */ 
@@ -633,8 +633,8 @@ int main (int argc, char *argv[])
     // read_data("thetaopt.dat", design, ndesign);
 
     /* Initialize Hessian */
-    Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
-    set_identity(ndesign, Hessian);
+    // Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
+    // set_identity(ndesign, Hessian);
 
 
     /* Initialize the batch (same as examples for now) */
@@ -666,7 +666,7 @@ int main (int argc, char *argv[])
     app->Ytarget   = Ytarget;
     app->gamma     = gamma;
     app->stepsize  = stepsize;
-    app->Hessian   = Hessian;
+    // app->Hessian   = Hessian;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -682,36 +682,40 @@ int main (int argc, char *argv[])
     braid_SetMaxIter(core, 10);
     braid_SetSkip(core, 0);
 
-    /* Turn off finite difference testing */
+    /* Switch for finite difference testing */
     findiff = 1;
 
     /* Run a Braid simulation */
     braid_Drive(core);
 
     braid_GetObjective(core, &objective);
-    printf("\n  Loss: %1.14e\n\n", objective);
 
+    /* Get Gradient norm */
+    my_GradientNorm(app, &gnorm);
+
+    /* Output */
+    printf("\n Loss:         %1.14e", objective);
+    printf("\n Gradientnorm: %1.14e", gnorm);
+    printf("\n\n");
 
     /* Print the gradient to file */
     write_data("gradient.dat", app->gradient, ndesign);
 
 
-    // /** ---------------------------------------------------------- 
-    //  * DEBUG: Finite difference testing 
-    //  * Perturb design and run another braid simulation
-    //  * ---------------------------------------------------------- */
+    /** ---------------------------------------------------------- 
+     * DEBUG: Finite difference testing 
+     * ---------------------------------------------------------- */
     if (findiff)
     {
         printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
         double obj_orig, obj_perturb;
-        double findiff, relerror, err_norm;
+        double findiff, relerror, max_err;
         double *err = (double*)malloc(ndesign*sizeof(double));
         double EPS    = 1e-7;
         double tolerr = 1e-0;
 
-        err_norm = 0.0;
-        int idx = 0;
-        // for (int idx = 1; idx < ndesign; idx++)
+        max_err = 0.0;
+        for (int idx = 0; idx < ndesign; idx++)
         {
             /* store the original objective */
             obj_orig = _braid_CoreElt(core, optim)->objective;
@@ -732,7 +736,10 @@ int main (int argc, char *argv[])
             relerror = (app->gradient[idx] - findiff) / findiff;
             relerror = sqrt(relerror*relerror);
             err[idx] = relerror;
-            err_norm += relerror;
+            if (max_err < relerror)
+            {
+                max_err = relerror;
+            }
             printf("\n %d: obj_orig %1.14e, obj_perturb %1.14e\n", idx, obj_orig, obj_perturb );
             printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, app->gradient[idx], relerror );
 
@@ -743,15 +750,14 @@ int main (int argc, char *argv[])
             }
 
         }
-        err_norm = err_norm/ndesign;
-        printf("\n\n MEAN FINITE DIFFERENCES ERROR: %1.14e\n\n", err_norm);
+        printf("\n\n MAX. FINITE DIFFERENCES ERROR: %1.14e\n\n", max_err);
         
         free(err);
     }
 
 
     /* Clean up */
-    free(Hessian);
+    // free(Hessian);
     free(design0);
     free(design);
     free(gradient0);

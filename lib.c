@@ -123,121 +123,6 @@ take_step(RealReverse* Y,
 }
 
 
-int
-read_data(char *filename, RealReverse *var, int size)
-{
-
-   FILE   *file;
-   double  tmp;
-   int     i;
-
-   /* open file */
-   file = fopen(filename, "r");
-
-   /* Read data */
-   if (file == NULL)
-   {
-      printf("Can't open %s \n", filename);
-      exit(1);
-   }
-   for ( i = 0; i < size; i++)
-   {
-      fscanf(file, "%lf", &tmp);
-      var[i] = tmp;
-   }
-
-   /* close file */
-   fclose(file);
-
-   return 0;
-}
-
-int
-read_data(char *filename, double *var, int size)
-{
-
-   FILE   *file;
-   double  tmp;
-   int     i;
-
-   /* open file */
-   file = fopen(filename, "r");
-
-   /* Read data */
-   if (file == NULL)
-   {
-      printf("Can't open %s \n", filename);
-      exit(1);
-   }
-   for ( i = 0; i < size; i++)
-   {
-      fscanf(file, "%lf", &tmp);
-      var[i] = tmp;
-   }
-
-   /* close file */
-   fclose(file);
-
-   return 0;
-}
-
-
-int
-write_data(char *filename, RealReverse *var, int size)
-{
-   FILE *file;
-   int i;
-
-   /* open file */
-   file = fopen(filename, "w");
-
-   /* Read data */
-   if (file == NULL)
-   {
-      printf("Can't open %s \n", filename);
-      exit(1);
-   }
-   printf("Writing file %s\n", filename);
-   for ( i = 0; i < size; i++)
-   {
-      fprintf(file, "%1.14e\n", (var[i]).getValue());
-   }
-
-   /* close file */
-   fclose(file);
-
-   return 0;
-
-}
-
-int
-write_data(char *filename, double *var, int size)
-{
-   FILE *file;
-   int i;
-
-   /* open file */
-   file = fopen(filename, "w");
-
-   /* Read data */
-   if (file == NULL)
-   {
-      printf("Can't open %s \n", filename);
-      exit(1);
-   }
-   printf("Writing file %s\n", filename);
-   for ( i = 0; i < size; i++)
-   {
-      fprintf(file, "%1.14e\n", (var[i]));
-   }
-
-   /* close file */
-   fclose(file);
-
-   return 0;
-
-}
-
 RealReverse
 loss(RealReverse  *Y,
      double       *Ytarget,
@@ -304,3 +189,83 @@ regularization(RealReverse* theta,
 
     return relax;
 }        
+
+
+template <typename myType> 
+int
+read_data(char *filename, myType *var, int size)
+{
+
+   FILE   *file;
+   double  tmp;
+   int     i;
+
+   /* open file */
+   file = fopen(filename, "r");
+
+   /* Read data */
+   if (file == NULL)
+   {
+      printf("Can't open %s \n", filename);
+      exit(1);
+   }
+   for ( i = 0; i < size; i++)
+   {
+      fscanf(file, "%lf", &tmp);
+      var[i] = tmp;
+   }
+
+   /* close file */
+   fclose(file);
+
+   return 0;
+}
+
+template <typename myType>
+int
+write_data(char *filename, myType *var, int size)
+{
+   FILE *file;
+   int i;
+
+   /* open file */
+   file = fopen(filename, "w");
+
+   /* Read data */
+   if (file == NULL)
+   {
+      printf("Can't open %s \n", filename);
+      exit(1);
+   }
+   printf("Writing file %s\n", filename);
+   for ( i = 0; i < size; i++)
+   {
+      fprintf(file, "%1.14e\n", getValue(var[i]));
+   }
+
+   /* close file */
+   fclose(file);
+
+   return 0;
+
+}
+
+/* Explicit instantiation of the template functions */
+template int read_data<double>(char *filename, double *var, int size);
+template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
+template int write_data<double>(char *filename, double *var, int size);
+template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
+
+double 
+getValue(double value)
+{
+    return value;
+}
+
+double 
+getValue(RealReverse value)
+{
+    return value.getValue();
+}
+
+

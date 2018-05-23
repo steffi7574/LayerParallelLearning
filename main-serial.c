@@ -44,8 +44,8 @@ int main()
 
 
     /* Read in data */
-    read_data("Ytrain.transpose.dat", Ytrain, nstate);
-    read_data("Ytarget.transpose.dat", Ytarget, nstate);
+    read_data ("Ytrain.transpose.dat", Ytrain, nstate);
+    read_data ("Ytarget.transpose.dat", Ytarget, nstate);
 
     /* Initialize design */
     for (int idesign = 0; idesign < ndesign; idesign++)
@@ -79,7 +79,7 @@ int main()
     }
 
     /* output */
-    write_data("Yout.dat", Ytrain, nstate);
+    write_data ("Yout.dat", Ytrain, nstate);
 
     // printf("Y %1.14e\n", Ytrain[99 * nchannels + 0]);
     // printf("Y %1.14e\n", Ytrain[99 * nchannels + 1]);

@@ -61,35 +61,34 @@ regularization(RealReverse* theta,
                int          nchannels);
 
 /**
- * Read data from file -> CODI TYPE
+ * Read data from file 
  */
+template <typename myType> 
 int
-read_data(char        *filename, 
-          RealReverse *var, 
-          int          size);
-
-/**
- * Write data to file -> CODI TYPE
- */
-int
-write_data(char   *filename,
-           double *var, 
-           int     size);
-
-/**
- * Read data from file -> DOUBLE
- */
-int
-read_data(char    *filename, 
-          double  *var, 
-          int      size);
+read_data(char   *filename, 
+          myType *var, 
+          int     size);
 
 /**
  * Write data to file
  */
+template <typename myType>
 int
-write_data(char        *filename,
-           RealReverse *var, 
-           int          size);
+write_data(char   *filename,
+           myType *var, 
+           int     size);
+
+/**
+ * CODI TYPE: Get the primal value 
+ */
+double 
+getValue(RealReverse value);
+
+/**
+ * DOUBLE TYPE: Return value 
+ */
+double 
+getValue(double value);
+
 
 #endif // LIB_H_INCLUDED

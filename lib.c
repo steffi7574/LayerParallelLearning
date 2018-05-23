@@ -4,11 +4,12 @@
 #include "lib.h"
 
 
-RealReverse 
-max(RealReverse a,
-    RealReverse b)
+template <typename myDouble>
+myDouble 
+max(myDouble a,
+    myDouble b)
 {
-   RealReverse max = a;
+   myDouble max = a;
    if (a < b)
    {
       max = b;
@@ -17,10 +18,11 @@ max(RealReverse a,
 }
 
 
-RealReverse 
-sigma(RealReverse x)
+template <typename myDouble>
+myDouble 
+sigma(myDouble x)
 {
-   RealReverse sigma;
+   myDouble sigma;
 
    /* ReLU activation function */
 //    sigma = max(0,x);
@@ -31,11 +33,11 @@ sigma(RealReverse x)
    return sigma;
 }
 
-RealReverse
-sigma_diff(RealReverse x)
+double
+sigma_diff(double x)
 {
-    RealReverse ddx;
-    RealReverse tmp;
+    double ddx;
+    double tmp;
 
     /* ReLu actionvation */
     // if (max(0,x) > 0)
@@ -51,9 +53,10 @@ sigma_diff(RealReverse x)
 }
 
 
+template <typename myDouble>
 int
-take_step(RealReverse* Y,
-          RealReverse* theta,
+take_step(myDouble* Y,
+          myDouble* theta,
           int     ts,
           double  dt,
           int    *batch,
@@ -62,10 +65,10 @@ take_step(RealReverse* Y,
           int     parabolic)
 {
    /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
-   RealReverse sum;
+   myDouble sum;
    int    th_idx;
    int    batch_id;
-   RealReverse *update = (RealReverse*)malloc(nchannels * sizeof(RealReverse));
+   myDouble *update = (myDouble*)malloc(nchannels * sizeof(myDouble));
 
    /* iterate over all batch elements */ 
    for (int i = 0; i < nbatch; i++)
@@ -123,8 +126,9 @@ take_step(RealReverse* Y,
 }
 
 
-RealReverse
-loss(RealReverse  *Y,
+template <typename myDouble>
+myDouble
+loss(myDouble  *Y,
      double       *Ytarget,
      int          *batch,
      int           nbatch,
@@ -134,7 +138,7 @@ loss(RealReverse  *Y,
    int    batch_id;
 
    /* Loop over batch elements */
-   RealReverse objective = 0.0;
+   myDouble objective = 0.0;
    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
    {
        /* Get batch_id */
@@ -152,14 +156,16 @@ loss(RealReverse  *Y,
    return objective;
 }
 
-RealReverse
-regularization(RealReverse* theta,
+
+template <typename myDouble>
+myDouble
+regularization(myDouble* theta,
                int          ts,
                double       dt,
                int          ntime,
                int          nchannels)
 {
-   RealReverse relax = 0.0;
+   myDouble relax = 0.0;
    int         idx, idx1;
 
     /* K(theta)-part */
@@ -191,9 +197,9 @@ regularization(RealReverse* theta,
 }        
 
 
-template <typename myType> 
+template <typename myDouble> 
 int
-read_data(char *filename, myType *var, int size)
+read_data(char *filename, myDouble *var, int size)
 {
 
    FILE   *file;
@@ -221,9 +227,9 @@ read_data(char *filename, myType *var, int size)
    return 0;
 }
 
-template <typename myType>
+template <typename myDouble>
 int
-write_data(char *filename, myType *var, int size)
+write_data(char *filename, myDouble *var, int size)
 {
    FILE *file;
    int i;
@@ -250,12 +256,6 @@ write_data(char *filename, myType *var, int size)
 
 }
 
-/* Explicit instantiation of the template functions */
-template int read_data<double>(char *filename, double *var, int size);
-template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
-template int write_data<double>(char *filename, double *var, int size);
-template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
-
 double 
 getValue(double value)
 {
@@ -268,4 +268,20 @@ getValue(RealReverse value)
     return value.getValue();
 }
 
+
+/* Explicit instantiation of the template functions */
+template int read_data<double>(char *filename, double *var, int size);
+template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
+template int write_data<double>(char *filename, double *var, int size);
+template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
+template double max<double>(double a, double b);
+template RealReverse max<RealReverse>(RealReverse a, RealReverse b);
+template double sigma<double>(double x);
+template RealReverse sigma<RealReverse>(RealReverse x);
+template int take_step<double>(double* Y, double* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
+template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
+template double loss<double>(double  *Y, double *Ytarget, int *batch, int nbatch, int nchannels);
+template RealReverse loss<RealReverse>(RealReverse  *Y, double *Ytarget, int *batch, int nbatch, int nchannels);
+template double regularization<double>(double* theta, int ts, double dt, int ntime, int nchannels);
+template RealReverse regularization<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 

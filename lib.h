@@ -8,9 +8,10 @@ using namespace codi;
 /** 
  * Forward propagation 
  */
+template <typename myDouble>
 int
-take_step(RealReverse *Y,
-          RealReverse *K,
+take_step(myDouble *Y,
+          myDouble *K,
           int          ts,
           double       dt,
           int         *batch,
@@ -22,28 +23,31 @@ take_step(RealReverse *Y,
 /**
  * Activation function 
  */
-RealReverse 
-sigma(RealReverse x);        
+template <typename myDouble>
+myDouble 
+sigma(myDouble x);        
 
 
 /**
  * Derivative of activation function 
  */
-RealReverse
-sigma_diff(RealReverse x);
+double
+sigma_diff(double x);
 
 
 /**
  * Return maximum of two doubles */
-RealReverse 
-max(RealReverse a,
-    RealReverse b);
+template <typename myDouble>
+myDouble 
+max(myDouble a,
+    myDouble b);
 
 /**
  * Evaluate the loss functin
  */
-RealReverse  
-loss(RealReverse *Y,
+template <typename myDouble>
+myDouble  
+loss(myDouble *Y,
      double      *Ytarget,
      int         *batch,
      int          nbatch,
@@ -53,8 +57,9 @@ loss(RealReverse *Y,
 /**
  * Relaxation term 
  */
-RealReverse
-regularization(RealReverse* theta,
+template <typename myDouble>
+myDouble
+regularization(myDouble* theta,
                int          ts,
                double       dt,
                int          ntime,
@@ -63,19 +68,19 @@ regularization(RealReverse* theta,
 /**
  * Read data from file 
  */
-template <typename myType> 
+template <typename myDouble> 
 int
 read_data(char   *filename, 
-          myType *var, 
+          myDouble *var, 
           int     size);
 
 /**
  * Write data to file
  */
-template <typename myType>
+template <typename myDouble>
 int
 write_data(char   *filename,
-           myType *var, 
+           myDouble *var, 
            int     size);
 
 /**

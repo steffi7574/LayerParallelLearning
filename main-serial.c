@@ -2,24 +2,26 @@
 #include <stdio.h>
 #include "lib.h"
 
+
 int main()
 {
 
-    double *Ytrain;       /**< Contains the training data from Lars*/
-    double *Ytarget;      /**< Contains the target values from Lars */
-    double *design;       /**< Design variables for the network */
-    int    *batch;        /**< Contains indicees of the batch elements */
-    int     nexamples;    /**< Number of elements in the training data */
-    int     nbatch;       /**< Size of a batch */
-    int     nstate;       /**< dimension of the training data */
-    int     ndesign;      /**< dimension of the design variables */
-    int     ntimes;       /**< Number of layers / time steps */
-    int     nchannels;    /**< Number of channels of the netword (width) */
-    double  deltat;       /**< Time step size */
-    double  T;            /**< Final time */
-    double  theta0;       /**< Initial design value */
-    double  objective;    /**< Value of the objective function */
-    double  alpha;        /**< Regularization parameter */
+    RealReverse *Ytrain;       /**< State variables: contains the training data from Lars*/
+    RealReverse *design;       /**< Design variables for the network */
+    RealReverse  objective;    /**< Objective function to be minimized */
+    double      *Ytarget;      /**< Contains the target values from Lars */
+    int         *batch;        /**< Contains indicees of the batch elements */
+    int          nexamples;    /**< Number of elements in the training data */
+    int          nbatch;       /**< Size of a batch */
+    int          nstate;       /**< dimension of the training data */
+    int          ndesign;      /**< dimension of the design variables */
+    int          ntimes;       /**< Number of layers / time steps */
+    int          nchannels;    /**< Number of channels of the netword (width) */
+    double       deltat;       /**< Time step size */
+    double       T;            /**< Final time */
+    double       theta0;       /**< Initial design value */
+    double       alpha;        /**< Regularization parameter */
+    
 
     /* Problem setup */
     nexamples = 5000;
@@ -35,9 +37,9 @@ int main()
     ndesign = (nchannels * nchannels + 1 )* ntimes;
 
     /* Allocate memory */
-    Ytrain  = (double*) malloc(nstate*sizeof(double));
+    Ytrain  = (RealReverse*) malloc(nstate*sizeof(RealReverse));
+    design  = (RealReverse*) malloc(ndesign*sizeof(RealReverse));
     Ytarget = (double*) malloc(nstate*sizeof(double));
-    design  = (double*) malloc(ndesign*sizeof(double));
     batch   = (int*) malloc(nbatch*sizeof(int));
 
 
@@ -70,7 +72,7 @@ int main()
         /* If last layer: Compute loss */
         if ( ts == ntimes )
         {
-            double tmp = 1./ nbatch * loss(Ytrain, Ytarget, batch, nbatch, nchannels);
+            RealReverse tmp = 1./ nbatch * loss(Ytrain, Ytarget, batch, nbatch, nchannels);
             objective += tmp;
         }
 
@@ -84,7 +86,7 @@ int main()
     // printf("Y %1.14e\n", Ytrain[99 * nchannels + 2]);
     // printf("Y %1.14e\n", Ytrain[99 * nchannels + 3]);
 
-    printf("\n Loss: %1.14e\n\n", objective);
+    printf("\n Loss: %1.14e\n\n", objective.getValue());
 
     /* free memory */
     free(Ytrain);

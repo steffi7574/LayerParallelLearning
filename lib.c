@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "lib.h"
 
 
-double 
-max(double a,
-    double b)
+RealReverse 
+max(RealReverse a,
+    RealReverse b)
 {
-   double max = a;
+   RealReverse max = a;
    if (a < b)
    {
       max = b;
@@ -16,10 +17,10 @@ max(double a,
 }
 
 
-double 
-sigma(double x)
+RealReverse 
+sigma(RealReverse x)
 {
-   double sigma;
+   RealReverse sigma;
 
    /* ReLU activation function */
 //    sigma = max(0,x);
@@ -30,11 +31,11 @@ sigma(double x)
    return sigma;
 }
 
-double
-sigma_diff(double x)
+RealReverse
+sigma_diff(RealReverse x)
 {
-    double ddx;
-    double tmp;
+    RealReverse ddx;
+    RealReverse tmp;
 
     /* ReLu actionvation */
     // if (max(0,x) > 0)
@@ -51,8 +52,8 @@ sigma_diff(double x)
 
 
 int
-take_step(double* Y,
-          double* theta,
+take_step(RealReverse* Y,
+          RealReverse* theta,
           int     ts,
           double  dt,
           int    *batch,
@@ -61,10 +62,10 @@ take_step(double* Y,
           int     parabolic)
 {
    /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
-   double sum;
+   RealReverse sum;
    int    th_idx;
    int    batch_id;
-   double *update = (double*)malloc(nchannels * sizeof(double));
+   RealReverse *update = (RealReverse*)malloc(nchannels * sizeof(RealReverse));
 
    /* iterate over all batch elements */ 
    for (int i = 0; i < nbatch; i++)
@@ -123,11 +124,12 @@ take_step(double* Y,
 
 
 int
-read_data(char *filename, double *var, int size)
+read_data(char *filename, RealReverse *var, int size)
 {
 
-   FILE *file;
-   int   i;
+   FILE   *file;
+   double  tmp;
+   int     i;
 
    /* open file */
    file = fopen(filename, "r");
@@ -140,13 +142,72 @@ read_data(char *filename, double *var, int size)
    }
    for ( i = 0; i < size; i++)
    {
-      fscanf(file, "%lf", &(var[i]));
+      fscanf(file, "%lf", &tmp);
+      var[i] = tmp;
    }
 
    /* close file */
    fclose(file);
 
    return 0;
+}
+
+int
+read_data(char *filename, double *var, int size)
+{
+
+   FILE   *file;
+   double  tmp;
+   int     i;
+
+   /* open file */
+   file = fopen(filename, "r");
+
+   /* Read data */
+   if (file == NULL)
+   {
+      printf("Can't open %s \n", filename);
+      exit(1);
+   }
+   for ( i = 0; i < size; i++)
+   {
+      fscanf(file, "%lf", &tmp);
+      var[i] = tmp;
+   }
+
+   /* close file */
+   fclose(file);
+
+   return 0;
+}
+
+
+int
+write_data(char *filename, RealReverse *var, int size)
+{
+   FILE *file;
+   int i;
+
+   /* open file */
+   file = fopen(filename, "w");
+
+   /* Read data */
+   if (file == NULL)
+   {
+      printf("Can't open %s \n", filename);
+      exit(1);
+   }
+   printf("Writing file %s\n", filename);
+   for ( i = 0; i < size; i++)
+   {
+      fprintf(file, "%1.14e\n", (var[i]).getValue());
+   }
+
+   /* close file */
+   fclose(file);
+
+   return 0;
+
 }
 
 int
@@ -167,7 +228,7 @@ write_data(char *filename, double *var, int size)
    printf("Writing file %s\n", filename);
    for ( i = 0; i < size; i++)
    {
-      fprintf(file, "%1.14e\n", var[i]);
+      fprintf(file, "%1.14e\n", (var[i]));
    }
 
    /* close file */
@@ -177,18 +238,18 @@ write_data(char *filename, double *var, int size)
 
 }
 
-double  
-loss(double  *Y,
-     double  *Ytarget,
-     int     *batch,
-     int      nbatch,
-     int      nchannels)
+RealReverse
+loss(RealReverse  *Y,
+     double       *Ytarget,
+     int          *batch,
+     int           nbatch,
+     int           nchannels)
 {
    int    idx;
    int    batch_id;
 
    /* Loop over batch elements */
-   double objective = 0.0;
+   RealReverse objective = 0.0;
    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
    {
        /* Get batch_id */
@@ -206,15 +267,15 @@ loss(double  *Y,
    return objective;
 }
 
-double
-regularization(double* theta,
-               int     ts,
-               double  dt,
-               int     ntime,
-               int     nchannels)
+RealReverse
+regularization(RealReverse* theta,
+               int          ts,
+               double       dt,
+               int          ntime,
+               int          nchannels)
 {
-   double relax = 0.0;
-   int idx, idx1;
+   RealReverse relax = 0.0;
+   int         idx, idx1;
 
     /* K(theta)-part */
     for (int ichannel = 0; ichannel < nchannels; ichannel++)

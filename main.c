@@ -14,10 +14,9 @@ typedef struct _braid_App_struct
 {
     int      myid;        /* Processor rank*/
     double  *design;      /* Design variables */
-    double  *design0;     /* Design variables */
+    double  *descentdir;  /* Descent direction (hessian times gradient) */
     double  *gradient;    /* Gradient of objective function wrt design */
-    double  *gradient0;   /* Gradient of objective function wrt design */
-    // double      *Hessian;     /* Hessian matrix */
+    double  *Hessian;     /* Hessian matrix */
     int     *batch;       /* List of Indicees of the batch elements */
     int      nbatch;      /* Number of elements in the batch */
     int      nchannels;   /* Width of the network */
@@ -527,50 +526,7 @@ my_GradientNorm(braid_App app,
     return 0;
 }
     
-
-// int 
-// my_DesignUpdate(braid_App app, 
-//                 double    objective,
-//                 double    rnorm,
-//                 double    rnorm_adj)
-// {
-//     double upd;
-//     int    ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
-//     double *sk     = (double*)malloc(ndesign*sizeof(double));
-//     double *yk     = (double*)malloc(ndesign*sizeof(double));
-
-//     /* Hessian approximation  */
-    
-//     for (int idesign = 0; idesign < ndesign; idesign++)
-//     {
-//         sk[idesign] = app->design[idesign] - app->design0[idesign];
-//         yk[idesign] = app->gradient[idesign] - app->gradient0[idesign];
-//     }
-//     bfgs_update(ndesign, sk, yk, app->Hessian);
-
-
-//     for (int idesign = 0; idesign < ndesign; idesign++)
-//     {
-//         /* Store old design and gradient */
-//         app->design0[idesign]   = app->design[idesign];
-//         app->gradient0[idesign] = app->gradient[idesign];
-
-//         /* Design update */
-//         upd = 0.0;
-//         for (int jdesign = 0; jdesign < ndesign; jdesign++)
-//         {
-//             upd += app->Hessian[idesign*ndesign + jdesign] * app->gradient[jdesign];
-//         }
-//         app->design[idesign] -= app->stepsize * upd;
-//     }
-
-//     printf("\n");
-
-//     free(sk);
-//     free(yk);
-
-//    return 0;
-// }             
+   
 
 
 int main (int argc, char *argv[])
@@ -578,28 +534,40 @@ int main (int argc, char *argv[])
     braid_Core core;
     my_App     *app;
 
-    double *design;       /**< Design variables for the network */
-    double *design0;      /**< Design variables for the network */
-    double       objective;    /**< Objective function */
-    double      *gradient;     /**< Gradient of objective function wrt design */
-    double      *gradient0;    /**< Gradient of objective function wrt design */
-    double       gnorm;        /**< Norm of the gradient */
-    double       gamma;        /**< Relaxation parameter */
-    double      *Ytarget;      /**< Target data */
-    int         *batch;        /**< Contains indicees of the batch elements */
-    int          nexamples;    /**< Number of elements in the training data */
-    int          nbatch;       /**< Size of a batch */
-    int          ndesign;      /**< dimension of the design variables */
-    int          ntimes;       /**< Number of layers / time steps */
-    int          nchannels;    /**< Number of channels of the netword (width) */
-    double       T;            /**< Final time */
-    double       theta0;       /**< Initial design value */
-    int          myid;         /**< Processor rank */
-    double       deltaT;       /**< Time step size */
-    double       stepsize;     /**< Stepsize for design updates */
-    // double *Hessian;      /**< Hessian matrix */
-    double       findiff;      /**< flag: test gradient with finite differences (1) */
-
+    double   objective;      /**< Objective function */
+    double  *design;         /**< Design variables for the network */
+    double  *gradient;       /**< Gradient of objective function wrt design */
+    double  *design0;        /**< Store the old design variables before linesearch */
+    double  *gradient0;      /**< Store the old gradient before linesearch */
+    double  *descentdir;     /**< Store the old design variables before linesearch */
+    double   gnorm;          /**< Norm of the gradient */
+    double   gamma;          /**< Relaxation parameter */
+    double  *Ytarget;        /**< Target data */
+    int     *batch;          /**< Contains indicees of the batch elements */
+    int      nexamples;      /**< Number of elements in the training data */
+    int      nbatch;         /**< Size of a batch */
+    int      ndesign;        /**< dimension of the design variables */
+    int      ntimes;         /**< Number of layers / time steps */
+    int      nchannels;      /**< Number of channels of the netword (width) */
+    double   T;              /**< Final time */
+    double   theta0;         /**< Initial design value */
+    int      myid;           /**< Processor rank */
+    double   deltaT;         /**< Time step size */
+    double   stepsize_init;  /**< Initial stepsize for design updates */
+    double  *Hessian;        /**< Hessian matrix */
+    double   findiff;        /**< flag: test gradient with finite differences (1) */
+    int      maxoptimiter;   /**< Maximum number of optimization iterations */
+    double   rnorm;          /**< Space-time Norm of the state variables */
+    double   rnorm_adj;      /**< Space-time norm of the adjoint variables */
+    double   gtol;           /**< Tolerance for gradient norm */
+    double   ls_objective;   /**< Objective function value for linesearch */
+    int      ls_maxiter;     /**< Max. number of linesearch iterations */
+    double   ls_factor;      /**< Reduction factor for linesearch */
+    double  *sk;             /**< BFGS: delta design */
+    double  *yk;             /**< BFGS: delta gradient */
+    int      nreq; 
+    char     optimfilename[255]; /**< Name of the optimization output file */
+    FILE     *optimfile;      /**< File for optimization history */
 
     /* Problem setup */ 
     nexamples = 5000;
@@ -609,32 +577,43 @@ int main (int argc, char *argv[])
     T         = deltaT * ntimes;
     theta0    = 1e-2;
     gamma     = 1e-2;
-    stepsize  = 0.1;
     nbatch    = nexamples;
     ndesign   = (nchannels * nchannels + 1 )* ntimes;
+
+    /* Optimization setup */
+    maxoptimiter  = 1000;
+    gtol          = 1e-4;
+    stepsize_init = 1.0;
+    ls_maxiter    = 20;
+    ls_factor     = 0.5;
 
     /* Read the target data */
     Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
     read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
 
     /* Initialize the design and gradient */
-    design    = (double*) malloc(ndesign*sizeof(double));
-    design0   = (double*) malloc(ndesign*sizeof(double));
-    gradient  = (double*) malloc(ndesign*sizeof(double));
-    gradient0 = (double*) malloc(ndesign*sizeof(double));
+    design     = (double*) malloc(ndesign*sizeof(double));
+    design0    = (double*) malloc(ndesign*sizeof(double));
+    descentdir = (double*) malloc(ndesign*sizeof(double));
+    gradient   = (double*) malloc(ndesign*sizeof(double));
+    gradient0  = (double*) malloc(ndesign*sizeof(double));
+    sk     = (double*)malloc(ndesign*sizeof(double));
+    yk     = (double*)malloc(ndesign*sizeof(double));
+
     for (int idesign = 0; idesign < ndesign; idesign++)
     {
         design[idesign]     = theta0; 
         design0[idesign]    = 0.0; 
+        descentdir[idesign] = 0.0; 
         gradient[idesign]   = 0.0; 
-        gradient0[idesign]  = 1.0; 
+        gradient0[idesign]  = 0.0; 
     }
     /* Read in optimal theta */
     // read_data("thetaopt.dat", design, ndesign);
 
     /* Initialize Hessian */
-    // Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
-    // set_identity(ndesign, Hessian);
+    Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
+    set_identity(ndesign, Hessian);
 
 
     /* Initialize the batch (same as examples for now) */
@@ -652,21 +631,23 @@ int main (int argc, char *argv[])
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
-    app->myid      = myid;
-    app->design    = design;
-    app->design0   = design0;
-    app->gradient  = gradient;
-    app->gradient0 = gradient0;
-    app->batch     = batch;
-    app->nbatch    = nbatch;
-    app->nchannels = nchannels;
-    app->ntimes    = ntimes;
-    app->theta0    = theta0;
-    app->deltaT    = deltaT;
-    app->Ytarget   = Ytarget;
-    app->gamma     = gamma;
-    app->stepsize  = stepsize;
-    // app->Hessian   = Hessian;
+    app->myid        = myid;
+    app->design      = design;
+    app->gradient   = gradient;
+    app->descentdir = descentdir;
+    app->batch      = batch;
+    app->nbatch     = nbatch;
+    app->nchannels  = nchannels;
+    app->ntimes     = ntimes;
+    app->theta0     = theta0;
+    app->deltaT     = deltaT;
+    app->Ytarget    = Ytarget;
+    app->gamma      = gamma;
+    app->stepsize   = stepsize_init;
+    app->Hessian    = Hessian;
+
+    /* Switch for finite difference testing */
+    findiff = 0;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -675,31 +656,144 @@ int main (int argc, char *argv[])
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
 
     /* Set some Braid parameters */
-    braid_SetPrintLevel( core, 1);
     braid_SetMaxLevels(core, 1);
+    braid_SetPrintLevel( core, 0);
     braid_SetCFactor(core, -1, 2);
-    braid_SetAccessLevel(core, 1);
+    braid_SetAccessLevel(core, 0);
     braid_SetMaxIter(core, 10);
     braid_SetSkip(core, 0);
+    braid_SetAbsTol(core, 1.0e-06);
+    braid_SetAbsTolAdjoint(core, 1e-6);
 
-    /* Switch for finite difference testing */
-    findiff = 1;
+    /* Prepare optimization output */
+    if (myid == 0)
+    {
+       /* Screen output */
+       printf("\n#    || r ||         || r_adj ||     Objective             || Gradient ||         Stepsize\n");
+       
+       /* History file */
+       sprintf(optimfilename, "%s.%03f.dat", "optim", stepsize_init);
+       optimfile = fopen(optimfilename, "w");
+       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || Gradient ||          Stepsize\n");
+    }
 
-    /* Run a Braid simulation */
-    braid_Drive(core);
 
-    braid_GetObjective(core, &objective);
+    /* Optimization iteration */
+    for (int iter = 0; iter < maxoptimiter; iter++)
+    {
 
-    /* Get Gradient norm */
-    my_GradientNorm(app, &gnorm);
+        /* Parallel-in-time simulation and gradient computation */
+        braid_SetObjectiveOnly(core, 0);
+        braid_Drive(core);
+
+        /* Get objective function value */
+        braid_GetObjective(core, &objective);
+
+        /* Get the state and adjoint residual norms */
+        nreq = -1;
+        braid_GetRNorms(core, &nreq, &rnorm);
+        braid_GetRNormAdjoint(core, &rnorm_adj);
+
+        /* Compute gradient norm */
+        my_AllreduceGradient(app, MPI_COMM_WORLD);
+        my_GradientNorm(app, &gnorm);
+
+        /* Output */
+        if (myid == 0)
+        {
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize);
+            fflush(optimfile);
+        }
+
+        /* Check optimization convergence */
+        if (gnorm < gtol)
+        {
+           break;
+        }
+
+        /* Hessian approximation */
+        for (int idesign = 0; idesign < ndesign; idesign++)
+        {
+            /* Update sk and yk for bfgs */
+            sk[idesign] = app->design[idesign] - design0[idesign];
+            yk[idesign] = app->gradient[idesign] - gradient0[idesign];
+
+            /* Store current design and gradient vector */
+            design0[idesign]   = app->design[idesign];
+            gradient0[idesign] = app->gradient[idesign];
+        }
+        bfgs_update(ndesign, sk, yk, app->Hessian);
+
+        /* Compute descent direction */
+        double wolfe = 0.0;
+        for (int idesign = 0; idesign < ndesign; idesign++)
+        {
+            /* Compute the descent direction */
+            app->descentdir[idesign] = 0.0;
+            for (int jdesign = 0; jdesign < ndesign; jdesign++)
+            {
+                app->descentdir[idesign] -= app->Hessian[idesign*ndesign + jdesign] * app->gradient[jdesign];
+            }
+            /* compute the wolfe condition product */
+            wolfe += app->gradient[idesign] * app->descentdir[idesign];
+        }
+
+        /* Backtracking linesearch */
+        app->stepsize = stepsize_init;
+        for (int i = 0; i < ls_maxiter; i++)
+        {
+            /* Take a trial step using the current stepsize) */
+            for (int idesign = 0; idesign < ndesign; idesign++)
+            {
+                app->design[idesign] += app->stepsize * app->descentdir[idesign];
+            }
+
+            /* Compute new objective function value for that trial step */
+            braid_SetObjectiveOnly(core, 1);
+            braid_Drive(core);
+            braid_GetObjective(core, &ls_objective);
+
+            /* Test the wolfe condition */
+            if (ls_objective <= objective + ls_factor * app->stepsize * wolfe ) 
+            {
+                /* Success, use this design update */
+                break;
+            }
+            else
+            {
+                /* Restore the previous design and gradient variable */
+                for (int idesign = 0; idesign < ndesign; idesign++)
+                {
+                    app->design[idesign]   = design0[idesign];
+                    app->gradient[idesign] = gradient0[idesign];
+                }
+
+                /* Decrease the stepsize */
+                app->stepsize = app->stepsize * ls_factor;
+            }
+
+            /* Test for successfull line-search */
+            if (i == ls_maxiter - 1)
+            {
+                printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+            }
+       }
+
+
+   }
+
 
     /* Output */
     printf("\n Loss:         %1.14e", objective);
     printf("\n Gradientnorm: %1.14e", gnorm);
     printf("\n\n");
 
-    /* Print the gradient to file */
+
+    /* Print to file */
     write_data("gradient.dat", app->gradient, ndesign);
+    write_data("design_opt.dat", app->design, ndesign);
+
 
 
     /** ---------------------------------------------------------- 
@@ -715,7 +809,8 @@ int main (int argc, char *argv[])
         double tolerr = 1e-0;
 
         max_err = 0.0;
-        for (int idx = 0; idx < ndesign; idx++)
+        // for (int idx = 0; idx < ndesign; idx++)
+        int idx = 3;
         {
             /* store the original objective */
             obj_orig = _braid_CoreElt(core, optim)->objective;
@@ -757,16 +852,20 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    // free(Hessian);
+    free(Hessian);
     free(design0);
     free(design);
     free(gradient0);
     free(gradient);
     free(batch);
+    free(sk);
+    free(yk);
     free(app);
 
     braid_Destroy(core);
     MPI_Finalize();
+
+    fclose(optimfile);
 
 
     return 0;

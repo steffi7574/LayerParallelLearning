@@ -563,6 +563,7 @@ int main (int argc, char *argv[])
     double   ls_objective;   /**< Objective function value for linesearch */
     int      ls_maxiter;     /**< Max. number of linesearch iterations */
     double   ls_factor;      /**< Reduction factor for linesearch */
+    int      ls_iter;        /**< Iterator for linesearch */
     double  *sk;             /**< BFGS: delta design */
     double  *yk;             /**< BFGS: delta gradient */
     int      nreq; 
@@ -576,16 +577,17 @@ int main (int argc, char *argv[])
     deltaT    = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
     T         = deltaT * ntimes;
     theta0    = 1e-2;
-    gamma     = 1e-2;
     nbatch    = nexamples;
     ndesign   = (nchannels * nchannels + 1 )* ntimes;
 
     /* Optimization setup */
+    gamma         = 1e-2;
     maxoptimiter  = 1000;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
     ls_factor     = 0.5;
+    ls_iter       = 0;
 
     /* Read the target data */
     Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
@@ -608,8 +610,11 @@ int main (int argc, char *argv[])
         gradient[idesign]   = 0.0; 
         gradient0[idesign]  = 0.0; 
     }
+
     /* Read in optimal theta */
     // read_data("thetaopt.dat", design, ndesign);
+    /* Read in my optimzed design */
+    // read_data("design_opt.bfgs.gamma0.dat", design, ndesign);
 
     /* Initialize Hessian */
     Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
@@ -669,12 +674,12 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||         || r_adj ||     Objective             || Gradient ||         Stepsize\n");
+       printf("\n#    || r ||         || r_adj ||       Objective      || Gradient ||  Stepsize   ls_iter\n");
        
        /* History file */
        sprintf(optimfilename, "%s.%03f.dat", "optim", stepsize_init);
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || Gradient ||          Stepsize\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || Gradient ||   Stepsize  ls_iter\n");
     }
 
 
@@ -698,11 +703,13 @@ int main (int argc, char *argv[])
         my_AllreduceGradient(app, MPI_COMM_WORLD);
         my_GradientNorm(app, &gnorm);
 
+        // break;
+
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize, ls_iter);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f %2d\n", iter, rnorm, rnorm_adj, objective, gnorm, app->stepsize, ls_iter);
             fflush(optimfile);
         }
 
@@ -741,7 +748,7 @@ int main (int argc, char *argv[])
 
         /* Backtracking linesearch */
         app->stepsize = stepsize_init;
-        for (int i = 0; i < ls_maxiter; i++)
+        for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Take a trial step using the current stepsize) */
             for (int idesign = 0; idesign < ndesign; idesign++)
@@ -774,18 +781,23 @@ int main (int argc, char *argv[])
             }
 
             /* Test for successfull line-search */
-            if (i == ls_maxiter - 1)
+            if (ls_iter == ls_maxiter - 1)
             {
                 printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
             }
-       }
+        }
 
+        /* Increase stepsize if no reduction has been done */
+        if (ls_iter == 0)
+        {
+            stepsize_init = stepsize_init / ls_factor;
+        }
 
    }
 
 
     /* Output */
-    printf("\n Loss:         %1.14e", objective);
+    printf("\n Objective     %1.14e", objective);
     printf("\n Gradientnorm: %1.14e", gnorm);
     printf("\n\n");
 

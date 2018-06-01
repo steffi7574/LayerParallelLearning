@@ -189,7 +189,7 @@ my_Access(braid_App          app,
 
     if (idx == app->ntimes)
     {
-        sprintf(filename, "%s.%03d", "Yout.pint", app->myid);
+        sprintf(filename, "%s.%02d", "Yout.pint.myid", app->myid);
         write_data(filename, u->Ytrain, app->nbatch * app->nchannels);
     }
 
@@ -437,6 +437,7 @@ my_Step_diff(braid_App         app,
     for (int i = 0; i < ndesign; i++)
     {
         app->gradient[i] += design[i].getGradient();
+
     }
 
     /* Reset the codi tape */
@@ -450,42 +451,50 @@ my_Step_diff(braid_App         app,
     return 0;
 }
  
-// int 
-// my_AccessGradient(braid_App app)
-// {
-//     int g_idx;
-//     double nchannels = app->nchannels;
-//     double ntimes    = app->ntimes;
+int 
+gradient_access(braid_App app)
+{
+    int g_idx;
+    double nchannels = app->nchannels;
+    double ntimes    = app->ntimes;
 
-//    /* Print the gradient */
-//     // printf("Gradient:\n"); 
+   /* Print the gradient */
+    for (int ts = 0; ts < ntimes; ts++)
+    {
 
-//     for (int ts = 0; ts < ntimes; ts++)
-//     {
-
-//         for (int ichannel = 0; ichannel < nchannels; ichannel++)
-//         {
+        for (int ichannel = 0; ichannel < nchannels; ichannel++)
+        {
             
-//             for (int jchannel = 0; jchannel < nchannels; jchannel++)
-//             {
-//                 g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
-//                 printf("%d %d %d %d %1.14e\n", ts, ichannel, jchannel, g_idx, app->gradient[g_idx]);
-//             }
-//         }
-//         g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
-//         // printf("%d     %d %1.14e\n", ts, g_idx, app->gradient[g_idx]);
+            for (int jchannel = 0; jchannel < nchannels; jchannel++)
+            {
+                g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
+                printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->gradient[g_idx]);
+            }
+        }
+        g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
+        printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->gradient[g_idx]);
+    }
 
-//     }
-
-//    return 0;
-// }
+   return 0;
+}
 
 int
-my_AllreduceGradient(braid_App app, 
-                     MPI_Comm comm)
+gradient_allreduce(braid_App app, 
+                   MPI_Comm comm)
 {
 
+   int ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+
+   double *mygradient = (double*) malloc(ndesign*sizeof(double));
+   for (int i = 0; i<ndesign; i++)
+   {
+       mygradient[i] = app->gradient[i];
+   }
+
    /* Collect sensitivities from all time-processors */
+   MPI_Allreduce(mygradient, app->gradient, ndesign, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+   free(mygradient);
 
    return 0;
 }                  
@@ -506,8 +515,8 @@ my_ResetGradient(braid_App app)
 }
 
 int
-my_GradientNorm(braid_App app,
-                double   *gradient_norm_prt)
+gradient_norm(braid_App app,
+              double   *gradient_norm_prt)
 
 {
     double ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
@@ -661,8 +670,8 @@ int main (int argc, char *argv[])
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
 
     /* Set some Braid parameters */
-    braid_SetMaxLevels(core, 1);
-    braid_SetPrintLevel( core, 0);
+    braid_SetMaxLevels(core, 3);
+    braid_SetPrintLevel( core, 1);
     braid_SetCFactor(core, -1, 2);
     braid_SetAccessLevel(core, 0);
     braid_SetMaxIter(core, 10);
@@ -670,11 +679,12 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core, 1.0e-06);
     braid_SetAbsTolAdjoint(core, 1e-6);
 
+
     /* Prepare optimization output */
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||         || r_adj ||       Objective      || Gradient ||  Stepsize   ls_iter\n");
+    //    printf("\n#    || r ||         || r_adj ||       Objective      || Gradient ||  Stepsize   ls_iter\n");
        
        /* History file */
        sprintf(optimfilename, "%s.%03f.dat", "optim", stepsize_init);
@@ -699,9 +709,12 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core, &nreq, &rnorm);
         braid_GetRNormAdjoint(core, &rnorm_adj);
 
+        /* Collect sensitivities from all processors */
+        gradient_allreduce(app, MPI_COMM_WORLD);
+
         /* Compute gradient norm */
-        my_AllreduceGradient(app, MPI_COMM_WORLD);
-        my_GradientNorm(app, &gnorm);
+        gradient_norm(app, &gnorm);
+
 
         // break;
 
@@ -719,7 +732,7 @@ int main (int argc, char *argv[])
            break;
         }
 
-        /* Hessian approximation */
+        // /* Hessian approximation */
         for (int idesign = 0; idesign < ndesign; idesign++)
         {
             /* Update sk and yk for bfgs */
@@ -730,7 +743,7 @@ int main (int argc, char *argv[])
             design0[idesign]   = app->design[idesign];
             gradient0[idesign] = app->gradient[idesign];
         }
-        bfgs_update(ndesign, sk, yk, app->Hessian);
+        // bfgs_update(ndesign, sk, yk, app->Hessian);
 
         /* Compute descent direction */
         double wolfe = 0.0;
@@ -769,6 +782,13 @@ int main (int argc, char *argv[])
             }
             else
             {
+                /* Test for line-search failure */
+                if (ls_iter == ls_maxiter - 1)
+                {
+                    printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    break;
+                }
+
                 /* Restore the previous design and gradient variable */
                 for (int idesign = 0; idesign < ndesign; idesign++)
                 {
@@ -780,11 +800,6 @@ int main (int argc, char *argv[])
                 app->stepsize = app->stepsize * ls_factor;
             }
 
-            /* Test for successfull line-search */
-            if (ls_iter == ls_maxiter - 1)
-            {
-                printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
-            }
         }
 
         /* Increase stepsize if no reduction has been done */
@@ -797,14 +812,17 @@ int main (int argc, char *argv[])
 
 
     /* Output */
-    printf("\n Objective     %1.14e", objective);
-    printf("\n Gradientnorm: %1.14e", gnorm);
-    printf("\n\n");
+    if (myid == 0)
+    {
+        printf("\n Objective     %1.14e", objective);
+        printf("\n Gradientnorm: %1.14e", gnorm);
+        printf("\n\n");
 
 
-    /* Print to file */
-    write_data("gradient.dat", app->gradient, ndesign);
-    write_data("design_opt.dat", app->design, ndesign);
+        /* Print to file */
+        write_data("design_opt.dat", app->design, ndesign);
+        write_data("gradient.dat", app->gradient, ndesign);
+    }
 
 
 
@@ -825,7 +843,7 @@ int main (int argc, char *argv[])
         int idx = 3;
         {
             /* store the original objective */
-            obj_orig = _braid_CoreElt(core, optim)->objective;
+            braid_GetObjective(core, &obj_orig);
             
             /* Perturb the design */
             app->design[idx] += EPS;
@@ -836,7 +854,7 @@ int main (int argc, char *argv[])
             braid_Drive(core);
 
             /* Get perturbed objective */
-            obj_perturb = _braid_CoreElt(core, optim)->objective;
+            braid_GetObjective(core, &obj_perturb);
 
             /* Finite differences */
             findiff  = (obj_perturb - obj_orig) / EPS;
@@ -869,6 +887,7 @@ int main (int argc, char *argv[])
     free(design);
     free(gradient0);
     free(gradient);
+    free(descentdir);
     free(batch);
     free(sk);
     free(yk);
@@ -877,7 +896,10 @@ int main (int argc, char *argv[])
     braid_Destroy(core);
     MPI_Finalize();
 
-    fclose(optimfile);
+    if (myid == 0)
+    {
+        fclose(optimfile);
+    }
 
 
     return 0;

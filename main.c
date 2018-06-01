@@ -743,7 +743,7 @@ int main (int argc, char *argv[])
             design0[idesign]   = app->design[idesign];
             gradient0[idesign] = app->gradient[idesign];
         }
-        bfgs_update(ndesign, sk, yk, app->Hessian);
+        // bfgs_update(ndesign, sk, yk, app->Hessian);
 
         /* Compute descent direction */
         double wolfe = 0.0;

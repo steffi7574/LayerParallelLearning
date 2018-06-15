@@ -7,21 +7,21 @@ int main()
 {
 
     RealReverse *Ytrain;      /**< State variables: contains the training data from Lars*/
-    RealReverse *design;      /**< Design variables for the network */
+    RealReverse *theta;      /**< theta variables for the network */
     RealReverse  objective;   /**< Objective function to be minimized */
     double      *Ytarget;     /**< Contains the target values from Lars */
     int         *batch;       /**< Contains indicees of the batch elements */
     int          nexamples;   /**< Number of elements in the training data */
     int          nbatch;      /**< Size of a batch */
     int          nstate;      /**< dimension of the training data */
-    int          ndesign;     /**< dimension of the design variables */
+    int          ntheta;     /**< dimension of the theta variables */
     int          ntimes;      /**< Number of layers / time steps */
     int          nchannels;   /**< Number of channels of the netword (width) */
     double       deltat;      /**< Time step size */
     double       T;           /**< Final time */
     double       theta0;      /**< Initial design value */
     double       alpha;       /**< Regularization parameter */
-    double      *gradient;    /**< Gradient of objective function wrt design */
+    double      *gradient;    /**< Gradient of objective function wrt theta */
     double       gnorm;       /**< Norm of the gradient */
     
 
@@ -36,12 +36,12 @@ int main()
     nbatch  = nexamples;
     deltat  = T/ntimes;
     nstate  = nchannels * nexamples; 
-    ndesign = (nchannels * nchannels + 1 )* ntimes;
+    ntheta = (nchannels * nchannels + 1 )* ntimes;
 
     /* Allocate memory */
     Ytrain   = (RealReverse*) malloc(nstate*sizeof(RealReverse));
-    design   = (RealReverse*) malloc(ndesign*sizeof(RealReverse));
-    gradient = (double*) malloc(ndesign*sizeof(double));
+    theta   = (RealReverse*) malloc(ntheta*sizeof(RealReverse));
+    gradient = (double*) malloc(ntheta*sizeof(double));
     Ytarget  = (double*) malloc(nstate*sizeof(double));
     batch    = (int*) malloc(nbatch*sizeof(int));
 
@@ -51,9 +51,9 @@ int main()
     read_data ("Ytarget.transpose.dat", Ytarget, nstate);
 
     /* Initialize design */
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        design[idesign] = theta0; 
+        theta[itheta] = theta0; 
     }
 
     /* Initialize the batch (same as examples for now) */
@@ -65,9 +65,9 @@ int main()
     /* Set up CoDiPack */
     RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
     codiTape.setActive();
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        codiTape.registerInput( design[idesign] );
+        codiTape.registerInput( theta[itheta] );
     }
 
 
@@ -76,10 +76,10 @@ int main()
     for (int ts = 0; ts <= ntimes; ts++)
     {
         /* Compute regularization term */
-        objective += alpha * regularization(design, ts, deltat, ntimes, nchannels);
+        objective += alpha * regularization(theta, ts, deltat, ntimes, nchannels);
 
         /* Move to next layer */
-        take_step(Ytrain, design, ts, deltat, batch, nbatch, nchannels, 0);
+        take_step(Ytrain, theta, ts, deltat, batch, nbatch, nchannels, 0);
 
         /* If last layer: Compute loss */
         if ( ts == ntimes )
@@ -94,10 +94,10 @@ int main()
     codiTape.setPassive();
     objective.setGradient(1.0);
     codiTape.evaluate();
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        gradient[idesign] = design[idesign].getGradient(); 
-        gnorm += pow(gradient[idesign],2);
+        gradient[itheta] = theta[itheta].getGradient(); 
+        gnorm += pow(gradient[itheta],2);
     }
     gnorm = sqrt(gnorm);
 
@@ -108,12 +108,12 @@ int main()
 
     /* Write data to file */
     write_data("Yout.dat", Ytrain, nstate);
-    write_data("gradient.dat", gradient, ndesign);
+    write_data("gradient.dat", gradient, ntheta);
 
     /* free memory */
     free(Ytrain);
     free(Ytarget);
-    free(design);
+    free(theta);
     free(batch);
 
     return 0;

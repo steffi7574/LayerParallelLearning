@@ -13,19 +13,18 @@
 typedef struct _braid_App_struct
 {
     int      myid;        /* Processor rank*/
-    double  *design;      /* Design variables */
+    double  *theta;      /* theta variables */
     double  *descentdir;  /* Descent direction (hessian times gradient) */
-    double  *gradient;    /* Gradient of objective function wrt design */
+    double  *gradient;    /* Gradient of objective function wrt theta */
     double  *Hessian;     /* Hessian matrix */
     int     *batch;       /* List of Indicees of the batch elements */
     int      nbatch;      /* Number of elements in the batch */
     int      nchannels;   /* Width of the network */
     int      ntimes;      /* number of time-steps / layers */
     double   gamma;       /* Relaxation parameter   */
-    double   theta0;      /* Initial design value */
     double  *Ytarget;     /* Target data */
     double   deltaT;      /* Time-step size on fine grid */
-    double   stepsize;    /* Stepsize for design updates */
+    double   stepsize;    /* Stepsize for theta updates */
 } my_App;
 
 
@@ -57,7 +56,7 @@ my_Step(braid_App        app,
  
 
     /* Take one step */
-    take_step(u->Ytrain, app->design, ts, deltaT, app->batch, app->nbatch, app->nchannels, 0);
+    take_step(u->Ytrain, app->theta, ts, deltaT, app->batch, app->nbatch, app->nchannels, 0);
 
  
     /* no refinement */
@@ -275,12 +274,15 @@ my_ObjectiveT(braid_App              app,
     if (ts < app->ntimes)
     {
         /* Compute regularization term */
-        tmp = app->gamma * regularization(app->design, ts, app->deltaT, app->ntimes, app->nchannels);
+        tmp = app->gamma * regularization(app->theta, ts, app->deltaT, app->ntimes, app->nchannels);
         obj = tmp;
     }
     else
     {
-        /* Evaluate loss at last layer*/
+        /* TODO: Apply weights and add bias at last layer */
+
+
+        /* Evaluate loss */
        tmp  = 1./app->nbatch * loss(u->Ytrain, app->Ytarget, app->batch,  app->nbatch, app->nchannels);
        obj = tmp;
     }
@@ -301,7 +303,7 @@ my_ObjectiveT_diff(braid_App            app,
     int    nbatch    = app->nbatch;
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
-    int    ndesign   = (nchannels * nchannels + 1 ) * ntimes;
+    int    ntheta   = (nchannels * nchannels + 1 ) * ntimes;
     int    nstate    = nchannels * nbatch;
     int    ts;
     RealReverse obj;
@@ -315,29 +317,31 @@ my_ObjectiveT_diff(braid_App            app,
 
     /* Register input */
     RealReverse* Ycodi;  /* CodiType for the state */
-    RealReverse* design; /* CodiType for the design */
+    RealReverse* theta; /* CodiType for the theta */
     Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    design = (RealReverse*) malloc(ndesign * sizeof(RealReverse));
+    theta = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
     {
         Ycodi[i] = u->Ytrain[i];
         codiTape.registerInput(Ycodi[i]);
     }
-    /* Register design as input */
-    for (int i = 0; i < ndesign; i++)
+    /* Register theta as input */
+    for (int i = 0; i < ntheta; i++)
     {
-        design[i] = app->design[i];
-        codiTape.registerInput(design[i]);
+        theta[i] = app->theta[i];
+        codiTape.registerInput(theta[i]);
     }
 
     /* Tape the objective function evaluation */
     if (ts < app->ntimes)
     {
         /* Compute regularization term */
-        obj = app->gamma * regularization(design, ts, app->deltaT, ntimes, nchannels);
+        obj = app->gamma * regularization(theta, ts, app->deltaT, ntimes, nchannels);
     }
     else
     {
+        /* TODO: Apply weights and add bias at last layer */
+
         /* Evaluate loss at last layer*/
        obj = 1./app->nbatch * loss(Ycodi, app->Ytarget, app->batch,  nbatch, nchannels);
     } 
@@ -355,9 +359,9 @@ my_ObjectiveT_diff(braid_App            app,
     {
         u_bar->Ytrain[i] = Ycodi[i].getGradient();
     }
-    for (int i = 0; i < ndesign; i++)
+    for (int i = 0; i < ntheta; i++)
     {
-        app->gradient[i] += design[i].getGradient();
+        app->gradient[i] += theta[i].getGradient();
     }
 
     /* Reset the codi tape */
@@ -365,7 +369,7 @@ my_ObjectiveT_diff(braid_App            app,
 
     /* Clean up */
     free(Ycodi);
-    free(design);
+    free(theta);
 
    return 0;
 }
@@ -384,7 +388,7 @@ my_Step_diff(braid_App         app,
     int     nchannels = app->nchannels;
     int     nbatch    = app->nbatch;
     int     ntimes    = app->ntimes;
-    int     ndesign   = (nchannels * nchannels + 1 ) * ntimes;
+    int     ntheta   = (nchannels * nchannels + 1 ) * ntimes;
     int     nstate    = nchannels * nbatch;
 
     /* Get time and time step */
@@ -399,25 +403,25 @@ my_Step_diff(braid_App         app,
     /* Register input */
     RealReverse* Ycodi;  /* CodiType for the state */
     RealReverse* Ynext;  /* CodiType for the state, next time-step */
-    RealReverse* design; /* CodiType for the design */
+    RealReverse* theta; /* CodiType for the theta */
     Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
     Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    design = (RealReverse*) malloc(ndesign * sizeof(RealReverse));
+    theta = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
     {
         Ycodi[i] = u->Ytrain[i];
         codiTape.registerInput(Ycodi[i]);
         Ynext[i] = Ycodi[i];
     }
-    /* Register design as input */
-    for (int i = 0; i < ndesign; i++)
+    /* Register theta as input */
+    for (int i = 0; i < ntheta; i++)
     {
-        design[i] = app->design[i];
-        codiTape.registerInput(design[i]);
+        theta[i] = app->theta[i];
+        codiTape.registerInput(theta[i]);
     }
     
     /* Take one forward step */
-    take_step(Ynext, design, ts, deltaT, app->batch, nbatch, nchannels, 0);
+    take_step(Ynext, theta, ts, deltaT, app->batch, nbatch, nchannels, 0);
 
     /* Set the adjoint variables */
     codiTape.setPassive();
@@ -434,9 +438,9 @@ my_Step_diff(braid_App         app,
     {
         u_bar->Ytrain[i] = Ycodi[i].getGradient();
     }
-    for (int i = 0; i < ndesign; i++)
+    for (int i = 0; i < ntheta; i++)
     {
-        app->gradient[i] += design[i].getGradient();
+        app->gradient[i] += theta[i].getGradient();
 
     }
 
@@ -446,7 +450,7 @@ my_Step_diff(braid_App         app,
     /* Clean up */
     free(Ycodi);
     free(Ynext);
-    free(design);
+    free(theta);
 
     return 0;
 }
@@ -483,16 +487,16 @@ gradient_allreduce(braid_App app,
                    MPI_Comm comm)
 {
 
-   int ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+   int ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
 
-   double *mygradient = (double*) malloc(ndesign*sizeof(double));
-   for (int i = 0; i<ndesign; i++)
+   double *mygradient = (double*) malloc(ntheta*sizeof(double));
+   for (int i = 0; i<ntheta; i++)
    {
        mygradient[i] = app->gradient[i];
    }
 
    /* Collect sensitivities from all time-processors */
-   MPI_Allreduce(mygradient, app->gradient, ndesign, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(mygradient, app->gradient, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
    free(mygradient);
 
@@ -503,12 +507,12 @@ gradient_allreduce(braid_App app,
 int 
 my_ResetGradient(braid_App app)
 {
-    int ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    int ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
 
     /* Set the gradient to zero */
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        app->gradient[idesign] = 0.0;
+        app->gradient[itheta] = 0.0;
     }
 
     return 0;
@@ -519,14 +523,14 @@ gradient_norm(braid_App app,
               double   *gradient_norm_prt)
 
 {
-    double ndesign = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
     double gnorm;
 
     /* Norm of gradient */
     gnorm = 0.0;
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        gnorm += pow(getValue(app->gradient[idesign]), 2);
+        gnorm += pow(getValue(app->gradient[itheta]), 2);
     }
     gnorm = sqrt(gnorm);
 
@@ -544,25 +548,25 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double   objective;      /**< Objective function */
-    double  *design;         /**< Design variables for the network */
-    double  *gradient;       /**< Gradient of objective function wrt design */
-    double  *design0;        /**< Store the old design variables before linesearch */
+    double  *theta;          /**< theta variables for the network */
+    double  *theta0;         /**< Store the old theta variables before linesearch */
+    double  *gradient;       /**< Gradient of objective function wrt theta */
     double  *gradient0;      /**< Store the old gradient before linesearch */
-    double  *descentdir;     /**< Store the old design variables before linesearch */
+    double  *descentdir;     /**< Store the old theta variables before linesearch */
     double   gnorm;          /**< Norm of the gradient */
     double   gamma;          /**< Relaxation parameter */
     double  *Ytarget;        /**< Target data */
     int     *batch;          /**< Contains indicees of the batch elements */
     int      nexamples;      /**< Number of elements in the training data */
     int      nbatch;         /**< Size of a batch */
-    int      ndesign;        /**< dimension of the design variables */
+    int      ntheta;        /**< dimension of the theta variables */
     int      ntimes;         /**< Number of layers / time steps */
     int      nchannels;      /**< Number of channels of the netword (width) */
     double   T;              /**< Final time */
-    double   theta0;         /**< Initial design value */
+    double   theta_init;     /**< Initial theta value */
     int      myid;           /**< Processor rank */
     double   deltaT;         /**< Time step size */
-    double   stepsize_init;  /**< Initial stepsize for design updates */
+    double   stepsize_init;  /**< Initial stepsize for theta updates */
     double  *Hessian;        /**< Hessian matrix */
     double   findiff;        /**< flag: test gradient with finite differences (1) */
     int      maxoptimiter;   /**< Maximum number of optimization iterations */
@@ -573,21 +577,21 @@ int main (int argc, char *argv[])
     int      ls_maxiter;     /**< Max. number of linesearch iterations */
     double   ls_factor;      /**< Reduction factor for linesearch */
     int      ls_iter;        /**< Iterator for linesearch */
-    double  *sk;             /**< BFGS: delta design */
+    double  *sk;             /**< BFGS: delta theta */
     double  *yk;             /**< BFGS: delta gradient */
     int      nreq; 
     char     optimfilename[255]; /**< Name of the optimization output file */
     FILE     *optimfile;      /**< File for optimization history */
 
     /* Problem setup */ 
-    nexamples = 5000;
-    nchannels = 4;
-    ntimes    = 32;
-    deltaT    = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
-    T         = deltaT * ntimes;
-    theta0    = 1e-2;
-    nbatch    = nexamples;
-    ndesign   = (nchannels * nchannels + 1 )* ntimes;
+    nexamples  = 5000;
+    nchannels  = 4;
+    ntimes     = 32;
+    deltaT     = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
+    T          = deltaT * ntimes;
+    theta_init = 1e-2;
+    nbatch     = nexamples;
+    ntheta     = (nchannels * nchannels + 1 )* ntimes;
 
     /* Optimization setup */
     gamma         = 1e-2;
@@ -602,32 +606,32 @@ int main (int argc, char *argv[])
     Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
     read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
 
-    /* Initialize the design and gradient */
-    design     = (double*) malloc(ndesign*sizeof(double));
-    design0    = (double*) malloc(ndesign*sizeof(double));
-    descentdir = (double*) malloc(ndesign*sizeof(double));
-    gradient   = (double*) malloc(ndesign*sizeof(double));
-    gradient0  = (double*) malloc(ndesign*sizeof(double));
-    sk     = (double*)malloc(ndesign*sizeof(double));
-    yk     = (double*)malloc(ndesign*sizeof(double));
+    /* Initialize the theta and gradient */
+    theta     = (double*) malloc(ntheta*sizeof(double));
+    theta0    = (double*) malloc(ntheta*sizeof(double));
+    descentdir = (double*) malloc(ntheta*sizeof(double));
+    gradient   = (double*) malloc(ntheta*sizeof(double));
+    gradient0  = (double*) malloc(ntheta*sizeof(double));
+    sk     = (double*)malloc(ntheta*sizeof(double));
+    yk     = (double*)malloc(ntheta*sizeof(double));
 
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        design[idesign]     = theta0; 
-        design0[idesign]    = 0.0; 
-        descentdir[idesign] = 0.0; 
-        gradient[idesign]   = 0.0; 
-        gradient0[idesign]  = 0.0; 
+        theta[itheta]      = theta_init; 
+        theta0[itheta]     = 0.0; 
+        descentdir[itheta] = 0.0; 
+        gradient[itheta]   = 0.0; 
+        gradient0[itheta]  = 0.0; 
     }
 
     /* Read in optimal theta */
-    // read_data("thetaopt.dat", design, ndesign);
-    /* Read in my optimzed design */
-    // read_data("design_opt.bfgs.gamma0.dat", design, ndesign);
+    // read_data("thetaopt.dat", theta, ntheta);
+    /* Read in my optimzed theta */
+    // read_data("theta_opt.bfgs.gamma0.dat", theta, ntheta);
 
     /* Initialize Hessian */
-    Hessian = (double*) malloc(ndesign*ndesign*sizeof(double));
-    set_identity(ndesign, Hessian);
+    Hessian = (double*) malloc(ntheta*ntheta*sizeof(double));
+    set_identity(ntheta, Hessian);
 
 
     /* Initialize the batch (same as examples for now) */
@@ -646,14 +650,13 @@ int main (int argc, char *argv[])
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
     app->myid        = myid;
-    app->design      = design;
+    app->theta      = theta;
     app->gradient   = gradient;
     app->descentdir = descentdir;
     app->batch      = batch;
     app->nbatch     = nbatch;
     app->nchannels  = nchannels;
     app->ntimes     = ntimes;
-    app->theta0     = theta0;
     app->deltaT     = deltaT;
     app->Ytarget    = Ytarget;
     app->gamma      = gamma;
@@ -733,30 +736,30 @@ int main (int argc, char *argv[])
         }
 
         // /* Hessian approximation */
-        for (int idesign = 0; idesign < ndesign; idesign++)
+        for (int itheta = 0; itheta < ntheta; itheta++)
         {
             /* Update sk and yk for bfgs */
-            sk[idesign] = app->design[idesign] - design0[idesign];
-            yk[idesign] = app->gradient[idesign] - gradient0[idesign];
+            sk[itheta] = app->theta[itheta] - theta0[itheta];
+            yk[itheta] = app->gradient[itheta] - gradient0[itheta];
 
-            /* Store current design and gradient vector */
-            design0[idesign]   = app->design[idesign];
-            gradient0[idesign] = app->gradient[idesign];
+            /* Store current theta and gradient vector */
+            theta0[itheta]    = app->theta[itheta];
+            gradient0[itheta] = app->gradient[itheta];
         }
-        // bfgs_update(ndesign, sk, yk, app->Hessian);
+        bfgs_update(ntheta, sk, yk, app->Hessian);
 
         /* Compute descent direction */
         double wolfe = 0.0;
-        for (int idesign = 0; idesign < ndesign; idesign++)
+        for (int itheta = 0; itheta < ntheta; itheta++)
         {
             /* Compute the descent direction */
-            app->descentdir[idesign] = 0.0;
-            for (int jdesign = 0; jdesign < ndesign; jdesign++)
+            app->descentdir[itheta] = 0.0;
+            for (int jtheta = 0; jtheta < ntheta; jtheta++)
             {
-                app->descentdir[idesign] -= app->Hessian[idesign*ndesign + jdesign] * app->gradient[jdesign];
+                app->descentdir[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->gradient[jtheta];
             }
             /* compute the wolfe condition product */
-            wolfe += app->gradient[idesign] * app->descentdir[idesign];
+            wolfe += app->gradient[itheta] * app->descentdir[itheta];
         }
 
         /* Backtracking linesearch */
@@ -764,9 +767,9 @@ int main (int argc, char *argv[])
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Take a trial step using the current stepsize) */
-            for (int idesign = 0; idesign < ndesign; idesign++)
+            for (int itheta = 0; itheta < ntheta; itheta++)
             {
-                app->design[idesign] += app->stepsize * app->descentdir[idesign];
+                app->theta[itheta] += app->stepsize * app->descentdir[itheta];
             }
 
             /* Compute new objective function value for that trial step */
@@ -777,7 +780,7 @@ int main (int argc, char *argv[])
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * app->stepsize * wolfe ) 
             {
-                /* Success, use this design update */
+                /* Success, use this theta update */
                 break;
             }
             else
@@ -789,11 +792,11 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                /* Restore the previous design and gradient variable */
-                for (int idesign = 0; idesign < ndesign; idesign++)
+                /* Restore the previous theta and gradient variable */
+                for (int itheta = 0; itheta < ntheta; itheta++)
                 {
-                    app->design[idesign]   = design0[idesign];
-                    app->gradient[idesign] = gradient0[idesign];
+                    app->theta[itheta]    = theta0[itheta];
+                    app->gradient[itheta] = gradient0[itheta];
                 }
 
                 /* Decrease the stepsize */
@@ -820,8 +823,8 @@ int main (int argc, char *argv[])
 
 
         /* Print to file */
-        write_data("design_opt.dat", app->design, ndesign);
-        write_data("gradient.dat", app->gradient, ndesign);
+        write_data("theta_opt.dat", app->theta, ntheta);
+        write_data("gradient.dat", app->gradient, ntheta);
     }
 
 
@@ -834,19 +837,19 @@ int main (int argc, char *argv[])
         printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
         double obj_orig, obj_perturb;
         double findiff, relerror, max_err;
-        double *err = (double*)malloc(ndesign*sizeof(double));
+        double *err = (double*)malloc(ntheta*sizeof(double));
         double EPS    = 1e-7;
         double tolerr = 1e-0;
 
         max_err = 0.0;
-        // for (int idx = 0; idx < ndesign; idx++)
+        // for (int idx = 0; idx < ntheta; idx++)
         int idx = 3;
         {
             /* store the original objective */
             braid_GetObjective(core, &obj_orig);
             
-            /* Perturb the design */
-            app->design[idx] += EPS;
+            /* Perturb the theta */
+            app->theta[idx] += EPS;
 
             /* Reset the gradient from previous run */
             my_ResetGradient(app);
@@ -883,8 +886,8 @@ int main (int argc, char *argv[])
 
     /* Clean up */
     free(Hessian);
-    free(design0);
-    free(design);
+    free(theta0);
+    free(theta);
     free(gradient0);
     free(gradient);
     free(descentdir);

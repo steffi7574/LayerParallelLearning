@@ -47,10 +47,13 @@ max(myDouble a,
  */
 template <typename myDouble>
 myDouble  
-loss(myDouble *Y,
-     double      *Ytarget,
+loss(myDouble    *Y,
+     double      *Target,
      int         *batch,
      int          nbatch,
+     double      *class_weights,
+     double      *class_bias,
+     int          nclasses,
      int          nchannels);
 
 

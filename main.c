@@ -12,19 +12,22 @@
 /* Define the app structure */
 typedef struct _braid_App_struct
 {
-    int      myid;        /* Processor rank*/
-    double  *theta;      /* theta variables */
-    double  *descentdir;  /* Descent direction (hessian times gradient) */
-    double  *gradient;    /* Gradient of objective function wrt theta */
-    double  *Hessian;     /* Hessian matrix */
-    int     *batch;       /* List of Indicees of the batch elements */
-    int      nbatch;      /* Number of elements in the batch */
-    int      nchannels;   /* Width of the network */
-    int      ntimes;      /* number of time-steps / layers */
-    double   gamma;       /* Relaxation parameter   */
-    double  *Ytarget;     /* Target data */
-    double   deltaT;      /* Time-step size on fine grid */
-    double   stepsize;    /* Stepsize for theta updates */
+    int      myid;          /* Processor rank*/
+    double  *labels;        /* Data: Label vectors (C) */
+    double  *theta;         /* theta variables */
+    double  *class_weights; /* Weights of the classification problem (W) */
+    double  *class_bias;    /* Bias of the classification problem (mu) */
+    double  *descentdir;    /* Descent direction (hessian times gradient) */
+    double  *gradient;      /* Gradient of objective function wrt theta */
+    double  *Hessian;       /* Hessian matrix */
+    int     *batch;         /* List of Indicees of the batch elements */
+    int      nclasses;      /* Number of classes */
+    int      nbatch;        /* Number of elements in the batch */
+    int      nchannels;     /* Width of the network */
+    int      ntimes;        /* number of time-steps / layers */
+    double   gamma;         /* Relaxation parameter   */
+    double   deltaT;        /* Time-step size on fine grid */
+    double   stepsize;      /* Stepsize for theta updates */
 } my_App;
 
 
@@ -264,6 +267,10 @@ my_ObjectiveT(braid_App              app,
               braid_ObjectiveStatus  ostatus,
               double                *objective_ptr)
 {
+    int    nbatch    = app->nbatch;
+    int    nchannels = app->nchannels;
+    int    ntimes    = app->ntimes;
+    int    nclasses  = app->nclasses;
     double tmp;
     double obj = 0.0;
     int    ts;
@@ -271,19 +278,16 @@ my_ObjectiveT(braid_App              app,
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
-    if (ts < app->ntimes)
+    if (ts < ntimes)
     {
         /* Compute regularization term */
-        tmp = app->gamma * regularization(app->theta, ts, app->deltaT, app->ntimes, app->nchannels);
+        tmp = app->gamma * regularization(app->theta, ts, app->deltaT, ntimes, nchannels);
         obj = tmp;
     }
     else
     {
-        /* TODO: Apply weights and add bias at last layer */
-
-
         /* Evaluate loss */
-       tmp  = 1./app->nbatch * loss(u->Ytrain, app->Ytarget, app->batch,  app->nbatch, app->nchannels);
+       tmp  = 1./nbatch * loss(u->Ytrain, app->labels, app->batch, nbatch, app->class_weights, app->class_bias, nclasses, nchannels);
        obj = tmp;
     }
 
@@ -303,7 +307,8 @@ my_ObjectiveT_diff(braid_App            app,
     int    nbatch    = app->nbatch;
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
-    int    ntheta   = (nchannels * nchannels + 1 ) * ntimes;
+    int    nclasses  = app->nclasses;
+    int    ntheta    = (nchannels * nchannels + 1 ) * ntimes;
     int    nstate    = nchannels * nbatch;
     int    ts;
     RealReverse obj;
@@ -317,7 +322,7 @@ my_ObjectiveT_diff(braid_App            app,
 
     /* Register input */
     RealReverse* Ycodi;  /* CodiType for the state */
-    RealReverse* theta; /* CodiType for the theta */
+    RealReverse* theta;  /* CodiType for the theta */
     Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
     theta = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
@@ -340,10 +345,8 @@ my_ObjectiveT_diff(braid_App            app,
     }
     else
     {
-        /* TODO: Apply weights and add bias at last layer */
-
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->Ytarget, app->batch,  nbatch, nchannels);
+       obj = 1./app->nbatch * loss(Ycodi, app->labels, app->batch,  nbatch, app->class_weights, app->class_bias, nclasses, nchannels);
     } 
 
     
@@ -406,7 +409,7 @@ my_Step_diff(braid_App         app,
     RealReverse* theta; /* CodiType for the theta */
     Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
     Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    theta = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
+    theta  = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
     {
         Ycodi[i] = u->Ytrain[i];
@@ -548,15 +551,18 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double   objective;      /**< Objective function */
+    double  *labels;         /**< Labels of the data set (C) */
     double  *theta;          /**< theta variables for the network */
     double  *theta0;         /**< Store the old theta variables before linesearch */
+    double  *class_weights;  /**< Weights for the classification problem, applied at last layer */
+    double  *class_bias;     /**< Bias of the classification problem, applied at last layer */
     double  *gradient;       /**< Gradient of objective function wrt theta */
     double  *gradient0;      /**< Store the old gradient before linesearch */
     double  *descentdir;     /**< Store the old theta variables before linesearch */
     double   gnorm;          /**< Norm of the gradient */
     double   gamma;          /**< Relaxation parameter */
-    double  *Ytarget;        /**< Target data */
     int     *batch;          /**< Contains indicees of the batch elements */
+    int      nclasses;       /**< Number of classes / labels */
     int      nexamples;      /**< Number of elements in the training data */
     int      nbatch;         /**< Size of a batch */
     int      ntheta;        /**< dimension of the theta variables */
@@ -564,6 +570,7 @@ int main (int argc, char *argv[])
     int      nchannels;      /**< Number of channels of the netword (width) */
     double   T;              /**< Final time */
     double   theta_init;     /**< Initial theta value */
+    double   class_init;     /**< Initial value for the classification weights and biases */
     int      myid;           /**< Processor rank */
     double   deltaT;         /**< Time step size */
     double   stepsize_init;  /**< Initial stepsize for theta updates */
@@ -584,37 +591,48 @@ int main (int argc, char *argv[])
     FILE     *optimfile;      /**< File for optimization history */
 
     /* Problem setup */ 
-    nexamples  = 5000;
-    nchannels  = 4;
-    ntimes     = 32;
-    deltaT     = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
-    T          = deltaT * ntimes;
-    theta_init = 1e-2;
-    nbatch     = nexamples;
-    ntheta     = (nchannels * nchannels + 1 )* ntimes;
+    nexamples     = 5000;
+    nchannels     = 4;
+    nclasses      = 5;
+    ntimes        = 32;
+    deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
+    theta_init    = 1e-2;
+    class_init    = 1e-1;
 
     /* Optimization setup */
     gamma         = 1e-2;
-    maxoptimiter  = 1000;
+    maxoptimiter  = 1;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
     ls_factor     = 0.5;
+
+    /* Init problem parameters */
+    T             = deltaT * ntimes;
+    nbatch        = nexamples;
+    ntheta        = (nchannels * nchannels + 1 )* ntimes;
+
+    /* Init optimization parameters */
     ls_iter       = 0;
+    gnorm         = 0.0;
+    rnorm         = 0.0;
+    rnorm_adj     = 0.0;
 
-    /* Read the target data */
-    Ytarget = (double*) malloc(nchannels*nexamples*sizeof(double));
-    read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
+    /* Memory allocation */
+    theta         = (double*) malloc(ntheta*sizeof(double));
+    theta0        = (double*) malloc(ntheta*sizeof(double));
+    class_weights = (double*) malloc(nchannels*nclasses*sizeof(double));
+    class_bias    = (double*) malloc(nclasses*sizeof(double));
+    descentdir    = (double*) malloc(ntheta*sizeof(double));
+    batch         = (int*) malloc(nbatch*sizeof(int));
+    gradient      = (double*) malloc(ntheta*sizeof(double));
+    gradient0     = (double*) malloc(ntheta*sizeof(double));
+    Hessian       = (double*) malloc(ntheta*ntheta*sizeof(double));
+    sk            = (double*)malloc(ntheta*sizeof(double));
+    yk            = (double*)malloc(ntheta*sizeof(double));
 
-    /* Initialize the theta and gradient */
-    theta     = (double*) malloc(ntheta*sizeof(double));
-    theta0    = (double*) malloc(ntheta*sizeof(double));
-    descentdir = (double*) malloc(ntheta*sizeof(double));
-    gradient   = (double*) malloc(ntheta*sizeof(double));
-    gradient0  = (double*) malloc(ntheta*sizeof(double));
-    sk     = (double*)malloc(ntheta*sizeof(double));
-    yk     = (double*)malloc(ntheta*sizeof(double));
 
+    /* Initialization */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
         theta[itheta]      = theta_init; 
@@ -623,24 +641,33 @@ int main (int argc, char *argv[])
         gradient[itheta]   = 0.0; 
         gradient0[itheta]  = 0.0; 
     }
-
-    /* Read in optimal theta */
-    // read_data("thetaopt.dat", theta, ntheta);
-    /* Read in my optimzed theta */
-    // read_data("theta_opt.bfgs.gamma0.dat", theta, ntheta);
-
-    /* Initialize Hessian */
-    Hessian = (double*) malloc(ntheta*ntheta*sizeof(double));
     set_identity(ntheta, Hessian);
 
-
     /* Initialize the batch (same as examples for now) */
-    batch   = (int*) malloc(nbatch*sizeof(int));
     for (int ibatch = 0; ibatch < nbatch; ibatch++)
     {
         batch[ibatch] = ibatch;
     }
 
+    /* Read the data */
+    labels = (double*) malloc(nclasses*nexamples*sizeof(double));
+    // read_data("YTarget.transpose.dat", Target, nchannels*nexamples);
+    /* Set to zero for now. TODO: Read in the data! */
+    for (int i=0; i< nclasses*nexamples; i++)
+    {
+        labels[i] = 0.0;
+    }
+
+    
+    /* Initialize classification problem */
+    for (int iclasses = 0; iclasses < nclasses; iclasses++)
+    {
+        for (int ichannels = 0; ichannels < nchannels; ichannels++)
+        {
+            class_weights[ichannels * nchannels + iclasses] = class_init; 
+        }
+        class_bias[iclasses] = class_init;
+    }
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -649,22 +676,25 @@ int main (int argc, char *argv[])
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
-    app->myid        = myid;
-    app->theta      = theta;
-    app->gradient   = gradient;
-    app->descentdir = descentdir;
-    app->batch      = batch;
-    app->nbatch     = nbatch;
-    app->nchannels  = nchannels;
-    app->ntimes     = ntimes;
-    app->deltaT     = deltaT;
-    app->Ytarget    = Ytarget;
-    app->gamma      = gamma;
-    app->stepsize   = stepsize_init;
-    app->Hessian    = Hessian;
+    app->myid          = myid;
+    app->labels        = labels;
+    app->theta         = theta;
+    app->class_weights = class_weights;
+    app->class_bias    = class_bias;
+    app->gradient      = gradient;
+    app->descentdir    = descentdir;
+    app->batch         = batch;
+    app->nbatch        = nbatch;
+    app->nchannels     = nchannels;
+    app->nclasses      = nclasses;
+    app->ntimes        = ntimes;
+    app->deltaT        = deltaT;
+    app->gamma         = gamma;
+    app->stepsize      = stepsize_init;
+    app->Hessian       = Hessian;
 
     /* Switch for finite difference testing */
-    findiff = 0;
+    findiff = 1;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -730,7 +760,7 @@ int main (int argc, char *argv[])
         }
 
         /* Check optimization convergence */
-        if (gnorm < gtol)
+        if ( (gnorm < gtol) || (iter == maxoptimiter - 1) )
         {
            break;
         }
@@ -835,41 +865,49 @@ int main (int argc, char *argv[])
     if (findiff)
     {
         printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
-        double obj_orig, obj_perturb;
+        double obj_store, obj_perturb;
         double findiff, relerror, max_err;
         double *err = (double*)malloc(ntheta*sizeof(double));
-        double EPS    = 1e-7;
+        double EPS    = 1e-3;
         double tolerr = 1e-0;
 
-        max_err = 0.0;
-        // for (int idx = 0; idx < ntheta; idx++)
-        int idx = 3;
+        /* Store the objective function and the gradient */
+        double *grad_store = (double*)malloc(ntheta*sizeof(double));
+        for (int idesign = 0; idesign < ntheta; idesign++)
         {
-            /* store the original objective */
-            braid_GetObjective(core, &obj_orig);
-            
+            grad_store[idesign] = app->gradient[idesign];
+        }
+        braid_GetObjective(core, &obj_store);
+        my_ResetGradient(app);
+
+        /* Loop over all design variables */
+        for (int idx = 0; idx < ntheta; idx++)
+        // int idx = 3;
+        {
             /* Perturb the theta */
             app->theta[idx] += EPS;
 
-            /* Reset the gradient from previous run */
-            my_ResetGradient(app);
             /* Run a Braid simulation */
+            braid_SetObjectiveOnly(core, 1);
             braid_Drive(core);
 
             /* Get perturbed objective */
             braid_GetObjective(core, &obj_perturb);
 
+            /* Reset the design */
+            app->theta[idx] -= EPS;
+
             /* Finite differences */
-            findiff  = (obj_perturb - obj_orig) / EPS;
-            relerror = (app->gradient[idx] - findiff) / findiff;
+            findiff  = (obj_perturb - obj_store) / EPS;
+            relerror = (grad_store[idx] - findiff) / findiff;
             relerror = sqrt(relerror*relerror);
             err[idx] = relerror;
             if (max_err < relerror)
             {
                 max_err = relerror;
             }
-            printf("\n %d: obj_orig %1.14e, obj_perturb %1.14e\n", idx, obj_orig, obj_perturb );
-            printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, app->gradient[idx], relerror );
+            printf("\n %d: obj_store %1.14e, obj_perturb %1.14e\n", idx, obj_store, obj_perturb );
+            printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, grad_store[idx], relerror );
 
             if (fabs(relerror) > tolerr)
             {
@@ -881,13 +919,17 @@ int main (int argc, char *argv[])
         printf("\n\n MAX. FINITE DIFFERENCES ERROR: %1.14e\n\n", max_err);
         
         free(err);
+        free(grad_store);
     }
 
 
     /* Clean up */
+    free(labels);
     free(Hessian);
     free(theta0);
     free(theta);
+    free(class_weights);
+    free(class_bias);
     free(gradient0);
     free(gradient);
     free(descentdir);

@@ -18,7 +18,7 @@ typedef struct _braid_App_struct
     double  *class_weights; /* Weights of the classification problem (W) */
     double  *class_bias;    /* Bias of the classification problem (mu) */
     double  *descentdir;    /* Descent direction (hessian times gradient) */
-    double  *gradient;      /* Gradient of objective function wrt theta */
+    double  *theta_grad;      /* Gradient of objective function wrt theta */
     double  *Hessian;       /* Hessian matrix */
     int     *batch;         /* List of Indicees of the batch elements */
     int      nclasses;      /* Number of classes */
@@ -364,7 +364,7 @@ my_ObjectiveT_diff(braid_App            app,
     }
     for (int i = 0; i < ntheta; i++)
     {
-        app->gradient[i] += theta[i].getGradient();
+        app->theta_grad[i] += theta[i].getGradient();
     }
 
     /* Reset the codi tape */
@@ -443,7 +443,7 @@ my_Step_diff(braid_App         app,
     }
     for (int i = 0; i < ntheta; i++)
     {
-        app->gradient[i] += theta[i].getGradient();
+        app->theta_grad[i] += theta[i].getGradient();
 
     }
 
@@ -475,11 +475,11 @@ gradient_access(braid_App app)
             for (int jchannel = 0; jchannel < nchannels; jchannel++)
             {
                 g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
-                printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->gradient[g_idx]);
+                printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->theta_grad[g_idx]);
             }
         }
         g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
-        printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->gradient[g_idx]);
+        printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->theta_grad[g_idx]);
     }
 
    return 0;
@@ -495,11 +495,11 @@ gradient_allreduce(braid_App app,
    double *mygradient = (double*) malloc(ntheta*sizeof(double));
    for (int i = 0; i<ntheta; i++)
    {
-       mygradient[i] = app->gradient[i];
+       mygradient[i] = app->theta_grad[i];
    }
 
    /* Collect sensitivities from all time-processors */
-   MPI_Allreduce(mygradient, app->gradient, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(mygradient, app->theta_grad, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
    free(mygradient);
 
@@ -515,7 +515,7 @@ my_ResetGradient(braid_App app)
     /* Set the gradient to zero */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        app->gradient[itheta] = 0.0;
+        app->theta_grad[itheta] = 0.0;
     }
 
     return 0;
@@ -533,7 +533,7 @@ gradient_norm(braid_App app,
     gnorm = 0.0;
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        gnorm += pow(getValue(app->gradient[itheta]), 2);
+        gnorm += pow(getValue(app->theta_grad[itheta]), 2);
     }
     gnorm = sqrt(gnorm);
 
@@ -556,8 +556,8 @@ int main (int argc, char *argv[])
     double  *theta0;         /**< Store the old theta variables before linesearch */
     double  *class_weights;  /**< Weights for the classification problem, applied at last layer */
     double  *class_bias;     /**< Bias of the classification problem, applied at last layer */
-    double  *gradient;       /**< Gradient of objective function wrt theta */
-    double  *gradient0;      /**< Store the old gradient before linesearch */
+    double  *theta_grad;       /**< Gradient of objective function wrt theta */
+    double  *theta_grad0;      /**< Store the old gradient before linesearch */
     double  *descentdir;     /**< Store the old theta variables before linesearch */
     double   gnorm;          /**< Norm of the gradient */
     double   gamma;          /**< Relaxation parameter */
@@ -625,8 +625,8 @@ int main (int argc, char *argv[])
     class_bias    = (double*) malloc(nclasses*sizeof(double));
     descentdir    = (double*) malloc(ntheta*sizeof(double));
     batch         = (int*) malloc(nbatch*sizeof(int));
-    gradient      = (double*) malloc(ntheta*sizeof(double));
-    gradient0     = (double*) malloc(ntheta*sizeof(double));
+    theta_grad      = (double*) malloc(ntheta*sizeof(double));
+    theta_grad0     = (double*) malloc(ntheta*sizeof(double));
     Hessian       = (double*) malloc(ntheta*ntheta*sizeof(double));
     sk            = (double*)malloc(ntheta*sizeof(double));
     yk            = (double*)malloc(ntheta*sizeof(double));
@@ -638,8 +638,8 @@ int main (int argc, char *argv[])
         theta[itheta]      = theta_init; 
         theta0[itheta]     = 0.0; 
         descentdir[itheta] = 0.0; 
-        gradient[itheta]   = 0.0; 
-        gradient0[itheta]  = 0.0; 
+        theta_grad[itheta]   = 0.0; 
+        theta_grad0[itheta]  = 0.0; 
     }
     set_identity(ntheta, Hessian);
 
@@ -681,7 +681,7 @@ int main (int argc, char *argv[])
     app->theta         = theta;
     app->class_weights = class_weights;
     app->class_bias    = class_bias;
-    app->gradient      = gradient;
+    app->theta_grad      = theta_grad;
     app->descentdir    = descentdir;
     app->batch         = batch;
     app->nbatch        = nbatch;
@@ -694,7 +694,7 @@ int main (int argc, char *argv[])
     app->Hessian       = Hessian;
 
     /* Switch for finite difference testing */
-    findiff = 1;
+    findiff = 0;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -703,13 +703,13 @@ int main (int argc, char *argv[])
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
 
     /* Set some Braid parameters */
-    braid_SetMaxLevels(core, 3);
+    braid_SetMaxLevels(core, 10);
     braid_SetPrintLevel( core, 1);
     braid_SetCFactor(core, -1, 2);
     braid_SetAccessLevel(core, 0);
     braid_SetMaxIter(core, 10);
     braid_SetSkip(core, 0);
-    braid_SetAbsTol(core, 1.0e-06);
+    braid_SetAbsTol(core, 1.0e-10);
     braid_SetAbsTolAdjoint(core, 1e-6);
 
 
@@ -725,13 +725,12 @@ int main (int argc, char *argv[])
        fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || Gradient ||   Stepsize  ls_iter\n");
     }
 
-
     /* Optimization iteration */
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
 
         /* Parallel-in-time simulation and gradient computation */
-        braid_SetObjectiveOnly(core, 0);
+        braid_SetObjectiveOnly(core, 1);
         braid_Drive(core);
 
         /* Get objective function value */
@@ -770,11 +769,11 @@ int main (int argc, char *argv[])
         {
             /* Update sk and yk for bfgs */
             sk[itheta] = app->theta[itheta] - theta0[itheta];
-            yk[itheta] = app->gradient[itheta] - gradient0[itheta];
+            yk[itheta] = app->theta_grad[itheta] - theta_grad0[itheta];
 
             /* Store current theta and gradient vector */
             theta0[itheta]    = app->theta[itheta];
-            gradient0[itheta] = app->gradient[itheta];
+            theta_grad0[itheta] = app->theta_grad[itheta];
         }
         bfgs_update(ntheta, sk, yk, app->Hessian);
 
@@ -786,10 +785,10 @@ int main (int argc, char *argv[])
             app->descentdir[itheta] = 0.0;
             for (int jtheta = 0; jtheta < ntheta; jtheta++)
             {
-                app->descentdir[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->gradient[jtheta];
+                app->descentdir[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->theta_grad[jtheta];
             }
             /* compute the wolfe condition product */
-            wolfe += app->gradient[itheta] * app->descentdir[itheta];
+            wolfe += app->theta_grad[itheta] * app->descentdir[itheta];
         }
 
         /* Backtracking linesearch */
@@ -826,7 +825,7 @@ int main (int argc, char *argv[])
                 for (int itheta = 0; itheta < ntheta; itheta++)
                 {
                     app->theta[itheta]    = theta0[itheta];
-                    app->gradient[itheta] = gradient0[itheta];
+                    app->theta_grad[itheta] = theta_grad0[itheta];
                 }
 
                 /* Decrease the stepsize */
@@ -854,7 +853,7 @@ int main (int argc, char *argv[])
 
         /* Print to file */
         write_data("theta_opt.dat", app->theta, ntheta);
-        write_data("gradient.dat", app->gradient, ntheta);
+        write_data("gradient.dat", app->theta_grad, ntheta);
     }
 
 
@@ -866,23 +865,24 @@ int main (int argc, char *argv[])
     {
         printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
         double obj_store, obj_perturb;
-        double findiff, relerror, max_err;
+        double findiff, relerror;
+        double max_err = 0.0;
         double *err = (double*)malloc(ntheta*sizeof(double));
-        double EPS    = 1e-3;
+        double EPS    = 1e-8;
         double tolerr = 1e-0;
 
         /* Store the objective function and the gradient */
         double *grad_store = (double*)malloc(ntheta*sizeof(double));
         for (int idesign = 0; idesign < ntheta; idesign++)
         {
-            grad_store[idesign] = app->gradient[idesign];
+            grad_store[idesign] = app->theta_grad[idesign];
         }
         braid_GetObjective(core, &obj_store);
         my_ResetGradient(app);
 
         /* Loop over all design variables */
-        for (int idx = 0; idx < ntheta; idx++)
-        // int idx = 3;
+        // for (int idx = 0; idx < ntheta; idx++)
+        int idx = 8;
         {
             /* Perturb the theta */
             app->theta[idx] += EPS;
@@ -930,8 +930,8 @@ int main (int argc, char *argv[])
     free(theta);
     free(class_weights);
     free(class_bias);
-    free(gradient0);
-    free(gradient);
+    free(theta_grad0);
+    free(theta_grad);
     free(descentdir);
     free(batch);
     free(sk);

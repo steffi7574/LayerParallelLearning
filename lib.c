@@ -164,7 +164,7 @@ loss(myDouble     *Y,
             class_obj += class_mu[iclass];
 
             /* Evaluate loss */
-            target_id = batch_id * nchannels + iclass;
+            target_id = batch_id * nclasses + iclass;
             loss += 1./2. * (class_obj - Target[target_id]) * (class_obj - Target[target_id]);
        }
    }

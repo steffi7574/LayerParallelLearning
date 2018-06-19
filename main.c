@@ -672,7 +672,10 @@ int main (int argc, char *argv[])
     char     optimfilename[255]; /**< Name of the optimization output file */
     FILE     *optimfile;      /**< File for optimization history */
 
-    /* Problem setup */ 
+
+    /* --- PROGRAMM SETUP ---*/
+
+    /* Learning problem setup */ 
     nexamples     = 5000;
     nchannels     = 4;
     nclasses      = 5;
@@ -684,15 +687,14 @@ int main (int argc, char *argv[])
 
     /* Optimization setup */
     gamma         = 1e-2;
-    maxoptimiter  = 2;
+    maxoptimiter  = 1;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 1;
     ls_factor     = 0.5;
 
-
     /* XBraid setup */
-    braid_maxlevels   = 10.0;
+    braid_maxlevels   = 10;
     braid_printlevel  = 1;
     braid_cfactor     = 2;
     braid_accesslevel = 0;
@@ -700,6 +702,9 @@ int main (int argc, char *argv[])
     braid_setskip     = 0;
     braid_abstol      = 1e-10;
     braid_abstoladj   = 1e-6; 
+
+    
+    /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
     T             = deltaT * ntimes;
@@ -728,7 +733,6 @@ int main (int argc, char *argv[])
     sk            = (double*)malloc(ntheta*sizeof(double));
     yk            = (double*)malloc(ntheta*sizeof(double));
 
-
     /* Initialization */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
@@ -746,16 +750,15 @@ int main (int argc, char *argv[])
         batch[ibatch] = ibatch;
     }
 
+
     /* Read the data */
     labels = (double*) malloc(nclasses*nexamples*sizeof(double));
-    // read_data("YTarget.transpose.dat", Target, nchannels*nexamples);
     /* Set to zero for now. TODO: Read in the data! */
     for (int i=0; i< nclasses*nexamples; i++)
     {
-        labels[i] = label_init;
+        labels[i] = 0.0;
     }
 
-   
     /* Initialize classification problem */
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
     {
@@ -767,6 +770,46 @@ int main (int argc, char *argv[])
         class_mu[iclasses]      = class_init;
         class_mu_grad[iclasses] = 0.0;
     }
+
+
+    /* --- CONSTRUCT A LABEL MATRIX --- */
+
+    double *Cstore = (double*) malloc(nclasses*nexamples*sizeof(double));
+    /* Read YTarget */
+    double  *Ytarget = (double*) malloc(nchannels * nexamples * sizeof(double));
+    read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
+
+    /* multiply Ytarget with W and add mu */
+    int c_id, batch_id, weight_id, y_id;
+    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
+    {
+        batch_id = batch[ibatch];
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            c_id = batch_id * nclasses + iclass;
+            Cstore[c_id] = 0.0;
+        
+            /* Apply classification weights */
+            for (int ichannel = 0; ichannel < nchannels; ichannel++)
+            {
+                y_id          = batch_id * nchannels + ichannel;
+                weight_id     = iclass   * nchannels + ichannel;
+                Cstore[c_id] += Ytarget[y_id] * class_W[weight_id];
+            }
+
+            /* Add classification bias */
+            Cstore[c_id] += class_mu[iclass];
+        }
+    }
+
+    /* print Cstore to file */
+    write_data("Cstore.dat", Cstore, nclasses*nexamples);
+
+    free(Cstore);
+
+    /* Stop calculating */
+    return 0;
+
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -798,7 +841,7 @@ int main (int argc, char *argv[])
     findiff = 0;
 
     /* DEGUB: Peturb the design */
-    // app->theta[5] += 1e-6;
+    // app->class_W[5] += 1e-6;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -829,7 +872,9 @@ int main (int argc, char *argv[])
        fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || Gradient ||   Stepsize  ls_iter\n");
     }
 
-    /* Optimization iteration */
+
+    /* --- OPTIMIZATION --- */
+
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
 
@@ -851,8 +896,6 @@ int main (int argc, char *argv[])
         /* Compute gradient norm */
         gradient_norm(app, &theta_gnorm, &class_gnorm);
 
-
-        // break;
 
         /* Output */
         if (myid == 0)
@@ -1045,6 +1088,7 @@ int main (int argc, char *argv[])
     free(sk);
     free(yk);
     free(app);
+    free(Ytarget);
 
     braid_Destroy(core);
     MPI_Finalize();

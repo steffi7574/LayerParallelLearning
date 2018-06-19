@@ -814,7 +814,7 @@ int main (int argc, char *argv[])
     {
 
         /* Parallel-in-time simulation and gradient computation */
-        braid_SetObjectiveOnly(core, 0);
+        braid_ObjectiveOnly(core, 0);
         braid_Drive(core);
 
         /* Get objective function value */
@@ -886,7 +886,7 @@ int main (int argc, char *argv[])
             }
 
             /* Compute new objective function value for that trial step */
-            braid_SetObjectiveOnly(core, 1);
+            braid_ObjectiveOnly(core, 1);
             braid_Drive(core);
             braid_GetObjective(core, &ls_objective);
 
@@ -974,7 +974,7 @@ int main (int argc, char *argv[])
             app->theta[idx] += EPS;
 
             /* Run a Braid simulation */
-            braid_SetObjectiveOnly(core, 1);
+            braid_ObjectiveOnly(core, 1);
             braid_Drive(core);
 
             /* Get perturbed objective */

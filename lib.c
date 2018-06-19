@@ -6,8 +6,8 @@
 
 template <typename myDouble>
 myDouble 
-max(myDouble a,
-    myDouble b)
+maximum(myDouble a,
+        myDouble b)
 {
    myDouble max = a;
    if (a < b)
@@ -132,8 +132,8 @@ loss(myDouble     *Y,
      double       *Target,
      int          *batch,
      int           nbatch,
-     double       *class_weights,
-     double       *class_bias,
+     myDouble     *class_W,
+     myDouble     *class_mu,
      int           nclasses,
      int           nchannels)
 {
@@ -157,11 +157,11 @@ loss(myDouble     *Y,
             {
                 y_id      = batch_id * nchannels + ichannel;
                 weight_id = iclass   * nchannels + ichannel;
-                class_obj += Y[y_id] * class_weights[weight_id];
+                class_obj += Y[y_id] * class_W[weight_id];
             }
 
             /* Add classification bias */
-            class_obj += class_bias[iclass];
+            class_obj += class_mu[iclass];
 
             /* Evaluate loss */
             target_id = batch_id * nchannels + iclass;
@@ -291,14 +291,14 @@ template int read_data<double>(char *filename, double *var, int size);
 template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
 template int write_data<double>(char *filename, double *var, int size);
 template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
-template double max<double>(double a, double b);
-template RealReverse max<RealReverse>(RealReverse a, RealReverse b);
+template double maximum<double>(double a, double b);
+template RealReverse maximum<RealReverse>(RealReverse a, RealReverse b);
 template double sigma<double>(double x);
 template RealReverse sigma<RealReverse>(RealReverse x);
 template int take_step<double>(double* Y, double* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
 template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
-template double loss<double>(double  *Y, double *Target, int *batch, int nbatch, double *class_weights, double *class_bias, int nclasses, int nchannels);
-template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batch, int nbatch, double *class_weights, double *class_bias, int nclasses, int nchannels);
+template double loss<double>(double  *Y, double *Target, int *batch, int nbatch, double *class_W, double *class_mu, int nclasses, int nchannels);
+template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batch, int nbatch, RealReverse *class_W, RealReverse *class_mu, int nclasses, int nchannels);
 template double regularization<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 

@@ -39,8 +39,8 @@ sigma_diff(double x);
  * Return maximum of two doubles */
 template <typename myDouble>
 myDouble 
-max(myDouble a,
-    myDouble b);
+maximum(myDouble a,
+        myDouble b);
 
 /**
  * Evaluate the loss functin
@@ -51,8 +51,8 @@ loss(myDouble    *Y,
      double      *Target,
      int         *batch,
      int          nbatch,
-     double      *class_weights,
-     double      *class_bias,
+     myDouble    *class_W,
+     myDouble    *class_mu,
      int          nclasses,
      int          nchannels);
 

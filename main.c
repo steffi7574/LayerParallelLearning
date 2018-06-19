@@ -659,6 +659,15 @@ int main (int argc, char *argv[])
     int      ls_iter;        /**< Iterator for linesearch */
     double  *sk;             /**< BFGS: delta theta */
     double  *yk;             /**< BFGS: delta gradient */
+    double   braid_maxlevels;   /**< max. levels of temporal refinement */
+    double   braid_printlevel;  /**< print level of xbraid */
+    double   braid_cfactor;     /**< temporal coarsening factor */
+    double   braid_accesslevel; /**< braid access level */
+    double   braid_maxiter;     /**< max. iterations of xbraid */ 
+    double   braid_setskip;     /**< braid: skip work on first level */
+    double   braid_abstol;      /**< tolerance for primal braid */
+    double   braid_abstoladj;   /**< tolerance for adjoint braid */
+
     int      nreq; 
     char     optimfilename[255]; /**< Name of the optimization output file */
     FILE     *optimfile;      /**< File for optimization history */
@@ -675,11 +684,22 @@ int main (int argc, char *argv[])
 
     /* Optimization setup */
     gamma         = 1e-2;
-    maxoptimiter  = 1;
+    maxoptimiter  = 2;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 1;
     ls_factor     = 0.5;
+
+
+    /* XBraid setup */
+    braid_maxlevels   = 10.0;
+    braid_printlevel  = 1;
+    braid_cfactor     = 2;
+    braid_accesslevel = 0;
+    braid_maxiter     = 10;
+    braid_setskip     = 0;
+    braid_abstol      = 1e-10;
+    braid_abstoladj   = 1e-6; 
 
     /* Init problem parameters */
     T             = deltaT * ntimes;
@@ -787,14 +807,14 @@ int main (int argc, char *argv[])
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
 
     /* Set some Braid parameters */
-    braid_SetMaxLevels(core, 10);
-    braid_SetPrintLevel( core, 1);
-    braid_SetCFactor(core, -1, 2);
-    braid_SetAccessLevel(core, 0);
-    braid_SetMaxIter(core, 10);
-    braid_SetSkip(core, 0);
-    braid_SetAbsTol(core, 1.0e-10);
-    braid_SetAbsTolAdjoint(core, 1e-6);
+    braid_SetMaxLevels(core, braid_maxlevels);
+    braid_SetPrintLevel( core, braid_printlevel);
+    braid_SetCFactor(core, -1, braid_cfactor);
+    braid_SetAccessLevel(core, braid_accesslevel);
+    braid_SetMaxIter(core, braid_maxiter);
+    braid_SetSkip(core, braid_setskip);
+    braid_SetAbsTol(core, braid_abstol);
+    braid_SetAbsTolAdjoint(core, braid_abstoladj);
 
 
     /* Prepare optimization output */

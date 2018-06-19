@@ -87,12 +87,12 @@ take_step(myDouble* Y,
          }
          update[ichannel] = sum;
 
-         /* Apply activation */
-         update[ichannel] = sigma(update[ichannel]);
-
          /* Apply bias */
          th_idx = ts * (nchannels * nchannels + 1) + nchannels*nchannels;
          update[ichannel] += theta[th_idx];
+
+         /* Apply nonlinear activation */
+         update[ichannel] = sigma(update[ichannel]);
       }
 
       /* Apply transposed weights, if necessary, and update */

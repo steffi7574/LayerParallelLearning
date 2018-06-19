@@ -302,3 +302,43 @@ template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batc
 template double regularization<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 
+
+
+    // /* --- CONSTRUCT A LABEL MATRIX --- */
+
+    // double *Cstore = (double*) malloc(nclasses*nexamples*sizeof(double));
+    // /* Read YTarget */
+    // double  *Ytarget = (double*) malloc(nchannels * nexamples * sizeof(double));
+    // read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
+
+    // /* multiply Ytarget with W and add mu */
+    // int c_id, batch_id, weight_id, y_id;
+    // for (int ibatch = 0; ibatch < nbatch; ibatch ++)
+    // {
+    //     batch_id = batch[ibatch];
+    //     for (int iclass = 0; iclass < nclasses; iclass++)
+    //     {
+    //         c_id = batch_id * nclasses + iclass;
+    //         Cstore[c_id] = 0.0;
+        
+    //         /* Apply classification weights */
+    //         for (int ichannel = 0; ichannel < nchannels; ichannel++)
+    //         {
+    //             y_id          = batch_id * nchannels + ichannel;
+    //             weight_id     = iclass   * nchannels + ichannel;
+    //             Cstore[c_id] += Ytarget[y_id] * class_W[weight_id];
+    //         }
+
+    //         /* Add classification bias */
+    //         Cstore[c_id] += class_mu[iclass];
+    //     }
+    // }
+
+    // /* print Cstore to file */
+    // write_data("Cstore.dat", Cstore, nclasses*nexamples);
+
+    // free(Cstore);
+
+    // /* Stop calculating */
+    // return 0;
+

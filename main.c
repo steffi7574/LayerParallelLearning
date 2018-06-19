@@ -13,7 +13,8 @@
 typedef struct _braid_App_struct
 {
     int      myid;          /* Processor rank*/
-    double  *labels;        /* Data: Label vectors (C) */
+    double  *Clabels;       /* Data: Label vectors (C) */
+    double  *Ydata;         /* Training data */
     double  *theta;         /* theta variables */
     double  *class_W;       /* Weights of the classification problem (W) */
     double  *class_W_grad;  /* Gradient wrt the classification weights */
@@ -89,8 +90,11 @@ my_Init(braid_App     app,
     /* Initialize the vector */
     if (t == 0.0)
     {
-        /* Read training data from file */
-        read_data("Ytrain.transpose.dat", u->Ytrain, nchannels * nbatch);
+        /* Initialize with training data */
+        for (int i = 0; i < nchannels * nbatch; i++)
+        {
+            u->Ytrain[i] = app->Ydata[i];
+        }
     }
     else
     {
@@ -289,7 +293,7 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       tmp  = 1./nbatch * loss(u->Ytrain, app->labels, app->batch, nbatch, app->class_W, app->class_mu, nclasses, nchannels);
+       tmp  = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->class_W, app->class_mu, nclasses, nchannels);
        obj = tmp;
     }
 
@@ -364,7 +368,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->labels, app->batch,  nbatch, class_W, class_mu, nclasses, nchannels);
+       obj = 1./app->nbatch * loss(Ycodi, app->Clabels, app->batch,  nbatch, class_W, class_mu, nclasses, nchannels);
     } 
 
     
@@ -620,7 +624,8 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double   objective;      /**< Objective function */
-    double  *labels;         /**< Labels of the data set (C) */
+    double  *Ydata;          /**< Data set */
+    double  *Clabels;        /**< Clabels of the data set (C) */
     double  *theta;          /**< theta variables for the network */
     double  *theta0;         /**< Store the old theta variables before linesearch */
     double  *class_W;        /**< Weights for the classification problem, applied at last layer */
@@ -634,7 +639,7 @@ int main (int argc, char *argv[])
     double   class_gnorm;    /**< Norm of the gradient wrt classification weights and bias */
     double   gamma;          /**< Relaxation parameter */
     int     *batch;          /**< Contains indicees of the batch elements */
-    int      nclasses;       /**< Number of classes / labels */
+    int      nclasses;       /**< Number of classes / Clabels */
     int      nexamples;      /**< Number of elements in the training data */
     int      nbatch;         /**< Size of a batch */
     int      ntheta;         /**< dimension of the theta variables */
@@ -643,7 +648,6 @@ int main (int argc, char *argv[])
     double   T;              /**< Final time */
     double   theta_init;     /**< Initial theta value */
     double   class_init;     /**< Initial value for the classification weights and biases */
-    double   label_init;     /**< Initial value for the label vector */
     int      myid;           /**< Processor rank */
     double   deltaT;         /**< Time step size */
     double   stepsize_init;  /**< Initial stepsize for theta updates */
@@ -683,14 +687,13 @@ int main (int argc, char *argv[])
     deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
     theta_init    = 1e-2;
     class_init    = 1e-1;
-    label_init    = 1e-1;
 
     /* Optimization setup */
     gamma         = 1e-2;
-    maxoptimiter  = 1;
+    maxoptimiter  = 200;
     gtol          = 1e-4;
     stepsize_init = 1.0;
-    ls_maxiter    = 1;
+    ls_maxiter    = 20;
     ls_factor     = 0.5;
 
     /* XBraid setup */
@@ -732,8 +735,15 @@ int main (int argc, char *argv[])
     Hessian       = (double*) malloc(ntheta*ntheta*sizeof(double));
     sk            = (double*)malloc(ntheta*sizeof(double));
     yk            = (double*)malloc(ntheta*sizeof(double));
+    Clabels       = (double*) malloc(nclasses*nexamples*sizeof(double));
+    Ydata         = (double*) malloc(nexamples*nchannels*sizeof(double));
 
-    /* Initialization */
+    /* Read the data */
+    read_data("Clabels.dat", Clabels, nclasses*nexamples);
+    read_data("Ytrain.transpose.dat", Ydata, nchannels*nexamples);
+
+
+    /* Initialize theta and its gradient */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
         theta[itheta]        = theta_init; 
@@ -751,14 +761,6 @@ int main (int argc, char *argv[])
     }
 
 
-    /* Read the data */
-    labels = (double*) malloc(nclasses*nexamples*sizeof(double));
-    /* Set to zero for now. TODO: Read in the data! */
-    for (int i=0; i< nclasses*nexamples; i++)
-    {
-        labels[i] = 0.0;
-    }
-
     /* Initialize classification problem */
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
     {
@@ -772,45 +774,6 @@ int main (int argc, char *argv[])
     }
 
 
-    /* --- CONSTRUCT A LABEL MATRIX --- */
-
-    double *Cstore = (double*) malloc(nclasses*nexamples*sizeof(double));
-    /* Read YTarget */
-    double  *Ytarget = (double*) malloc(nchannels * nexamples * sizeof(double));
-    read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
-
-    /* multiply Ytarget with W and add mu */
-    int c_id, batch_id, weight_id, y_id;
-    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
-    {
-        batch_id = batch[ibatch];
-        for (int iclass = 0; iclass < nclasses; iclass++)
-        {
-            c_id = batch_id * nclasses + iclass;
-            Cstore[c_id] = 0.0;
-        
-            /* Apply classification weights */
-            for (int ichannel = 0; ichannel < nchannels; ichannel++)
-            {
-                y_id          = batch_id * nchannels + ichannel;
-                weight_id     = iclass   * nchannels + ichannel;
-                Cstore[c_id] += Ytarget[y_id] * class_W[weight_id];
-            }
-
-            /* Add classification bias */
-            Cstore[c_id] += class_mu[iclass];
-        }
-    }
-
-    /* print Cstore to file */
-    write_data("Cstore.dat", Cstore, nclasses*nexamples);
-
-    free(Cstore);
-
-    /* Stop calculating */
-    return 0;
-
-
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -819,7 +782,8 @@ int main (int argc, char *argv[])
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
     app->myid          = myid;
-    app->labels        = labels;
+    app->Clabels       = Clabels;
+    app->Ydata         = Ydata;
     app->theta         = theta;
     app->theta_grad    = theta_grad;
     app->class_W       = class_W;
@@ -837,19 +801,13 @@ int main (int argc, char *argv[])
     app->stepsize      = stepsize_init;
     app->Hessian       = Hessian;
 
-    /* Switch for finite difference testing */
-    findiff = 0;
-
-    /* DEGUB: Peturb the design */
-    // app->class_W[5] += 1e-6;
-
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
 
     /* Initialize adjoint XBraid */
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
 
-    /* Set some Braid parameters */
+    /* Set Braid parameters */
     braid_SetMaxLevels(core, braid_maxlevels);
     braid_SetPrintLevel( core, braid_printlevel);
     braid_SetCFactor(core, -1, braid_cfactor);
@@ -1006,6 +964,8 @@ int main (int argc, char *argv[])
     }
 
 
+    /* Switch for finite difference testing */
+    findiff = 0;
 
     /** ---------------------------------------------------------- 
      * DEBUG: Finite difference testing 
@@ -1073,7 +1033,8 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    free(labels);
+    free(Clabels);
+    free(Ydata);
     free(Hessian);
     free(theta0);
     free(theta);
@@ -1088,7 +1049,6 @@ int main (int argc, char *argv[])
     free(sk);
     free(yk);
     free(app);
-    free(Ytarget);
 
     braid_Destroy(core);
     MPI_Finalize();

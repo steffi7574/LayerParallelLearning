@@ -15,7 +15,7 @@ typedef struct _braid_App_struct
     double  *class_W_grad;  /* Gradient wrt the classification weights */
     double  *class_mu;      /* Bias of the classification problem (mu) */
     double  *class_mu_grad; /* Gradient wrt the classification bias */
-    double  *descentdir;    /* Descent direction (hessian times gradient) */
+    double  *descentdir_theta;    /* Descent direction (hessian times gradient) */
     double  *theta_grad;      /* Gradient of objective function wrt theta */
     double  *Hessian;       /* Hessian matrix */
     int     *batch;         /* List of Indicees of the batch elements */

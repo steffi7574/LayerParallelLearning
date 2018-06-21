@@ -76,7 +76,7 @@ int main()
     for (int ts = 0; ts <= ntimes; ts++)
     {
         /* Compute regularization term */
-        objective += alpha * regularization(theta, ts, deltat, ntimes, nchannels);
+        objective += alpha * regularization_theta(theta, ts, deltat, ntimes, nchannels);
 
         /* Move to next layer */
         take_step(Ytrain, theta, ts, deltat, batch, nbatch, nchannels, 0);

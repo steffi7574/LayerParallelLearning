@@ -62,11 +62,11 @@ loss(myDouble    *Y,
  */
 template <typename myDouble>
 myDouble
-regularization(myDouble* theta,
-               int          ts,
-               double       dt,
-               int          ntime,
-               int          nchannels);
+regularization_theta(myDouble* theta,
+                     int          ts,
+                     double       dt,
+                     int          ntime,
+                     int          nchannels);
 
 /**
  * Read data from file 

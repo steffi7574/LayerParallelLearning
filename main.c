@@ -28,7 +28,8 @@ typedef struct _braid_App_struct
     int      nbatch;        /* Number of elements in the batch */
     int      nchannels;     /* Width of the network */
     int      ntimes;        /* number of time-steps / layers */
-    double   gamma;         /* Relaxation parameter   */
+    double   gamma_theta;   /* Relaxation parameter for theta */
+    double   gamma_class;   /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;        /* Time-step size on fine grid */
     double   stepsize;      /* Stepsize for theta updates */
 } my_App;
@@ -286,8 +287,8 @@ my_ObjectiveT(braid_App              app,
  
     if (ts < ntimes)
     {
-        /* Compute regularization term */
-        tmp = app->gamma * regularization(app->theta, ts, app->deltaT, ntimes, nchannels);
+        /* Compute regularization term for theta */
+        tmp = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
         obj = tmp;
     }
     else
@@ -295,6 +296,9 @@ my_ObjectiveT(braid_App              app,
         /* Evaluate loss */
        tmp  = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->class_W, app->class_mu, nclasses, nchannels);
        obj = tmp;
+
+       /* Add regularization for classifier */
+    //    obj += app->gamma_class * regularization_class(app->class_W, app->class_mu, nclasses, nchannels);
     }
 
     *objective_ptr = getValue(obj);
@@ -363,12 +367,15 @@ my_ObjectiveT_diff(braid_App            app,
     if (ts < app->ntimes)
     {
         /* Compute regularization term */
-        obj = app->gamma * regularization(theta, ts, app->deltaT, ntimes, nchannels);
+        obj = app->gamma_theta * regularization_theta(theta, ts, app->deltaT, ntimes, nchannels);
     }
     else
     {
         /* Evaluate loss at last layer*/
        obj = 1./app->nbatch * loss(Ycodi, app->Clabels, app->batch,  nbatch, class_W, class_mu, nclasses, nchannels);
+
+       /* Add regularization for classifier */
+    //    obj += app->gamma_class * regularization_class(class_W, class_mu, nclasses, nchannels);
     } 
 
     
@@ -637,7 +644,8 @@ int main (int argc, char *argv[])
     double  *descentdir;     /**< Store the old theta variables before linesearch */
     double   theta_gnorm;    /**< Norm of the gradient wrt theta */
     double   class_gnorm;    /**< Norm of the gradient wrt classification weights and bias */
-    double   gamma;          /**< Relaxation parameter */
+    double   gamma_theta;    /**< Relaxation parameter for theta */
+    double   gamma_class;    /**< Relaxation parameter for the classification weights and bias */
     int     *batch;          /**< Contains indicees of the batch elements */
     int      nclasses;       /**< Number of classes / Clabels */
     int      nexamples;      /**< Number of elements in the training data */
@@ -689,7 +697,8 @@ int main (int argc, char *argv[])
     class_init    = 1e-1;
 
     /* Optimization setup */
-    gamma         = 1e-2;
+    gamma_theta   = 1e-2;
+    gamma_class   = 1e-2;
     maxoptimiter  = 200;
     gtol          = 1e-4;
     stepsize_init = 1.0;
@@ -797,7 +806,8 @@ int main (int argc, char *argv[])
     app->nclasses      = nclasses;
     app->ntimes        = ntimes;
     app->deltaT        = deltaT;
-    app->gamma         = gamma;
+    app->gamma_theta   = gamma_theta;
+    app->gamma_class   = gamma_class;
     app->stepsize      = stepsize_init;
     app->Hessian       = Hessian;
 
@@ -825,9 +835,9 @@ int main (int argc, char *argv[])
     //    printf("\n#    || r ||         || r_adj ||       Objective      || Gradient ||  Stepsize   ls_iter\n");
        
        /* History file */
-       sprintf(optimfilename, "%s.%03f.dat", "optim", stepsize_init);
+       sprintf(optimfilename, "%s.dat", "optim");
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || Gradient ||   Stepsize  ls_iter\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || theta_grad ||    || class_grad ||   Stepsize  ls_iter\n");
     }
 
 
@@ -1056,6 +1066,7 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
         fclose(optimfile);
+        printf("Optimfile: %s\n", optimfilename);
     }
 
 

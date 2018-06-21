@@ -9,109 +9,7 @@
 #include "braid_wrapper.h"
 
 
-// int 
-// gradient_access(braid_App app)
-// {
-//     int g_idx;
-//     double nchannels = app->nchannels;
-//     double ntimes    = app->ntimes;
 
-//    /* Print the gradient wrt theta */
-//     for (int ts = 0; ts < ntimes; ts++)
-//     {
-
-//         for (int ichannel = 0; ichannel < nchannels; ichannel++)
-//         {
-            
-//             for (int jchannel = 0; jchannel < nchannels; jchannel++)
-//             {
-//                 g_idx = ts * (nchannels*nchannels + 1) + ichannel * nchannels + jchannel;
-//                 printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->theta_grad[g_idx]);
-//             }
-//         }
-//         g_idx = ts * (nchannels*nchannels + 1) + nchannels* nchannels;
-//         printf("%d: %02d %03d %1.14e\n", app->myid, ts, g_idx, app->theta_grad[g_idx]);
-//     }
-
-//    return 0;
-// }
-
-int
-gradient_allreduce(braid_App app, 
-                   MPI_Comm comm)
-{
-
-   int ntheta   = (app->nchannels * app->nchannels + 1) * app->ntimes;
-   int nclassW  =  app->nchannels * app->nclasses;
-   int nclassmu =  app->nclasses;
-
-   double *theta_grad   = (double*) malloc(ntheta   *sizeof(double));
-   double *classW_grad  = (double*) malloc(nclassW  *sizeof(double));
-   double *classmu_grad = (double*) malloc(nclassmu *sizeof(double));
-   for (int i = 0; i<ntheta; i++)
-   {
-       theta_grad[i] = app->theta_grad[i];
-   }
-   for (int i = 0; i < nclassW; i++)
-   {
-       classW_grad[i] = app->class_W_grad[i];
-   }
-   for (int i = 0; i < nclassmu; i++)
-   {
-       classmu_grad[i] = app->class_mu_grad[i];
-   }
-
-   /* Collect sensitivities from all time-processors */
-   MPI_Allreduce(theta_grad, app->theta_grad, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classW_grad, app->class_W_grad, nclassW, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classmu_grad, app->class_mu_grad, nclassmu, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-   free(theta_grad);
-   free(classW_grad);
-   free(classmu_grad);
-
-   return 0;
-}                  
-
-
-
-
-int
-gradient_norm(braid_App app,
-              double   *theta_gnorm_prt,
-              double   *class_gnorm_prt)
-
-{
-    double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
-    int nclassW   =  app->nchannels * app->nclasses;
-    int nclassmu  =  app->nclasses;
-    double theta_gnorm, class_gnorm;
-
-    /* Norm of gradient */
-    theta_gnorm = 0.0;
-    class_gnorm = 0.0;
-    for (int itheta = 0; itheta < ntheta; itheta++)
-    {
-        theta_gnorm += pow(getValue(app->theta_grad[itheta]), 2);
-    }
-    for (int i = 0; i < nclassW; i++)
-    {
-        class_gnorm += pow(getValue(app->class_W_grad[i]),2);
-    }
-    for (int i = 0; i < nclassmu; i++)
-    {
-        class_gnorm += pow(getValue(app->class_mu_grad[i]),2);
-    }
-    theta_gnorm = sqrt(theta_gnorm);
-    class_gnorm = sqrt(class_gnorm);
-
-    *theta_gnorm_prt = theta_gnorm;
-    *class_gnorm_prt = class_gnorm;
-    
-    return 0;
-}
-    
-   
 
 
 int main (int argc, char *argv[])
@@ -368,7 +266,7 @@ int main (int argc, char *argv[])
            break;
         }
 
-        // /* Hessian approximation */
+        /* Hessian approximation */
         for (int itheta = 0; itheta < ntheta; itheta++)
         {
             /* Update sk and yk for bfgs */
@@ -413,7 +311,7 @@ int main (int argc, char *argv[])
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * app->stepsize * wolfe ) 
             {
-                /* Success, use this theta update */
+                /* Success, use this new theta -> keep it in app->theta */
                 break;
             }
             else
@@ -437,13 +335,6 @@ int main (int argc, char *argv[])
             }
 
         }
-
-        /* Increase stepsize if no reduction has been done */
-        // if (ls_iter == 0)
-        // {
-            // stepsize_init = stepsize_init / ls_factor;
-        // }
-
    }
 
 

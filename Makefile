@@ -12,7 +12,6 @@ CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 CFLAGS= -g -Wall -pedantic -lm -Wno-write-strings
 
 DEPS = lib.h braid_wrapper.h bfgs.h
-OBJ-serial = main-serial.o lib.o 
 OBJ-pint   = main.o lib.o bfgs.o braid_wrapper.o
 
 %.o: %.c $(DEPS)
@@ -21,10 +20,6 @@ OBJ-pint   = main.o lib.o bfgs.o braid_wrapper.o
 main: $(OBJ-pint)
 	$(MPICXX) $(CFLAGS) -o $@ $^ $(BRAID_LIB_FILE)
 
-main-serial: $(OBJ-serial)
-	$(MPICXX) $(CFLAGS) -o $@ $^ 
-
 clean: 
 	rm -f *.o
-	rm -f main-serial
 	rm -f main

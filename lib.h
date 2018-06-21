@@ -1,6 +1,7 @@
 #ifndef LIB_H_INCLUDED
 #define LIB_H_INCLUDED
 
+#include "braid_wrapper.h"
 #include "codi.hpp"
 using namespace codi;
 
@@ -67,6 +68,22 @@ regularization_theta(myDouble* theta,
                      double       dt,
                      int          ntime,
                      int          nchannels);
+
+/** 
+ * Invoke an MPI_allreduce call on the gradient 
+ */
+int
+gradient_allreduce(braid_App app, 
+                   MPI_Comm comm);
+
+
+/** 
+ * Set the gradient to zero 
+ */
+int
+gradient_norm(braid_App app,
+              double   *theta_gnorm_prt,
+              double   *class_gnorm_prt);
 
 /**
  * Read data from file 

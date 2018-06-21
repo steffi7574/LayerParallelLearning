@@ -239,6 +239,85 @@ regularization_theta(myDouble* theta,
 }        
 
 
+int
+gradient_allreduce(braid_App app, 
+                   MPI_Comm comm)
+{
+
+   int ntheta   = (app->nchannels * app->nchannels + 1) * app->ntimes;
+   int nclassW  =  app->nchannels * app->nclasses;
+   int nclassmu =  app->nclasses;
+
+   double *theta_grad   = (double*) malloc(ntheta   *sizeof(double));
+   double *classW_grad  = (double*) malloc(nclassW  *sizeof(double));
+   double *classmu_grad = (double*) malloc(nclassmu *sizeof(double));
+   for (int i = 0; i<ntheta; i++)
+   {
+       theta_grad[i] = app->theta_grad[i];
+   }
+   for (int i = 0; i < nclassW; i++)
+   {
+       classW_grad[i] = app->class_W_grad[i];
+   }
+   for (int i = 0; i < nclassmu; i++)
+   {
+       classmu_grad[i] = app->class_mu_grad[i];
+   }
+
+   /* Collect sensitivities from all time-processors */
+   MPI_Allreduce(theta_grad, app->theta_grad, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(classW_grad, app->class_W_grad, nclassW, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(classmu_grad, app->class_mu_grad, nclassmu, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+   free(theta_grad);
+   free(classW_grad);
+   free(classmu_grad);
+
+   return 0;
+}                  
+
+
+
+
+int
+gradient_norm(braid_App app,
+              double   *theta_gnorm_prt,
+              double   *class_gnorm_prt)
+
+{
+    double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    int nclassW   =  app->nchannels * app->nclasses;
+    int nclassmu  =  app->nclasses;
+    double theta_gnorm, class_gnorm;
+
+    /* Norm of gradient */
+    theta_gnorm = 0.0;
+    class_gnorm = 0.0;
+    for (int itheta = 0; itheta < ntheta; itheta++)
+    {
+        theta_gnorm += pow(getValue(app->theta_grad[itheta]), 2);
+    }
+    for (int i = 0; i < nclassW; i++)
+    {
+        class_gnorm += pow(getValue(app->class_W_grad[i]),2);
+    }
+    for (int i = 0; i < nclassmu; i++)
+    {
+        class_gnorm += pow(getValue(app->class_mu_grad[i]),2);
+    }
+    theta_gnorm = sqrt(theta_gnorm);
+    class_gnorm = sqrt(class_gnorm);
+
+    *theta_gnorm_prt = theta_gnorm;
+    *class_gnorm_prt = class_gnorm;
+    
+    return 0;
+}
+    
+   
+
+
+
 template <typename myDouble> 
 int
 read_data(char *filename, myDouble *var, int size)

@@ -232,6 +232,7 @@ read_data(char *filename, myDouble *var, int size)
       printf("Can't open %s \n", filename);
       exit(1);
    }
+   printf("Reading file %s\n", filename);
    for ( i = 0; i < size; i++)
    {
       fscanf(file, "%lf", &tmp);

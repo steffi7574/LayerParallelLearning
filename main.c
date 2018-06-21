@@ -739,8 +739,8 @@ int main (int argc, char *argv[])
     Ydata         = (double*) malloc(nexamples*nchannels*sizeof(double));
 
     /* Read the data */
-    read_data("Clabels.dat", Clabels, nclasses*nexamples);
-    read_data("Ytrain.transpose.dat", Ydata, nchannels*nexamples);
+    read_data("trainingdata/Clabels.dat", Clabels, nclasses*nexamples);
+    read_data("trainingdata/Ytrain.transpose.dat", Ydata, nchannels*nexamples);
 
 
     /* Initialize theta and its gradient */

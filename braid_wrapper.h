@@ -11,10 +11,10 @@ typedef struct _braid_App_struct
     double  *Clabels;       /* Data: Label vectors (C) */
     double  *Ydata;         /* Training data */
     double  *theta;         /* theta variables */
-    double  *class_W;       /* Weights of the classification problem (W) */
-    double  *class_W_grad;  /* Gradient wrt the classification weights */
-    double  *class_mu;      /* Bias of the classification problem (mu) */
-    double  *class_mu_grad; /* Gradient wrt the classification bias */
+    double  *classW;       /* Weights of the classification problem (W) */
+    double  *classW_grad;  /* Gradient wrt the classification weights */
+    double  *classMu;      /* Bias of the classification problem (mu) */
+    double  *classMu_grad; /* Gradient wrt the classification bias */
     double  *descentdir_theta;    /* Descent direction (hessian times gradient) */
     double  *theta_grad;      /* Gradient of objective function wrt theta */
     double  *Hessian;       /* Hessian matrix */

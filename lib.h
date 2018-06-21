@@ -52,8 +52,8 @@ loss(myDouble    *Y,
      double      *Target,
      int         *batch,
      int          nbatch,
-     myDouble    *class_W,
-     myDouble    *class_mu,
+     myDouble    *classW,
+     myDouble    *classMu,
      int          nclasses,
      int          nchannels);
 
@@ -84,6 +84,15 @@ int
 gradient_norm(braid_App app,
               double   *theta_gnorm_prt,
               double   *class_gnorm_prt);
+
+
+/**
+ * Updates theta into 'direction' 
+ */
+int 
+update_theta(braid_App app, 
+             double    stepsize,
+             double   *direction);
 
 /**
  * Read data from file 

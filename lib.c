@@ -132,8 +132,8 @@ loss(myDouble     *Y,
      double       *Target,
      int          *batch,
      int           nbatch,
-     myDouble     *class_W,
-     myDouble     *class_mu,
+     myDouble     *classW,
+     myDouble     *classMu,
      int           nclasses,
      int           nchannels)
 {
@@ -157,11 +157,11 @@ loss(myDouble     *Y,
             {
                 y_id      = batch_id * nchannels + ichannel;
                 weight_id = iclass   * nchannels + ichannel;
-                class_obj += Y[y_id] * class_W[weight_id];
+                class_obj += Y[y_id] * classW[weight_id];
             }
 
             /* Add classification bias */
-            class_obj += class_mu[iclass];
+            class_obj += classMu[iclass];
 
             /* Evaluate loss */
             target_id = batch_id * nclasses + iclass;
@@ -175,8 +175,8 @@ loss(myDouble     *Y,
 
 template <typename myDouble>
 myDouble
-regularization_class(myDouble *class_W, 
-                     myDouble *class_mu, 
+regularization_class(myDouble *classW, 
+                     myDouble *classMu, 
                      int       nclasses, 
                      int       nchannels)
 {
@@ -186,13 +186,13 @@ regularization_class(myDouble *class_W,
     /* W-part */
     for (idx = 0; idx < nclasses * nchannels; idx++)
     {
-        relax += 1./2. * (class_W[idx] * class_W[idx]);
+        relax += 1./2. * (classW[idx] * classW[idx]);
     }
 
     /* mu-part */
     for (idx = 0; idx < nclasses; idx++)
     {
-        relax += 1./2. * (class_mu[idx] * class_mu[idx]);
+        relax += 1./2. * (classMu[idx] * classMu[idx]);
     }
 
     return relax;
@@ -257,17 +257,17 @@ gradient_allreduce(braid_App app,
    }
    for (int i = 0; i < nclassW; i++)
    {
-       classW_grad[i] = app->class_W_grad[i];
+       classW_grad[i] = app->classW_grad[i];
    }
    for (int i = 0; i < nclassmu; i++)
    {
-       classmu_grad[i] = app->class_mu_grad[i];
+       classmu_grad[i] = app->classMu_grad[i];
    }
 
    /* Collect sensitivities from all time-processors */
    MPI_Allreduce(theta_grad, app->theta_grad, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classW_grad, app->class_W_grad, nclassW, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classmu_grad, app->class_mu_grad, nclassmu, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(classW_grad, app->classW_grad, nclassW, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(classmu_grad, app->classMu_grad, nclassmu, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
    free(theta_grad);
    free(classW_grad);
@@ -299,11 +299,11 @@ gradient_norm(braid_App app,
     }
     for (int i = 0; i < nclassW; i++)
     {
-        class_gnorm += pow(getValue(app->class_W_grad[i]),2);
+        class_gnorm += pow(getValue(app->classW_grad[i]),2);
     }
     for (int i = 0; i < nclassmu; i++)
     {
-        class_gnorm += pow(getValue(app->class_mu_grad[i]),2);
+        class_gnorm += pow(getValue(app->classMu_grad[i]),2);
     }
     theta_gnorm = sqrt(theta_gnorm);
     class_gnorm = sqrt(class_gnorm);
@@ -315,7 +315,20 @@ gradient_norm(braid_App app,
 }
     
    
+int 
+update_theta(braid_App app, 
+             double    stepsize,
+             double   *direction)
+{
+    int ntheta = (app->nchannels * app->nchannels + 1 )*app->ntimes;
 
+    for (int itheta = 0; itheta < ntheta; itheta++)
+    {
+        app->theta[itheta] += stepsize * direction[itheta];
+    }
+
+    return 0;
+}
 
 
 template <typename myDouble> 
@@ -407,14 +420,14 @@ template RealReverse sigma<RealReverse>(RealReverse x);
 template int take_step<double>(double* Y, double* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
 template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
 
-template double loss<double>(double  *Y, double *Target, int *batch, int nbatch, double *class_W, double *class_mu, int nclasses, int nchannels);
-template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batch, int nbatch, RealReverse *class_W, RealReverse *class_mu, int nclasses, int nchannels);
+template double loss<double>(double  *Y, double *Target, int *batch, int nbatch, double *classW, double *classMu, int nclasses, int nchannels);
+template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batch, int nbatch, RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels);
 
 template double regularization_theta<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 
-template RealReverse regularization_class<RealReverse>(RealReverse *class_W, RealReverse *class_mu, int nclasses, int nchannels);
-template double regularization_class<double>(double *class_W, double *class_mu, int nclasses, int nchannels);
+template RealReverse regularization_class<RealReverse>(RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels);
+template double regularization_class<double>(double *classW, double *classMu, int nclasses, int nchannels);
 
 
     // /* --- CONSTRUCT A LABEL MATRIX --- */
@@ -439,11 +452,11 @@ template double regularization_class<double>(double *class_W, double *class_mu, 
     //         {
     //             y_id          = batch_id * nchannels + ichannel;
     //             weight_id     = iclass   * nchannels + ichannel;
-    //             Cstore[c_id] += Ytarget[y_id] * class_W[weight_id];
+    //             Cstore[c_id] += Ytarget[y_id] * classW[weight_id];
     //         }
 
     //         /* Add classification bias */
-    //         Cstore[c_id] += class_mu[iclass];
+    //         Cstore[c_id] += classMu[iclass];
     //     }
     // }
 

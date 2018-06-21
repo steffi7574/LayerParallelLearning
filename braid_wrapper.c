@@ -258,11 +258,11 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       tmp  = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->class_W, app->class_mu, nclasses, nchannels);
+       tmp  = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
        obj = tmp;
 
        /* Add regularization for classifier */
-    //    obj += app->gamma_class * regularization_class(app->class_W, app->class_mu, nclasses, nchannels);
+    //    obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
     }
 
     *objective_ptr = getValue(obj);
@@ -299,12 +299,12 @@ my_ObjectiveT_diff(braid_App            app,
     /* Register input */
     RealReverse* Ycodi;   /* CodiType for the state */
     RealReverse* theta;   /* CodiType for the theta */
-    RealReverse* class_W; /* CoDiTypye for class_W */
-    RealReverse* class_mu; /* CoDiTypye for class_mu */
+    RealReverse* classW; /* CoDiTypye for classW */
+    RealReverse* classMu; /* CoDiTypye for classMu */
     Ycodi     = (RealReverse*) malloc(nstate   * sizeof(RealReverse));
     theta     = (RealReverse*) malloc(ntheta   * sizeof(RealReverse));
-    class_W   = (RealReverse*) malloc(nclassW  * sizeof(RealReverse));
-    class_mu  = (RealReverse*) malloc(nclassmu * sizeof(RealReverse));
+    classW   = (RealReverse*) malloc(nclassW  * sizeof(RealReverse));
+    classMu  = (RealReverse*) malloc(nclassmu * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
     {
         Ycodi[i] = u->Ytrain[i];
@@ -317,13 +317,13 @@ my_ObjectiveT_diff(braid_App            app,
     }
     for (int i = 0; i < nclassW; i++)
     {
-        class_W[i] = app->class_W[i];
-        codiTape.registerInput(class_W[i]);
+        classW[i] = app->classW[i];
+        codiTape.registerInput(classW[i]);
     }
     for (int i=0; i<nclasses; i++)
     {
-        class_mu[i] = app->class_mu[i];
-        codiTape.registerInput(class_mu[i]);
+        classMu[i] = app->classMu[i];
+        codiTape.registerInput(classMu[i]);
     }
     
 
@@ -336,10 +336,10 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->Clabels, app->batch,  nbatch, class_W, class_mu, nclasses, nchannels);
+       obj = 1./app->nbatch * loss(Ycodi, app->Clabels, app->batch,  nbatch, classW, classMu, nclasses, nchannels);
 
        /* Add regularization for classifier */
-    //    obj += app->gamma_class * regularization_class(class_W, class_mu, nclasses, nchannels);
+    //    obj += app->gamma_class * regularization_class(classW, classMu, nclasses, nchannels);
     } 
 
     
@@ -361,11 +361,11 @@ my_ObjectiveT_diff(braid_App            app,
     }
     for (int i = 0; i < nclassW; i++)
     {
-        app->class_W_grad[i] += class_W[i].getGradient();
+        app->classW_grad[i] += classW[i].getGradient();
     }
     for (int i=0; i < nclassmu; i++)
     {
-        app->class_mu_grad[i] += class_mu[i].getGradient();
+        app->classMu_grad[i] += classMu[i].getGradient();
     }
 
     /* Reset the codi tape */
@@ -374,8 +374,8 @@ my_ObjectiveT_diff(braid_App            app,
     /* Clean up */
     free(Ycodi);
     free(theta);
-    free(class_W);
-    free(class_mu);
+    free(classW);
+    free(classMu);
 
    return 0;
 }
@@ -475,11 +475,11 @@ my_ResetGradient(braid_App app)
     }
     for (int i = 0; i < nclassW; i++)
     {
-        app->class_W_grad[i] = 0.0;
+        app->classW_grad[i] = 0.0;
     }
     for (int i = 0; i < nclassmu; i++)
     {
-        app->class_mu_grad[i] = 0.0;
+        app->classMu_grad[i] = 0.0;
     }
 
 

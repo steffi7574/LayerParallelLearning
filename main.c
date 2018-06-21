@@ -22,10 +22,10 @@ int main (int argc, char *argv[])
     double  *Clabels;           /**< Clabels of the data set (C) */
     double  *theta;             /**< theta variables for the network */
     double  *theta0;            /**< Store the old theta variables before linesearch */
-    double  *class_W;           /**< Weights for the classification problem, applied at last layer */
-    double  *class_W_grad;      /**< Gradient wrt the classification weights */
-    double  *class_mu;          /**< Bias of the classification problem, applied at last layer */
-    double  *class_mu_grad;     /**< Gradient wrt the classification bias */
+    double  *classW;           /**< Weights for the classification problem, applied at last layer */
+    double  *classW_grad;      /**< Gradient wrt the classification weights */
+    double  *classMu;          /**< Bias of the classification problem, applied at last layer */
+    double  *classMu_grad;     /**< Gradient wrt the classification bias */
     double  *theta_grad;        /**< Gradient of objective function wrt theta */
     double  *theta_grad0;       /**< Store the old gradient before linesearch */
     double  *descentdir_theta;  /**< Descent direction (hessian times gradient) */
@@ -120,10 +120,10 @@ int main (int argc, char *argv[])
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
     theta0            = (double*) malloc(ntheta*sizeof(double));
-    class_W           = (double*) malloc(nchannels*nclasses*sizeof(double));
-    class_W_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
-    class_mu          = (double*) malloc(nclasses*sizeof(double));
-    class_mu_grad     = (double*) malloc(nclasses*sizeof(double));
+    classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
+    classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
+    classMu          = (double*) malloc(nclasses*sizeof(double));
+    classMu_grad     = (double*) malloc(nclasses*sizeof(double));
     descentdir_theta  = (double*) malloc(ntheta*sizeof(double));
     batch             = (int*) malloc(nbatch*sizeof(int));
     theta_grad        = (double*) malloc(ntheta*sizeof(double));
@@ -162,11 +162,11 @@ int main (int argc, char *argv[])
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            class_W[ichannels * nchannels + iclasses]      = class_init; 
-            class_W_grad[ichannels * nchannels + iclasses] = 0.0; 
+            classW[ichannels * nchannels + iclasses]      = class_init; 
+            classW_grad[ichannels * nchannels + iclasses] = 0.0; 
         }
-        class_mu[iclasses]      = class_init;
-        class_mu_grad[iclasses] = 0.0;
+        classMu[iclasses]      = class_init;
+        classMu_grad[iclasses] = 0.0;
     }
 
 
@@ -182,10 +182,10 @@ int main (int argc, char *argv[])
     app->Ydata             = Ydata;
     app->theta             = theta;
     app->theta_grad        = theta_grad;
-    app->class_W           = class_W;
-    app->class_W_grad      = class_W_grad;
-    app->class_mu          = class_mu;
-    app->class_mu_grad     = class_mu_grad;
+    app->classW           = classW;
+    app->classW_grad      = classW_grad;
+    app->classMu          = classMu;
+    app->classMu_grad     = classMu_grad;
     app->descentdir_theta  = descentdir_theta;
     app->batch             = batch;
     app->nbatch            = nbatch;
@@ -266,20 +266,20 @@ int main (int argc, char *argv[])
            break;
         }
 
-        /* Hessian approximation */
+        /* Hessian approximation for theta */
         for (int itheta = 0; itheta < ntheta; itheta++)
         {
             /* Update sk and yk for bfgs */
             sk[itheta] = app->theta[itheta] - theta0[itheta];
             yk[itheta] = app->theta_grad[itheta] - theta_grad0[itheta];
 
-            /* Store current theta and gradient vector */
-            theta0[itheta]    = app->theta[itheta];
+            /* Store current design theta, classW, classmu and gradient */
+            theta0[itheta]      = app->theta[itheta];
             theta_grad0[itheta] = app->theta_grad[itheta];
         }
         bfgs_update(ntheta, sk, yk, app->Hessian);
 
-        /* Compute descent direction */
+        /* Compute descent direction for theta */
         double wolfe = 0.0;
         for (int itheta = 0; itheta < ntheta; itheta++)
         {
@@ -298,10 +298,7 @@ int main (int argc, char *argv[])
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Take a trial step using the current stepsize) */
-            for (int itheta = 0; itheta < ntheta; itheta++)
-            {
-                app->theta[itheta] += app->stepsize * app->descentdir_theta[itheta];
-            }
+            update_theta(app, app->stepsize, app->descentdir_theta);
 
             /* Compute new objective function value for that trial step */
             braid_SetObjectiveOnly(core, 1);
@@ -326,7 +323,7 @@ int main (int argc, char *argv[])
                 /* Restore the previous theta and gradient variable */
                 for (int itheta = 0; itheta < ntheta; itheta++)
                 {
-                    app->theta[itheta]    = theta0[itheta];
+                    app->theta[itheta]      = theta0[itheta];
                     app->theta_grad[itheta] = theta_grad0[itheta];
                 }
 
@@ -349,8 +346,8 @@ int main (int argc, char *argv[])
         /* Print to file */
         write_data("theta_opt.dat", app->theta, ntheta);
         write_data("theta_grad.dat", app->theta_grad, ntheta);
-        write_data("classW_grad.dat", app->class_W_grad, nchannels * nclasses);
-        write_data("classmu_grad.dat", app->class_mu_grad, nclasses);
+        write_data("classW_grad.dat", app->classW_grad, nchannels * nclasses);
+        write_data("classmu_grad.dat", app->classMu_grad, nclasses);
     }
 
 
@@ -428,10 +425,10 @@ int main (int argc, char *argv[])
     free(Hessian);
     free(theta0);
     free(theta);
-    free(class_W);
-    free(class_W_grad);
-    free(class_mu);
-    free(class_mu_grad);
+    free(classW);
+    free(classW_grad);
+    free(classMu);
+    free(classMu_grad);
     free(theta_grad0);
     free(theta_grad);
     free(descentdir_theta);

@@ -832,12 +832,12 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-    //    printf("\n#    || r ||         || r_adj ||       Objective      || Gradient ||  Stepsize   ls_iter\n");
+       printf("\n#    || r ||         || r_adj ||       Objective        || theta_grad ||     || class_grad ||      Stepsize   ls_iter\n");
        
        /* History file */
        sprintf(optimfilename, "%s.dat", "optim");
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective      || theta_grad ||    || class_grad ||   Stepsize  ls_iter\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || theta_grad ||     || class_grad ||      Stepsize  ls_iter\n");
     }
 
 

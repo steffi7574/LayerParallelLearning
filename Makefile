@@ -11,9 +11,9 @@ CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 # set compiler flags
 CFLAGS= -g -Wall -pedantic -lm -Wno-write-strings
 
-DEPS = lib.h
-OBJ-serial = main-serial.o lib.o
-OBJ-pint   = main.o lib.o bfgs.o
+DEPS = lib.h braid_wrapper.h bfgs.h
+OBJ-serial = main-serial.o lib.o 
+OBJ-pint   = main.o lib.o bfgs.o braid_wrapper.o
 
 %.o: %.c $(DEPS)
 	$(MPICXX) $(CFLAGS) -c $< -o $@  $(INC)

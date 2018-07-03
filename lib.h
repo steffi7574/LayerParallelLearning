@@ -1,6 +1,9 @@
 #ifndef LIB_H_INCLUDED
 #define LIB_H_INCLUDED
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include "braid_wrapper.h"
 #include "codi.hpp"
 using namespace codi;
@@ -40,11 +43,12 @@ sigma_diff(double x);
  * Return maximum of two doubles */
 template <typename myDouble>
 myDouble 
-maximum(myDouble a,
-        myDouble b);
+maximum(myDouble *a,
+        int       size_t);
 
 /**
  * Evaluate the loss functin
+ * Softmax Regression 
  */
 template <typename myDouble>
 myDouble  

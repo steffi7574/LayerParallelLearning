@@ -258,7 +258,7 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       tmp  = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
+       tmp = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
        obj = tmp;
 
        /* Add regularization for classifier */

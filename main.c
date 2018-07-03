@@ -82,7 +82,7 @@ int main (int argc, char *argv[])
     nexamples     = 5000;
     nchannels     = 4;
     nclasses      = 5;
-    ntimes        = 32;
+    ntimes        = 5;
     deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
     theta_init    = 1e-2;
     class_init    = 1e-1;
@@ -90,7 +90,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-2;
-    maxoptimiter  = 200;
+    maxoptimiter  = 1;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -273,7 +273,7 @@ int main (int argc, char *argv[])
         }
 
         /* Check optimization convergence */
-        if (  maximum(theta_gnorm, class_gnorm) < gtol || iter == maxoptimiter - 1 )
+        if (  ( theta_gnorm < gtol && class_gnorm < gtol ) || iter == maxoptimiter - 1 )
         {
            break;
         }

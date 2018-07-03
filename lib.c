@@ -1,19 +1,21 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 #include "lib.h"
 
 
 template <typename myDouble>
 myDouble 
-maximum(myDouble a,
-        myDouble b)
+maximum(myDouble *a,
+        int       size_t)
 {
-   myDouble max = a;
-   if (a < b)
+   myDouble max = a[0];
+   
+   for (int i = 1; i < size_t; i++)
    {
-      max = b;
+       if (a[i] > max)
+       {
+          max = a[i];
+       }
    }
+
    return max;
 }
 
@@ -137,37 +139,72 @@ loss(myDouble     *Y,
      int           nclasses,
      int           nchannels)
 {
-   myDouble loss      = 0.0; 
-   myDouble class_obj = 0.0;
+   myDouble loss; 
+   myDouble normalization, tmp;
    int batch_id, weight_id, y_id, target_id;
+   myDouble* YW_batch = new myDouble [nclasses];
 
+
+   loss = 0.0;
    /* Loop over batch elements */
    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
    {
        /* Get batch_id */
        batch_id = batch[ibatch];
-       
-       /* Loop over classes */
-       for (int iclass = 0; iclass < nclasses; iclass++)
-       {
-            class_obj = 0.0;
 
-            /* Apply classification weights */
+        /* Apply the classification weights YW */
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            YW_batch[iclass] = 0.0;
+
             for (int ichannel = 0; ichannel < nchannels; ichannel++)
             {
                 y_id      = batch_id * nchannels + ichannel;
                 weight_id = iclass   * nchannels + ichannel;
-                class_obj += Y[y_id] * classW[weight_id];
+                YW_batch[iclass] += Y[y_id] * classW[weight_id];
             }
+        }
 
-            /* Add classification bias */
-            class_obj += classMu[iclass];
+        /* Add the classification bias YW + mu */
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            YW_batch[iclass] += classMu[iclass];
+        }
 
-            /* Evaluate loss */
+        /* Pointwise Normalization YW + mu - max(classes) */
+        normalization = maximum (YW_batch, nclasses);
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            YW_batch[iclass] -= normalization;
+        }
+
+        /* First term: sum (C.*YW) */
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
             target_id = batch_id * nclasses + iclass;
-            loss += 1./2. * (class_obj - Target[target_id]) * (class_obj - Target[target_id]);
-       }
+            loss -= Target[target_id] * YW_batch[iclass];
+        }
+
+        /* Second term: log(sum(exp.(YW))) */
+        tmp = 0.0;
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            tmp += exp(YW_batch[iclass]);
+        }
+        loss += log(tmp);
+
+
+
+       
+        /* Evaluate loss */
+        for (int iclass = 0; iclass < nclasses; iclass++)
+        {
+            target_id = batch_id * nclasses + iclass;
+            loss += 1./2. * (YW_batch[iclass] - Target[target_id]) * (YW_batch[iclass] - Target[target_id]);
+        }
    }
+
+   delete [] YW_batch;
 
    return loss;
 }
@@ -411,8 +448,8 @@ template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
 template int write_data<double>(char *filename, double *var, int size);
 template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
 
-template double maximum<double>(double a, double b);
-template RealReverse maximum<RealReverse>(RealReverse a, RealReverse b);
+template double maximum<double>(double* a, int size_t);
+template RealReverse maximum<RealReverse>(RealReverse* a, int size_t);
 
 template double sigma<double>(double x);
 template RealReverse sigma<RealReverse>(RealReverse x);

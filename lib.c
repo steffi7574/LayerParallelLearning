@@ -6,9 +6,9 @@ myDouble
 maximum(myDouble *a,
         int       size_t)
 {
-   myDouble max = a[0];
+   myDouble max = - 1e+12;
    
-   for (int i = 1; i < size_t; i++)
+   for (int i = 0; i < size_t; i++)
    {
        if (a[i] > max)
        {
@@ -139,9 +139,9 @@ loss(myDouble     *Y,
      int           nclasses,
      int           nchannels)
 {
-   myDouble loss; 
-   myDouble normalization, tmp;
+   myDouble loss, normalization, tmp; 
    int batch_id, weight_id, y_id, target_id;
+
    myDouble* YW_batch = new myDouble [nclasses];
 
 
@@ -193,15 +193,6 @@ loss(myDouble     *Y,
         }
         loss += log(tmp);
 
-
-
-       
-        /* Evaluate loss */
-        for (int iclass = 0; iclass < nclasses; iclass++)
-        {
-            target_id = batch_id * nclasses + iclass;
-            loss += 1./2. * (YW_batch[iclass] - Target[target_id]) * (YW_batch[iclass] - Target[target_id]);
-        }
    }
 
    delete [] YW_batch;

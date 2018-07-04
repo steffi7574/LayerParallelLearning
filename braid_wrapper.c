@@ -258,8 +258,8 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       tmp = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
-       obj = tmp;
+       obj = 1./nbatch * loss(u->Ytrain, app->Clabels, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
+    //    printf(" ts = ntimes, my_Obj %1.14e\n", obj);
 
        /* Add regularization for classifier */
     //    obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
@@ -287,7 +287,7 @@ my_ObjectiveT_diff(braid_App            app,
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
     int ts;
-    RealReverse obj;
+    RealReverse obj = 0.0;
  
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts); 
@@ -320,7 +320,7 @@ my_ObjectiveT_diff(braid_App            app,
         classW[i] = app->classW[i];
         codiTape.registerInput(classW[i]);
     }
-    for (int i=0; i<nclasses; i++)
+    for (int i=0; i<nclassmu; i++)
     {
         classMu[i] = app->classMu[i];
         codiTape.registerInput(classMu[i]);
@@ -337,6 +337,7 @@ my_ObjectiveT_diff(braid_App            app,
     {
         /* Evaluate loss at last layer*/
        obj = 1./app->nbatch * loss(Ycodi, app->Clabels, app->batch,  nbatch, classW, classMu, nclasses, nchannels);
+    //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */
     //    obj += app->gamma_class * regularization_class(classW, classMu, nclasses, nchannels);
@@ -366,6 +367,7 @@ my_ObjectiveT_diff(braid_App            app,
     for (int i=0; i < nclassmu; i++)
     {
         app->classMu_grad[i] += classMu[i].getGradient();
+        // printf("ts %d, iclass %d, gradient %1.14e\n", ts, i, classMu[i].getGradient() );
     }
 
     /* Reset the codi tape */

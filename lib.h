@@ -48,7 +48,7 @@ maximum(myDouble *a,
 
 /**
  * Evaluate the loss functin
- * Softmax Regression 
+ * Cross entropy loss for softmax function 
  */
 template <typename myDouble>
 myDouble  

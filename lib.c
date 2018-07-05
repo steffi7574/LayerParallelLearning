@@ -363,6 +363,42 @@ update_theta(braid_App app,
 }
 
 
+
+double
+get_descentdir_theta(braid_App app, int ntheta)
+{
+    double wolfe = 0.0;
+
+    for (int itheta = 0; itheta < ntheta; itheta++)
+    {
+        /* Compute the descent direction */
+        app->descentdir_theta[itheta] = 0.0;
+        for (int jtheta = 0; jtheta < ntheta; jtheta++)
+        {
+            app->descentdir_theta[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->theta_grad[jtheta];
+        }
+        /* compute the wolfe condition product */
+        wolfe += app->theta_grad[itheta] * app->descentdir_theta[itheta];
+    }
+
+    return wolfe;
+}        
+
+
+int
+copy_vector(int N, 
+            double* u, 
+            double* u_copy)
+{
+    for (int i=0; i<N; i++)
+    {
+        u_copy[i] = u[i];
+    }
+
+    return 0;
+}
+
+
 template <typename myDouble> 
 int
 read_data(char *filename, myDouble *var, int size)

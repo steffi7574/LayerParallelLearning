@@ -98,16 +98,30 @@ vecT_mat_product(int N,
 
 int
 bfgs_update(int     N,
-            double *s,
-            double *y,
+            double *design,
+            double *design_old,
+            double *gradient,
+            double *gradient_old,
             double *H)
-
 {
+   
+   double* s      = (double*)malloc(N*sizeof(double));
+   double* y      = (double*)malloc(N*sizeof(double));
    double* first  = (double*)malloc(N*N*sizeof(double));
    double* second = (double*)malloc(N*N*sizeof(double));
    double* third  = (double*)malloc(N*N*sizeof(double));
    double* Hy     = (double*)malloc(N*sizeof(double));
    double  rho, scalar_first;
+
+
+
+        for (int i = 0; i < N; i++)
+        {
+            /* Update sk and yk for bfgs */
+            s[i] = design[i] - design_old[i];
+            y[i] = gradient[i] - gradient_old[i];
+        }
+ 
 
    /* Calculate curvature condition */
    rho = vecT_vec_product(N, y, s);
@@ -152,6 +166,8 @@ bfgs_update(int     N,
    free(second);
    free(third);
    free(Hy);
+   free(s);
+   free(y);
 
 
    return 0;

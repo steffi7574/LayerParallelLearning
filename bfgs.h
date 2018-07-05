@@ -35,7 +35,9 @@ vecT_mat_product(int N,
  * Compare Nocedal & Wright: Numerical Optimization, Chapter 6.1, and Sherman-Morrison formula for the inverse
  */
 int
-bfgs_update(int N,
-            double *sk,
-            double *yk,
-            double *Hk);
+bfgs_update(int     N,
+            double *design,
+            double *design_old,
+            double *gradient,
+            double *gradient_old,
+            double *H);

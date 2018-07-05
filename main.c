@@ -63,8 +63,7 @@ int main (int argc, char *argv[])
     int      ls_maxiter;        /**< Max. number of linesearch iterations */
     double   ls_factor;         /**< Reduction factor for linesearch */
     int      ls_iter;           /**< Iterator for linesearch */
-    double  *sk;                /**< BFGS: delta theta */
-    double  *yk;                /**< BFGS: delta gradient */
+    double   wolfe;             /**< Wolfe conditoin for linesearch */
     double   braid_maxlevels;   /**< max. levels of temporal refinement */
     double   braid_printlevel;  /**< print level of xbraid */
     double   braid_cfactor;     /**< temporal coarsening factor */
@@ -94,7 +93,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 100;
+    maxoptimiter  = 2;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -141,8 +140,6 @@ int main (int argc, char *argv[])
     descentdir_theta  = (double*) malloc(ntheta*sizeof(double));
     batch             = (int*) malloc(nbatch*sizeof(int));
     Hessian           = (double*) malloc(ntheta*ntheta*sizeof(double));
-    sk                = (double*)malloc(ntheta*sizeof(double));
-    yk                = (double*)malloc(ntheta*sizeof(double));
     Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
     Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
     Cval              = (double*) malloc(nclasses*nval*sizeof(double));
@@ -158,7 +155,7 @@ int main (int argc, char *argv[])
     /* Initialize theta and its gradient */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        theta[itheta]            = theta_init; 
+        theta[itheta]            = theta_init * itheta; 
         theta0[itheta]           = 0.0; 
         descentdir_theta[itheta] = 0.0; 
         theta_grad[itheta]       = 0.0; 
@@ -178,12 +175,12 @@ int main (int argc, char *argv[])
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            classW[iclasses * nchannels + ichannels]       = class_init; 
+            classW[iclasses * nchannels + ichannels]       = class_init * iclasses * ichannels; 
             classW0[iclasses * nchannels + ichannels]      = 0.0; 
             classW_grad[iclasses * nchannels + ichannels]  = 0.0; 
             classW_grad0[iclasses * nchannels + ichannels] = 0.0; 
         }
-        classMu[iclasses]       = class_init;
+        classMu[iclasses]       = class_init * iclasses;
         classMu0[iclasses]      = 0.0;
         classMu_grad[iclasses]  = 0.0;
         classMu_grad0[iclasses] = 0.0;
@@ -201,7 +198,9 @@ int main (int argc, char *argv[])
     app->Ctrain            = Ctrain;
     app->Ytrain            = Ytrain;
     app->theta             = theta;
+    app->theta0            = theta0;
     app->theta_grad        = theta_grad;
+    app->theta_grad0       = theta_grad0;
     app->classW           = classW;
     app->classW_grad      = classW_grad;
     app->classMu          = classMu;
@@ -247,6 +246,7 @@ int main (int argc, char *argv[])
        fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || theta_grad ||     || class_grad ||      Stepsize  ls_iter\n");
     }
 
+    // app->theta[3] += 1e-4;
 
     /* --- OPTIMIZATION --- */
 
@@ -287,35 +287,16 @@ int main (int argc, char *argv[])
         }
 
         /* Hessian approximation for theta */
-        for (int itheta = 0; itheta < ntheta; itheta++)
-        {
-            /* Update sk and yk for bfgs */
-            sk[itheta] = app->theta[itheta] - theta0[itheta];
-            yk[itheta] = app->theta_grad[itheta] - theta_grad0[itheta];
-        }
-        for (int itheta = 0; itheta < ntheta; itheta++)
-        {
-            /* Store current design theta, classW, classmu and gradient */
-            theta0[itheta]      = app->theta[itheta];
-            theta_grad0[itheta] = app->theta_grad[itheta];
-        }
-        bfgs_update(ntheta, sk, yk, app->Hessian);
+        bfgs_update(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, app->Hessian);
 
-        /* Compute descent direction for theta */
-        double wolfe = 0.0;
-        for (int itheta = 0; itheta < ntheta; itheta++)
-        {
-            /* Compute the descent direction */
-            app->descentdir_theta[itheta] = 0.0;
-            for (int jtheta = 0; jtheta < ntheta; jtheta++)
-            {
-                app->descentdir_theta[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->theta_grad[jtheta];
-            }
-            /* compute the wolfe condition product */
-            wolfe += app->theta_grad[itheta] * app->descentdir_theta[itheta];
-        }
+        /* Compute descent direction for theta and wolfe condition */
+        wolfe = get_descentdir_theta(app, ntheta);
 
-        /* Backtracking linesearch */
+        /* Store current design and gradient into *0 vectors */
+        copy_vector(ntheta, app->theta, app->theta0);
+        copy_vector(ntheta, app->theta_grad, app->theta_grad0);
+
+        /* Backtracking linesearch for updating the design */
         app->stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
@@ -343,11 +324,8 @@ int main (int argc, char *argv[])
                 }
 
                 /* Restore the previous theta and gradient variable */
-                for (int itheta = 0; itheta < ntheta; itheta++)
-                {
-                    app->theta[itheta]      = theta0[itheta];
-                    app->theta_grad[itheta] = theta_grad0[itheta];
-                }
+                copy_vector(ntheta, app->theta0, app->theta);
+                copy_vector(ntheta, app->theta_grad0, app->theta_grad);
 
                 /* Decrease the stepsize */
                 app->stepsize = app->stepsize * ls_factor;
@@ -461,8 +439,6 @@ int main (int argc, char *argv[])
     free(classMu_grad0);
     free(descentdir_theta);
     free(batch);
-    free(sk);
-    free(yk);
     free(app);
 
     braid_Destroy(core);

@@ -113,6 +113,22 @@ update_theta(braid_App app,
              double    stepsize,
              double   *direction);
 
+
+/**
+ * Compute descent direction for theta: - Hessian * gradient
+ * return: Wolfe condition: gradient * descentdir
+ */
+double
+get_descentdir_theta(braid_App app,
+                      int ntheta);
+
+/**
+ * Copy a vector x of size N into a vector x_copy
+ */
+int
+copy_vector(int N, 
+            double* u, 
+            double* u_copy);
 /**
  * Read data from file 
  */

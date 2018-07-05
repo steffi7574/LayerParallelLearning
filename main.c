@@ -52,8 +52,11 @@ int main (int argc, char *argv[])
     double   class_init;        /**< Initial value for the classification weights and biases */
     int      myid;              /**< Processor rank */
     double   deltaT;            /**< Time step size */
+    double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
     double  *Hessian;           /**< Hessian matrix */
+    double  *Hessian_classW;     /**< Hessian matrix for classifiers */
+    double  *Hessian_classMu;     /**< Hessian matrix for classifiers */
     double   findiff;           /**< flag: test gradient with finite differences (1) */
     int      maxoptimiter;      /**< Maximum number of optimization iterations */
     double   rnorm;             /**< Space-time Norm of the state variables */
@@ -93,7 +96,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 2;
+    maxoptimiter  = 3;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -123,6 +126,7 @@ int main (int argc, char *argv[])
     class_gnorm   = 0.0;
     rnorm         = 0.0;
     rnorm_adj     = 0.0;
+    stepsize      = stepsize_init;
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
@@ -140,6 +144,8 @@ int main (int argc, char *argv[])
     descentdir_theta  = (double*) malloc(ntheta*sizeof(double));
     batch             = (int*) malloc(nbatch*sizeof(int));
     Hessian           = (double*) malloc(ntheta*ntheta*sizeof(double));
+    Hessian_classW    = (double*) malloc(pow(nchannels*nclasses,2)*sizeof(double));
+    Hessian_classMu   = (double*) malloc(pow(nclasses,2)*sizeof(double));
     Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
     Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
     Cval              = (double*) malloc(nclasses*nval*sizeof(double));
@@ -162,6 +168,8 @@ int main (int argc, char *argv[])
         theta_grad0[itheta]      = 0.0; 
     }
     set_identity(ntheta, Hessian);
+    set_identity(nchannels*nclasses, Hessian_classW);
+    set_identity(nclasses, Hessian_classMu);
 
     /* Initialize the batch (same as examples for now) */
     for (int ibatch = 0; ibatch < nbatch; ibatch++)
@@ -205,7 +213,6 @@ int main (int argc, char *argv[])
     app->classW_grad      = classW_grad;
     app->classMu          = classMu;
     app->classMu_grad     = classMu_grad;
-    app->descentdir_theta  = descentdir_theta;
     app->batch             = batch;
     app->nbatch            = nbatch;
     app->nchannels         = nchannels;
@@ -214,8 +221,6 @@ int main (int argc, char *argv[])
     app->deltaT            = deltaT;
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
-    app->stepsize          = stepsize_init;
-    app->Hessian           = Hessian;
 
     /* Initialize XBraid */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
@@ -275,8 +280,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e %8e %5f  %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, app->stepsize, ls_iter);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e %1.14e  %6f %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, app->stepsize, ls_iter);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e %8e %5f  %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e %1.14e  %6f %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter);
             fflush(optimfile);
         }
 
@@ -287,10 +292,10 @@ int main (int argc, char *argv[])
         }
 
         /* Hessian approximation for theta */
-        bfgs(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, app->Hessian);
+        bfgs(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, Hessian);
 
-        /* Compute descent direction for theta and wolfe condition */
-        wolfe = get_descentdir(ntheta, app->Hessian, app->theta_grad, app->descentdir_theta);
+        /* Compute descent direction for the design and wolfe condition */
+        wolfe = get_descentdir(ntheta, Hessian, app->theta_grad, descentdir_theta);
 
         /* Store current design and gradient into *0 vectors */
         copy_vector(ntheta, app->theta_grad, app->theta_grad0);
@@ -298,11 +303,11 @@ int main (int argc, char *argv[])
 
 
         /* Backtracking linesearch for updating the design */
-        app->stepsize = stepsize_init;
+        stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Take a trial step using the current stepsize) */
-            update_design(ntheta, app->stepsize, app->descentdir_theta, app->theta);
+            update_design(ntheta, stepsize, descentdir_theta, app->theta);
 
             /* Compute new objective function value for that trial step */
             braid_SetObjectiveOnly(core, 1);
@@ -310,7 +315,7 @@ int main (int argc, char *argv[])
             braid_GetObjective(core, &ls_objective);
 
             /* Test the wolfe condition */
-            if (ls_objective <= objective + ls_factor * app->stepsize * wolfe ) 
+            if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
             {
                 /* Success, use this new theta -> keep it in app->theta */
                 break;
@@ -328,7 +333,7 @@ int main (int argc, char *argv[])
                 copy_vector(ntheta, app->theta0, app->theta);
 
                 /* Decrease the stepsize */
-                app->stepsize = app->stepsize * ls_factor;
+                stepsize = stepsize * ls_factor;
             }
 
         }
@@ -425,6 +430,8 @@ int main (int argc, char *argv[])
     free(Cval);
     free(Yval);
     free(Hessian);
+    free(Hessian_classW);
+    free(Hessian_classMu);
     free(theta);
     free(theta0);
     free(theta_grad);

@@ -18,8 +18,6 @@ typedef struct _braid_App_struct
     double  *classW_grad;  /* Gradient wrt the classification weights */
     double  *classMu;      /* Bias of the classification problem (mu) */
     double  *classMu_grad; /* Gradient wrt the classification bias */
-    double  *descentdir_theta;    /* Descent direction (hessian times gradient) */
-    double  *Hessian;       /* Hessian matrix */
     int     *batch;         /* List of Indicees of the batch elements */
     int      nclasses;      /* Number of classes */
     int      nbatch;        /* Number of elements in the batch */
@@ -28,7 +26,6 @@ typedef struct _braid_App_struct
     double   gamma_theta;   /* Relaxation parameter for theta */
     double   gamma_class;   /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;        /* Time-step size on fine grid */
-    double   stepsize;      /* Stepsize for theta updates */
 } my_App;
 
 

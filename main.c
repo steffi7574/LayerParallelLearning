@@ -20,6 +20,8 @@ int main (int argc, char *argv[])
     double   objective;         /**< Objective function */
     double  *Ytrain;            /**< Traning data set */
     double  *Ctrain;            /**< Classes of the training data set */
+    double  *Yval;              /**< Validation data set */
+    double  *Cval;              /**< Classes of the validation data set */
     double  *theta;             /**< theta variables for the network */
     double  *theta0;            /**< Store the old theta variables before linesearch */
     double  *theta_grad;        /**< Gradient of objective function wrt theta */
@@ -39,7 +41,8 @@ int main (int argc, char *argv[])
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int     *batch;             /**< Contains indicees of the batch elements */
     int      nclasses;          /**< Number of classes / Clabels */
-    int      nexamples;         /**< Number of elements in the training data */
+    int      nexamples;         /**< Number of examples in the training data */
+    int      nval;              /**< Number of examples in the validation data */
     int      nbatch;            /**< Size of a batch */
     int      ntheta;            /**< dimension of the theta variables */
     int      ntimes;            /**< Number of layers / time steps */
@@ -80,6 +83,7 @@ int main (int argc, char *argv[])
 
     /* Learning problem setup */ 
     nexamples     = 5000;
+    nval          = 1000;
     nchannels     = 4;
     nclasses      = 5;
     ntimes        = 32;
@@ -141,10 +145,14 @@ int main (int argc, char *argv[])
     yk                = (double*)malloc(ntheta*sizeof(double));
     Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
     Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
+    Cval              = (double*) malloc(nclasses*nval*sizeof(double));
+    Yval              = (double*) malloc(nval*nchannels*sizeof(double));
 
-    /* Read the training data */
-    read_data("trainingdata/Ytrain.dat", Ytrain, nchannels*nexamples);
-    read_data("trainingdata/Ctrain.dat", Ctrain, nclasses*nexamples);
+    /* Read the training and validation data */
+    read_data("data/Ytrain.dat", Ytrain, nchannels*nexamples);
+    read_data("data/Ctrain.dat", Ctrain, nclasses*nexamples);
+    read_data("data/Yval.dat", Yval, nchannels*nval);
+    read_data("data/Cval.dat", Cval, nclasses*nval);
 
 
     /* Initialize theta and its gradient */
@@ -436,6 +444,8 @@ int main (int argc, char *argv[])
     /* Clean up */
     free(Ctrain);
     free(Ytrain);
+    free(Cval);
+    free(Yval);
     free(Hessian);
     free(theta);
     free(theta0);

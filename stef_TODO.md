@@ -1,13 +1,10 @@
 # TODO
 
 ## Programming
-* Load and prepare training data:
-    - load Ytrain and class labels C from file
-    - expand those to the width of the network. 
 * Control output of optimization:
-    - Loss function 
+    - Loss function AND 
     - Objective function (= Loss + Regularization)
-    - number of non-zeros(Cdata - Cpredicted) / 2, div by number of examples -> accuracy. 
+* Implement bfgs for both, theta as well as the classifier!
 
 * If batch != examples: Initialize u->Ytrain with correct values in my_Init
 

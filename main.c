@@ -250,12 +250,12 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||         || r_adj ||       Objective        || theta_grad ||     || class_grad ||      Stepsize   ls_iter\n");
+       printf("\n#    || r ||       || r_adj ||      Objective     || theta_grad ||   || class_grad ||   Stepsize   ls_iter   Accuracy_train \n");
        
        /* History file */
        sprintf(optimfilename, "%s.dat", "optim");
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || theta_grad ||     || class_grad ||      Stepsize  ls_iter\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || theta_grad ||     || class_grad ||      Stepsize  ls_iter   Accuracy_train\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -287,8 +287,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e %8e %5f  %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e %1.14e  %6f %2d\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e %8e %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter, app->accuracy);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e %1.14e  %6f %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter, app->accuracy);
             fflush(optimfile);
         }
 
@@ -310,9 +310,6 @@ int main (int argc, char *argv[])
         copy_vector(ntheta, app->theta_grad, app->theta_grad0);
         copy_vector(ntheta, app->theta, app->theta0);
 
-        /* Update the classifier */
-        update_design(nchannels*nclasses, stepsize_init, descentdir_W, app->classW);
-        update_design(nclasses, stepsize_init, descentdir_Mu, app->classMu);
 
         /* Backtracking linesearch */
         stepsize = stepsize_init;
@@ -349,6 +346,10 @@ int main (int argc, char *argv[])
             }
 
         }
+
+        /* Update the classifier */
+        update_design(nchannels*nclasses, stepsize_init, descentdir_W, app->classW);
+        update_design(nclasses, stepsize_init, descentdir_Mu, app->classMu);
    }
 
 

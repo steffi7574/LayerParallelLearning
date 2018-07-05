@@ -242,9 +242,8 @@ my_ObjectiveT(braid_App              app,
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
     int    nclasses  = app->nclasses;
-    double tmp;
     double obj = 0.0;
-    int    ts;
+    int    ts, success;
  
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
@@ -252,20 +251,20 @@ my_ObjectiveT(braid_App              app,
     if (ts < ntimes)
     {
         /* Compute regularization term for theta */
-        tmp = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
-        obj = tmp;
+        obj = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
     }
     else
     {
         /* Evaluate loss */
-       obj = 1./nbatch * loss(u->Y, app->Ctrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels);
-    //    printf(" ts = ntimes, my_Obj %1.14e\n", obj);
+       obj = 1./nbatch * loss(u->Y, app->Ctrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
+       app->accuracy = 100.0 * (double) success / nbatch;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
     }
 
     *objective_ptr = getValue(obj);
+    
     
     return 0;
 }
@@ -286,7 +285,7 @@ my_ObjectiveT_diff(braid_App            app,
     int nstate    = nchannels * nbatch;
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
-    int ts;
+    int ts, success;
     RealReverse obj = 0.0;
  
     /* Get the time index*/
@@ -336,7 +335,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->Ctrain, app->batch,  nbatch, classW, classMu, nclasses, nchannels);
+       obj = 1./app->nbatch * loss(Ycodi, app->Ctrain, app->batch,  nbatch, classW, classMu, nclasses, nchannels, &success);
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */

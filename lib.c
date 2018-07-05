@@ -346,17 +346,15 @@ gradient_norm(braid_App app,
     return 0;
 }
     
-   
 int 
-update_theta(braid_App app, 
-             double    stepsize,
-             double   *direction)
+update_design(int       N, 
+              double    stepsize,
+              double   *direction,
+              double   *design)
 {
-    int ntheta = (app->nchannels * app->nchannels + 1 )*app->ntimes;
-
-    for (int itheta = 0; itheta < ntheta; itheta++)
+    for (int i = 0; i < N; i++)
     {
-        app->theta[itheta] += stepsize * direction[itheta];
+        design[i] += stepsize * direction[i];
     }
 
     return 0;
@@ -365,20 +363,23 @@ update_theta(braid_App app,
 
 
 double
-get_descentdir_theta(braid_App app, int ntheta)
+get_descentdir(int     N,
+               double* Hessian,
+               double* gradient,
+               double* descentdir)
 {
     double wolfe = 0.0;
 
-    for (int itheta = 0; itheta < ntheta; itheta++)
+    for (int i = 0; i < N; i++)
     {
         /* Compute the descent direction */
-        app->descentdir_theta[itheta] = 0.0;
-        for (int jtheta = 0; jtheta < ntheta; jtheta++)
+        descentdir[i] = 0.0;
+        for (int j = 0; j < N; j++)
         {
-            app->descentdir_theta[itheta] -= app->Hessian[itheta*ntheta + jtheta] * app->theta_grad[jtheta];
+            descentdir[i] -= Hessian[i*N + j] * gradient[j];
         }
         /* compute the wolfe condition product */
-        wolfe += app->theta_grad[itheta] * app->descentdir_theta[itheta];
+        wolfe += gradient[i] * descentdir[i];
     }
 
     return wolfe;

@@ -106,12 +106,14 @@ gradient_norm(braid_App app,
 
 
 /**
- * Updates theta into 'direction' 
+ * Updates design into 'direction' using 'stepsize'
+ * output: new design
  */
 int 
-update_theta(braid_App app, 
-             double    stepsize,
-             double   *direction);
+update_design(int       N, 
+              double    stepsize,
+              double   *direction,
+              double   *design);
 
 
 /**
@@ -119,8 +121,10 @@ update_theta(braid_App app,
  * return: Wolfe condition: gradient * descentdir
  */
 double
-get_descentdir_theta(braid_App app,
-                      int ntheta);
+get_descentdir(int     N,
+               double* Hessian,
+               double* gradient,        
+               double* descent_dir);
 
 /**
  * Copy a vector x of size N into a vector x_copy

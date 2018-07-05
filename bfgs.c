@@ -97,12 +97,12 @@ vecT_mat_product(int N,
 }              
 
 int
-bfgs_update(int     N,
-            double *design,
-            double *design_old,
-            double *gradient,
-            double *gradient_old,
-            double *H)
+bfgs(int     N,
+     double *design,
+     double *design_old,
+     double *gradient,
+     double *gradient_old,
+     double *H)
 {
    
    double* s      = (double*)malloc(N*sizeof(double));

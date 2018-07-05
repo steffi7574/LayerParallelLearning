@@ -287,21 +287,22 @@ int main (int argc, char *argv[])
         }
 
         /* Hessian approximation for theta */
-        bfgs_update(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, app->Hessian);
+        bfgs(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, app->Hessian);
 
         /* Compute descent direction for theta and wolfe condition */
-        wolfe = get_descentdir_theta(app, ntheta);
+        wolfe = get_descentdir(ntheta, app->Hessian, app->theta_grad, app->descentdir_theta);
 
         /* Store current design and gradient into *0 vectors */
-        copy_vector(ntheta, app->theta, app->theta0);
         copy_vector(ntheta, app->theta_grad, app->theta_grad0);
+        copy_vector(ntheta, app->theta, app->theta0);
+
 
         /* Backtracking linesearch for updating the design */
         app->stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Take a trial step using the current stepsize) */
-            update_theta(app, app->stepsize, app->descentdir_theta);
+            update_design(ntheta, app->stepsize, app->descentdir_theta, app->theta);
 
             /* Compute new objective function value for that trial step */
             braid_SetObjectiveOnly(core, 1);
@@ -323,9 +324,8 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                /* Restore the previous theta and gradient variable */
+                /* Restore the previous design */
                 copy_vector(ntheta, app->theta0, app->theta);
-                copy_vector(ntheta, app->theta_grad0, app->theta_grad);
 
                 /* Decrease the stepsize */
                 app->stepsize = app->stepsize * ls_factor;

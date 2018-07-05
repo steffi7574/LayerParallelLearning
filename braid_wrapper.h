@@ -8,8 +8,8 @@
 typedef struct _braid_App_struct
 {
     int      myid;          /* Processor rank*/
-    double  *Clabels;       /* Data: Label vectors (C) */
-    double  *Ydata;         /* Training data */
+    double  *Ctrain;       /* Data: Label vectors (C) */
+    double  *Ytrain;         /* Training data */
     double  *theta;         /* theta variables */
     double  *classW;       /* Weights of the classification problem (W) */
     double  *classW_grad;  /* Gradient wrt the classification weights */
@@ -33,7 +33,7 @@ typedef struct _braid_App_struct
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   double *Ytrain;            /* Training data */
+   double *Y;            /* Network state at one layer */
 
 } my_Vector;
 

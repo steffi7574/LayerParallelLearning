@@ -18,8 +18,8 @@ int main (int argc, char *argv[])
     my_App     *app;
 
     double   objective;         /**< Objective function */
-    double  *Ydata;             /**< Data set */
-    double  *Clabels;           /**< Clabels of the data set (C) */
+    double  *Ytrain;            /**< Traning data set */
+    double  *Ctrain;            /**< Classes of the training data set */
     double  *theta;             /**< theta variables for the network */
     double  *theta0;            /**< Store the old theta variables before linesearch */
     double  *theta_grad;        /**< Gradient of objective function wrt theta */
@@ -82,7 +82,7 @@ int main (int argc, char *argv[])
     nexamples     = 5000;
     nchannels     = 4;
     nclasses      = 5;
-    ntimes        = 5;
+    ntimes        = 32;
     deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
     theta_init    = 1e-2;
     class_init    = 1e-1;
@@ -90,14 +90,14 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-2;
-    maxoptimiter  = 1;
+    maxoptimiter  = 100;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
     ls_factor     = 0.5;
 
     /* XBraid setup */
-    braid_maxlevels   = 10;
+    braid_maxlevels   = 1;
     braid_printlevel  = 1;
     braid_cfactor     = 2;
     braid_accesslevel = 0;
@@ -139,12 +139,12 @@ int main (int argc, char *argv[])
     Hessian           = (double*) malloc(ntheta*ntheta*sizeof(double));
     sk                = (double*)malloc(ntheta*sizeof(double));
     yk                = (double*)malloc(ntheta*sizeof(double));
-    Clabels           = (double*) malloc(nclasses*nexamples*sizeof(double));
-    Ydata             = (double*) malloc(nexamples*nchannels*sizeof(double));
+    Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
+    Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
 
-    /* Read the data */
-    read_data("trainingdata/Clabels.dat", Clabels, nclasses*nexamples);
-    read_data("trainingdata/Ytrain.transpose.dat", Ydata, nchannels*nexamples);
+    /* Read the training data */
+    read_data("trainingdata/Ytrain.dat", Ytrain, nchannels*nexamples);
+    read_data("trainingdata/Ctrain.dat", Ctrain, nclasses*nexamples);
 
 
     /* Initialize theta and its gradient */
@@ -190,8 +190,8 @@ int main (int argc, char *argv[])
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
     app->myid              = myid;
-    app->Clabels           = Clabels;
-    app->Ydata             = Ydata;
+    app->Ctrain            = Ctrain;
+    app->Ytrain            = Ytrain;
     app->theta             = theta;
     app->theta_grad        = theta_grad;
     app->classW           = classW;
@@ -434,8 +434,8 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    free(Clabels);
-    free(Ydata);
+    free(Ctrain);
+    free(Ytrain);
     free(Hessian);
     free(theta);
     free(theta0);

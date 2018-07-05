@@ -93,7 +93,7 @@ int main (int argc, char *argv[])
 
     /* Optimization setup */
     gamma_theta   = 1e-2;
-    gamma_class   = 1e-2;
+    gamma_class   = 1e-5;
     maxoptimiter  = 100;
     gtol          = 1e-4;
     stepsize_init = 1.0;

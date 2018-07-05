@@ -139,13 +139,13 @@ loss(myDouble     *Y,
      int           nclasses,
      int           nchannels)
 {
-   myDouble loss, normalization, tmp; 
+   myDouble loss_sum, loss_local, normalization, tmp; 
    int batch_id, weight_id, y_id, target_id;
 
    myDouble* YW_batch = new myDouble [nclasses];
 
 
-   loss = 0.0;
+   loss_sum = 0.0;
    /* Loop over batch elements */
    for (int ibatch = 0; ibatch < nbatch; ibatch ++)
    {
@@ -183,9 +183,9 @@ loss(myDouble     *Y,
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
             target_id = batch_id * nclasses + iclass;
-            tmp -= Target[target_id] * YW_batch[iclass];
+            tmp += Target[target_id] * YW_batch[iclass];
         }
-        loss -= tmp;
+        loss_local = -tmp;
 
         /* Second term: log(sum(exp.(YW))) */
         tmp = 0.0;
@@ -193,13 +193,15 @@ loss(myDouble     *Y,
         {
             tmp += exp(YW_batch[iclass]);
         }
-        loss += log(tmp);
+        loss_local += log(tmp);
 
+        /* Add to loss */
+        loss_sum += loss_local;
    }
 
    delete [] YW_batch;
 
-   return loss;
+   return loss_sum;
 }
 
 

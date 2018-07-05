@@ -262,7 +262,7 @@ my_ObjectiveT(braid_App              app,
     //    printf(" ts = ntimes, my_Obj %1.14e\n", obj);
 
        /* Add regularization for classifier */
-    //    obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
+       obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
     }
 
     *objective_ptr = getValue(obj);
@@ -340,7 +340,7 @@ my_ObjectiveT_diff(braid_App            app,
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */
-    //    obj += app->gamma_class * regularization_class(classW, classMu, nclasses, nchannels);
+       obj += app->gamma_class * regularization_class(classW, classMu, nclasses, nchannels);
     } 
 
     

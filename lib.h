@@ -63,7 +63,10 @@ loss(myDouble    *Y,
 
 
 /**
- * Relaxation term 
+ * Regularization for theta. Includes two terms:
+ * -> small theta: Tikhonov
+ * -> small derivative in time
+ * 
  */
 template <typename myDouble>
 myDouble
@@ -72,6 +75,18 @@ regularization_theta(myDouble* theta,
                      double       dt,
                      int          ntime,
                      int          nchannels);
+
+
+/**
+ * Tikhonov regularization for the classification weights and bias.
+ */
+template <typename myDouble>
+myDouble
+regularization_class(myDouble *classW, 
+                     myDouble *classMu, 
+                     int       nclasses, 
+                     int       nchannels);
+
 
 /** 
  * Invoke an MPI_allreduce call on the gradient 

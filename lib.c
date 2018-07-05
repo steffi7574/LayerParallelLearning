@@ -179,11 +179,13 @@ loss(myDouble     *Y,
         }
 
         /* First term: sum (C.*YW) */
+        tmp = 0.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
             target_id = batch_id * nclasses + iclass;
-            loss -= Target[target_id] * YW_batch[iclass];
+            tmp -= Target[target_id] * YW_batch[iclass];
         }
+        loss -= tmp;
 
         /* Second term: log(sum(exp.(YW))) */
         tmp = 0.0;

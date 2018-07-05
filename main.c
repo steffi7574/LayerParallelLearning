@@ -178,10 +178,10 @@ int main (int argc, char *argv[])
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            classW[ichannels * nchannels + iclasses]       = class_init; 
-            classW0[ichannels * nchannels + iclasses]      = 0.0; 
-            classW_grad[ichannels * nchannels + iclasses]  = 0.0; 
-            classW_grad0[ichannels * nchannels + iclasses] = 0.0; 
+            classW[iclasses * nchannels + ichannels]       = class_init; 
+            classW0[iclasses * nchannels + ichannels]      = 0.0; 
+            classW_grad[iclasses * nchannels + ichannels]  = 0.0; 
+            classW_grad0[iclasses * nchannels + ichannels] = 0.0; 
         }
         classMu[iclasses]       = class_init;
         classMu0[iclasses]      = 0.0;

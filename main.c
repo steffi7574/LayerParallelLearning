@@ -34,7 +34,9 @@ int main (int argc, char *argv[])
     double  *classMu0;         /**< Stores bias before linesearch */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
     double  *classMu_grad0;    /**< Store gradient before linesearch */
-    double  *descentdir_theta;  /**< Descent direction (hessian times gradient) */
+    double  *descentdir_theta;  /**< Descent direction for theta  */
+    double  *descentdir_W;      /**< Descent direction for classifier W */
+    double  *descentdir_Mu;     /**< Descent direction for classifier theta */
     double   theta_gnorm;       /**< Norm of the gradient wrt theta */
     double   class_gnorm;       /**< Norm of the gradient wrt classification weights and bias */
     double   gamma_theta;       /**< Relaxation parameter for theta */
@@ -66,7 +68,9 @@ int main (int argc, char *argv[])
     int      ls_maxiter;        /**< Max. number of linesearch iterations */
     double   ls_factor;         /**< Reduction factor for linesearch */
     int      ls_iter;           /**< Iterator for linesearch */
-    double   wolfe;             /**< Wolfe conditoin for linesearch */
+    double   wolfe_theta;       /**< Wolfe conditoin for linesearch */
+    double   wolfe_cW;          /**< Wolfe conditoin for linesearch */
+    double   wolfe_cMu;         /**< Wolfe conditoin for linesearch */
     double   braid_maxlevels;   /**< max. levels of temporal refinement */
     double   braid_printlevel;  /**< print level of xbraid */
     double   braid_cfactor;     /**< temporal coarsening factor */
@@ -96,7 +100,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 3;
+    maxoptimiter  = 100;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -142,6 +146,8 @@ int main (int argc, char *argv[])
     classMu_grad     = (double*) malloc(nclasses*sizeof(double));
     classMu_grad0    = (double*) malloc(nclasses*sizeof(double));
     descentdir_theta  = (double*) malloc(ntheta*sizeof(double));
+    descentdir_W      = (double*) malloc(nchannels*nclasses*sizeof(double));
+    descentdir_Mu     = (double*) malloc(nclasses*sizeof(double));
     batch             = (int*) malloc(nbatch*sizeof(int));
     Hessian           = (double*) malloc(ntheta*ntheta*sizeof(double));
     Hessian_classW    = (double*) malloc(pow(nchannels*nclasses,2)*sizeof(double));
@@ -168,15 +174,6 @@ int main (int argc, char *argv[])
         theta_grad0[itheta]      = 0.0; 
     }
     set_identity(ntheta, Hessian);
-    set_identity(nchannels*nclasses, Hessian_classW);
-    set_identity(nclasses, Hessian_classMu);
-
-    /* Initialize the batch (same as examples for now) */
-    for (int ibatch = 0; ibatch < nbatch; ibatch++)
-    {
-        batch[ibatch] = ibatch;
-    }
-
 
     /* Initialize classification problem */
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
@@ -187,11 +184,21 @@ int main (int argc, char *argv[])
             classW0[iclasses * nchannels + ichannels]      = 0.0; 
             classW_grad[iclasses * nchannels + ichannels]  = 0.0; 
             classW_grad0[iclasses * nchannels + ichannels] = 0.0; 
+            descentdir_W[iclasses * nchannels + ichannels] = 0.0; 
         }
         classMu[iclasses]       = class_init * iclasses;
         classMu0[iclasses]      = 0.0;
         classMu_grad[iclasses]  = 0.0;
         classMu_grad0[iclasses] = 0.0;
+        descentdir_Mu[iclasses] = 0.0; 
+    }
+    set_identity(nchannels*nclasses, Hessian_classW);
+    set_identity(nclasses, Hessian_classMu);
+
+    /* Initialize the batch (same as examples for now) */
+    for (int ibatch = 0; ibatch < nbatch; ibatch++)
+    {
+        batch[ibatch] = ibatch;
     }
 
 
@@ -295,14 +302,19 @@ int main (int argc, char *argv[])
         bfgs(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, Hessian);
 
         /* Compute descent direction for the design and wolfe condition */
-        wolfe = get_descentdir(ntheta, Hessian, app->theta_grad, descentdir_theta);
+        wolfe_theta = get_descentdir(ntheta, Hessian, app->theta_grad, descentdir_theta);
+        wolfe_cW    = get_descentdir(nchannels*nclasses, Hessian_classW, app->classW_grad, descentdir_W);
+        wolfe_cMu   = get_descentdir(nclasses, Hessian_classMu, app->classMu_grad, descentdir_Mu);
 
         /* Store current design and gradient into *0 vectors */
         copy_vector(ntheta, app->theta_grad, app->theta_grad0);
         copy_vector(ntheta, app->theta, app->theta0);
 
+        /* Update the classifier */
+        update_design(nchannels*nclasses, stepsize_init, descentdir_W, app->classW);
+        update_design(nclasses, stepsize_init, descentdir_Mu, app->classMu);
 
-        /* Backtracking linesearch for updating the design */
+        /* Backtracking linesearch */
         stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
@@ -315,7 +327,7 @@ int main (int argc, char *argv[])
             braid_GetObjective(core, &ls_objective);
 
             /* Test the wolfe condition */
-            if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
+            if (ls_objective <= objective + ls_factor * stepsize * wolfe_theta ) 
             {
                 /* Success, use this new theta -> keep it in app->theta */
                 break;
@@ -445,6 +457,8 @@ int main (int argc, char *argv[])
     free(classMu_grad);
     free(classMu_grad0);
     free(descentdir_theta);
+    free(descentdir_W);
+    free(descentdir_Mu);
     free(batch);
     free(app);
 

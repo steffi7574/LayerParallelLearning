@@ -1,14 +1,14 @@
 # TODO
 
 ## Programming
-* Compute accuracy for the Validation data set. 
-    - Forward propagation -> Xbraid or time-serial?
-    - Softmax-loss evaluation. 
+* Make some nice ouput scripts!
 * Control output of optimization:
     - Loss function AND 
     - Objective function (= Loss + Regularization)
 
-* If batch != examples: Initialize u->Ytrain with correct values in my_Init
+* If batch != examples: 
+    - Initialize `u->Ytrain` with correct values in `my_Initi`
+    - Check `bach` and `batch_id` for validation core. 
 
 # Run:
 * Optimization for N=1000 (T fixed), compare serial vs pint-oneshot time. 

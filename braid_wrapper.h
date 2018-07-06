@@ -8,8 +8,10 @@
 typedef struct _braid_App_struct
 {
     int      myid;          /* Processor rank*/
-    double  *Ctrain;        /* Data: Label vectors (C) */
-    double  *Ytrain;        /* Training data */
+    double  *Ytrain;        /* Training data points of matlab's peak() function */
+    double  *Ctrain;        /* Training data: Label vectors (C) */
+    double  *Yval;          /* Validation data points of matlab's peak() function */
+    double  *Cval;          /* Validation data: Label vectors (C) */
     double  *theta;         /* theta variables */
     double  *theta_grad;    /* Gradient of objective function wrt theta */
     double  *classW;        /* Weights of the classification problem (W) */
@@ -24,7 +26,7 @@ typedef struct _braid_App_struct
     double   gamma_theta;   /* Relaxation parameter for theta */
     double   gamma_class;   /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;        /* Time-step size on fine grid */
-    double   accur_train;      /* accur_train of the training data */
+    double   accuracy;      /* accur_train of the training data */
 } my_App;
 
 
@@ -44,9 +46,15 @@ my_Step(braid_App        app,
         braid_StepStatus status);
 
 int
-my_Init(braid_App     app,
-        double        t,
-        braid_Vector *u_ptr);
+my_Init_Train(braid_App     app,
+              double        t,
+              braid_Vector *u_ptr);
+
+
+int
+my_Init_Val(braid_App     app,
+              double        t,
+              braid_Vector *u_ptr);
 
 
 int
@@ -101,10 +109,17 @@ my_BufUnpack(braid_App           app,
 
 
 int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr);
+my_ObjectiveT_Train(braid_App              app,
+                    braid_Vector           u,
+                    braid_ObjectiveStatus  ostatus,
+                    double                *objective_ptr);
+
+int 
+my_ObjectiveT_Val(braid_App              app,
+                  braid_Vector           u,
+                  braid_ObjectiveStatus  ostatus,
+                  double                *objective_ptr);
+
 
 int
 my_ObjectiveT_diff(braid_App            app,

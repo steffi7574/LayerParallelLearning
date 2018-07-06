@@ -14,7 +14,8 @@
 
 int main (int argc, char *argv[])
 {
-    braid_Core core;
+    braid_Core core_train;       /**< Braid core for training data */
+    braid_Core core_val;         /**< Braid core for validation data */
     my_App     *app;
 
     double   objective;         /**< Objective function */
@@ -71,6 +72,8 @@ int main (int argc, char *argv[])
     double   braid_setskip;     /**< braid: skip work on first level */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
+    double   accur_train;       /**< Prediction accuracy on the training data */
+    double   accur_val;         /**< Prediction accuracy on the validation data */
 
     int      nreq; 
     char     optimfilename[255]; /**< Name of the optimization output file */
@@ -198,6 +201,8 @@ int main (int argc, char *argv[])
     app->myid              = myid;
     app->Ctrain            = Ctrain;
     app->Ytrain            = Ytrain;
+    app->Cval              = Cval;
+    app->Yval              = Yval;
     app->theta             = theta;
     app->theta_grad        = theta_grad;
     app->classW           = classW;
@@ -213,33 +218,43 @@ int main (int argc, char *argv[])
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
 
-    /* Initialize XBraid */
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core);
+    /* Initialize (adjoint) XBraid for training data set */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Train, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_InitAdjoint( my_ObjectiveT_Train, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
 
-    /* Initialize adjoint XBraid */
-    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core);
+    /* Initialize (adjoint) XBraid for validation data set */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Val, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_InitAdjoint( my_ObjectiveT_Val, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
     /* Set Braid parameters */
-    braid_SetMaxLevels(core, braid_maxlevels);
-    braid_SetPrintLevel( core, braid_printlevel);
-    braid_SetCFactor(core, -1, braid_cfactor);
-    braid_SetAccessLevel(core, braid_accesslevel);
-    braid_SetMaxIter(core, braid_maxiter);
-    braid_SetSkip(core, braid_setskip);
-    braid_SetAbsTol(core, braid_abstol);
-    braid_SetAbsTolAdjoint(core, braid_abstoladj);
+    braid_SetMaxLevels(core_train, braid_maxlevels);
+    braid_SetMaxLevels(core_val,   braid_maxlevels);
+    braid_SetPrintLevel( core_train, braid_printlevel);
+    braid_SetPrintLevel( core_val,   braid_printlevel);
+    braid_SetCFactor(core_train, -1, braid_cfactor);
+    braid_SetCFactor(core_val,   -1, braid_cfactor);
+    braid_SetAccessLevel(core_train, braid_accesslevel);
+    braid_SetAccessLevel(core_val,   braid_accesslevel);
+    braid_SetMaxIter(core_train, braid_maxiter);
+    braid_SetMaxIter(core_val,   braid_maxiter);
+    braid_SetSkip(core_train, braid_setskip);
+    braid_SetSkip(core_val,   braid_setskip);
+    braid_SetAbsTol(core_train, braid_abstol);
+    braid_SetAbsTol(core_val,   braid_abstol);
+    braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
+    braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
 
 
     /* Prepare optimization output */
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||       || r_adj ||      Objective     || grad ||     Stepsize   ls_iter   Accuracy_train \n");
+       printf("\n#    || r ||       || r_adj ||      Objective     || grad ||     Stepsize   ls_iter   Accuracy_train  Accuracy_val\n");
        
        /* History file */
        sprintf(optimfilename, "%s.dat", "optim");
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective          || grad ||       Stepsize  ls_iter   Accuracy_train\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective          || grad ||       Stepsize  ls_iter   Accuracy_train  Accuracy_val\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -249,18 +264,20 @@ int main (int argc, char *argv[])
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
 
-        /* Parallel-in-time simulation and gradient computation */
-        braid_SetObjectiveOnly(core, 0);
-        braid_Drive(core);
+        /* --- Training data: Objective function evaluation and gradient computation ---*/ 
 
+        /* Parallel-in-layer propagation and gradient computation  */
+        braid_SetObjectiveOnly(core_train, 0);
+        braid_Drive(core_train);
 
-        /* Get objective function value */
-        braid_GetObjective(core, &objective);
+        /* Get objective function value and accuracy */
+        braid_GetObjective(core_train, &objective);
+        accur_train = app->accuracy;
 
         /* Get the state and adjoint residual norms */
         nreq = -1;
-        braid_GetRNorms(core, &nreq, &rnorm);
-        braid_GetRNormAdjoint(core, &rnorm_adj);
+        braid_GetRNorms(core_train, &nreq, &rnorm);
+        braid_GetRNormAdjoint(core_train, &rnorm_adj);
 
         /* Collect sensitivity information into the 'global_gradient' vector */
         collect_gradient(app, MPI_COMM_WORLD, global_gradient);
@@ -268,9 +285,22 @@ int main (int argc, char *argv[])
         /* Compute gradient norm */
         gnorm = vector_norm(ndesign, global_gradient);
 
-        /* Compute loss on validation data set */
-        /* TODO: - second braid core?? 
-         * or put validation data into same braid_vector ?  and do if (validation)... */
+
+        /* --- Compute Validation Accuracy --- */
+
+        /* Prepare propagation of validation data */
+        braid_SetObjectiveOnly(core_val, 1);
+        app->nbatch = nval;
+        /* Propagate validation data */
+        braid_Drive(core_val);
+        /* Get prediction accuracy for validation data */
+        accur_val = app->accuracy;
+        /* Restore previous braid parameters for core_train */
+        braid_SetObjectiveOnly(core_val, 0);
+        app->nbatch = nexamples;
+
+
+        /* --- Optimization control and output ---*/
 
         /* Check optimization convergence */
         if (  gnorm < gtol )
@@ -281,10 +311,13 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accur_train);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accur_train);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
         }
+
+
+        /* --- Design update --- */
 
         /* Hessian approximation */
         bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
@@ -306,11 +339,11 @@ int main (int argc, char *argv[])
             split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
 
             /* Compute new objective function value for that trial step */
-            braid_SetObjectiveOnly(core, 1);
-            braid_SetPrintLevel(core, 0);
-            braid_Drive(core);
-            braid_GetObjective(core, &ls_objective);
-            braid_SetPrintLevel( core, braid_printlevel);
+            braid_SetObjectiveOnly(core_train, 1);
+            braid_SetPrintLevel(core_train, 0);
+            braid_Drive(core_train);
+            braid_GetObjective(core_train, &ls_objective);
+            braid_SetPrintLevel( core_train, braid_printlevel);
 
             printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
 
@@ -378,7 +411,7 @@ int main (int argc, char *argv[])
         {
             grad_store[idesign] = app->theta_grad[idesign];
         }
-        braid_GetObjective(core, &obj_store);
+        braid_GetObjective(core_train, &obj_store);
         my_ResetGradient(app);
 
         /* Loop over all design variables */
@@ -389,11 +422,11 @@ int main (int argc, char *argv[])
             app->theta[idx] += EPS;
 
             /* Run a Braid simulation */
-            braid_SetObjectiveOnly(core, 1);
-            braid_Drive(core);
+            braid_SetObjectiveOnly(core_train, 1);
+            braid_Drive(core_train);
 
             /* Get perturbed objective */
-            braid_GetObjective(core, &obj_perturb);
+            braid_GetObjective(core_train, &obj_perturb);
 
             /* Reset the design */
             app->theta[idx] -= EPS;
@@ -444,7 +477,7 @@ int main (int argc, char *argv[])
     free(batch);
     free(app);
 
-    braid_Destroy(core);
+    braid_Destroy(core_train);
     MPI_Finalize();
 
     if (myid == 0)

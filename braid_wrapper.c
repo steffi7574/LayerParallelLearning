@@ -39,9 +39,9 @@ my_Step(braid_App        app,
 
 
 int
-my_Init(braid_App     app,
-        double        t,
-        braid_Vector *u_ptr)
+my_Init_Train(braid_App     app,
+              double        t,
+              braid_Vector *u_ptr)
 {
 
     my_Vector *u;
@@ -73,6 +73,44 @@ my_Init(braid_App     app,
 
     return 0;
 }
+
+
+int
+my_Init_Val(braid_App     app,
+            double        t,
+            braid_Vector *u_ptr)
+{
+
+    my_Vector *u;
+    int nchannels = app->nchannels;
+    int nbatch    = app->nbatch;
+ 
+    /* Allocate the vector */
+    u = (my_Vector *) malloc(sizeof(my_Vector));
+    u->Y = (double*) malloc(nchannels * nbatch *sizeof(double));
+ 
+    /* Initialize the vector */
+    if (t == 0.0)
+    {
+        /* Initialize with training data */
+        for (int i = 0; i < nchannels * nbatch; i++)
+        {
+            u->Y[i] = app->Yval[i];
+        }
+    }
+    else
+    {
+        for (int i = 0; i < nchannels * nbatch; i++)
+        {
+            u->Y[i] = 0.0;
+        }
+    }
+
+    *u_ptr = u;
+
+    return 0;
+}
+
 
 
 int
@@ -233,10 +271,10 @@ my_BufUnpack(braid_App           app,
 
 
 int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr)
+my_ObjectiveT_Train(braid_App              app,
+                    braid_Vector           u,
+                    braid_ObjectiveStatus  ostatus,
+                    double                *objective_ptr)
 {
     int    nbatch    = app->nbatch;
     int    nchannels = app->nchannels;
@@ -257,7 +295,7 @@ my_ObjectiveT(braid_App              app,
     {
         /* Evaluate loss */
        obj = 1./nbatch * loss(u->Y, app->Ctrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accur_train = 100.0 * (double) success / nbatch;  
+       app->accuracy = 100.0 * (double) success / nbatch;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
@@ -269,6 +307,44 @@ my_ObjectiveT(braid_App              app,
     return 0;
 }
 
+
+
+int 
+my_ObjectiveT_Val(braid_App              app,
+                  braid_Vector           u,
+                  braid_ObjectiveStatus  ostatus,
+                  double                *objective_ptr)
+{
+    int    nbatch    = app->nbatch;
+    int    nchannels = app->nchannels;
+    int    ntimes    = app->ntimes;
+    int    nclasses  = app->nclasses;
+    double obj = 0.0;
+    int    ts, success;
+ 
+    /* Get the time index*/
+    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
+ 
+    if (ts < ntimes)
+    {
+        /* Compute regularization term for theta */
+        obj = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
+    }
+    else
+    {
+        /* Evaluate loss */
+       obj = 1./nbatch * loss(u->Y, app->Cval, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
+       app->accuracy = 100.0 * (double) success / nbatch;  
+
+       /* Add regularization for classifier */
+       obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
+    }
+
+    *objective_ptr = getValue(obj);
+    
+    
+    return 0;
+}
 
 int
 my_ObjectiveT_diff(braid_App            app,

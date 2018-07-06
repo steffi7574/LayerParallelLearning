@@ -281,8 +281,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accuracy);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accuracy);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accur_train);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accur_train);
             fflush(optimfile);
         }
 

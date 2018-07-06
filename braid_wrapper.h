@@ -24,7 +24,7 @@ typedef struct _braid_App_struct
     double   gamma_theta;   /* Relaxation parameter for theta */
     double   gamma_class;   /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;        /* Time-step size on fine grid */
-    double   accuracy;      /* Accuracy of the training data */
+    double   accur_train;      /* accur_train of the training data */
 } my_App;
 
 

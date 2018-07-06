@@ -257,7 +257,7 @@ my_ObjectiveT(braid_App              app,
     {
         /* Evaluate loss */
        obj = 1./nbatch * loss(u->Y, app->Ctrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accuracy = 100.0 * (double) success / nbatch;  
+       app->accur_train = 100.0 * (double) success / nbatch;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);

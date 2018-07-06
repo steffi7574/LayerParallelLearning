@@ -23,22 +23,11 @@ int main (int argc, char *argv[])
     double  *Yval;              /**< Validation data set */
     double  *Cval;              /**< Classes of the validation data set */
     double  *theta;             /**< theta variables for the network */
-    double  *theta0;            /**< Store the old theta variables before linesearch */
     double  *theta_grad;        /**< Gradient of objective function wrt theta */
-    double  *theta_grad0;       /**< Store the old gradient before linesearch */
     double  *classW;           /**< Weights for the classification problem, applied at last layer */
-    double  *classW0;          /**< Stores old weights before linesearch */
     double  *classW_grad;      /**< Gradient wrt the classification weights */
-    double  *classW_grad0;     /**< Stores old gradient before linesearch */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
-    double  *classMu0;         /**< Stores bias before linesearch */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
-    double  *classMu_grad0;    /**< Store gradient before linesearch */
-    double  *descentdir_theta;  /**< Descent direction for theta  */
-    double  *descentdir_W;      /**< Descent direction for classifier W */
-    double  *descentdir_Mu;     /**< Descent direction for classifier theta */
-    double   theta_gnorm;       /**< Norm of the gradient wrt theta */
-    double   class_gnorm;       /**< Norm of the gradient wrt classification weights and bias */
     double   gamma_theta;       /**< Relaxation parameter for theta */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int     *batch;             /**< Contains indicees of the batch elements */
@@ -47,6 +36,7 @@ int main (int argc, char *argv[])
     int      nval;              /**< Number of examples in the validation data */
     int      nbatch;            /**< Size of a batch */
     int      ntheta;            /**< dimension of the theta variables */
+    int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
     int      ntimes;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
     double   T;                 /**< Final time */
@@ -57,8 +47,12 @@ int main (int argc, char *argv[])
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
     double  *Hessian;           /**< Hessian matrix */
-    double  *Hessian_classW;     /**< Hessian matrix for classifiers */
-    double  *Hessian_classMu;     /**< Hessian matrix for classifiers */
+    double  *global_design;     /**< All design vars: theta, classW and classMu */
+    double  *global_design0;    /**< Old design vector of previous iteration  */
+    double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
+    double  *global_gradient0;  /**< Old gradient at previous iteration */
+    double  *descentdir;       /**< Descent direction for optimization algorithm  */
+    double   gnorm;             /**< Norm of the global gradient */
     double   findiff;           /**< flag: test gradient with finite differences (1) */
     int      maxoptimiter;      /**< Maximum number of optimization iterations */
     double   rnorm;             /**< Space-time Norm of the state variables */
@@ -68,9 +62,7 @@ int main (int argc, char *argv[])
     int      ls_maxiter;        /**< Max. number of linesearch iterations */
     double   ls_factor;         /**< Reduction factor for linesearch */
     int      ls_iter;           /**< Iterator for linesearch */
-    double   wolfe_theta;       /**< Wolfe conditoin for linesearch */
-    double   wolfe_cW;          /**< Wolfe conditoin for linesearch */
-    double   wolfe_cMu;         /**< Wolfe conditoin for linesearch */
+    double   wolfe;             /**< Wolfe conditoin for linesearch */
     double   braid_maxlevels;   /**< max. levels of temporal refinement */
     double   braid_printlevel;  /**< print level of xbraid */
     double   braid_cfactor;     /**< temporal coarsening factor */
@@ -100,7 +92,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 100;
+    maxoptimiter  = 500;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -120,38 +112,32 @@ int main (int argc, char *argv[])
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
-    T             = deltaT * ntimes;
-    nbatch        = nexamples;
-    ntheta        = (nchannels * nchannels + 1 )* ntimes;
+    T              = deltaT * ntimes;
+    nbatch         = nexamples;
+    ntheta         = (nchannels * nchannels + 1 )* ntimes;
+    ndesign        = ntheta + nchannels * nclasses + nclasses;
 
     /* Init optimization parameters */
     ls_iter       = 0;
-    theta_gnorm   = 0.0;
-    class_gnorm   = 0.0;
+    gnorm         = 0.0;
     rnorm         = 0.0;
     rnorm_adj     = 0.0;
     stepsize      = stepsize_init;
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
-    theta0            = (double*) malloc(ntheta*sizeof(double));
     theta_grad        = (double*) malloc(ntheta*sizeof(double));
-    theta_grad0       = (double*) malloc(ntheta*sizeof(double));
     classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
-    classW0          = (double*) malloc(nchannels*nclasses*sizeof(double));
     classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
-    classW_grad0     = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
-    classMu0         = (double*) malloc(nclasses*sizeof(double));
     classMu_grad     = (double*) malloc(nclasses*sizeof(double));
-    classMu_grad0    = (double*) malloc(nclasses*sizeof(double));
-    descentdir_theta  = (double*) malloc(ntheta*sizeof(double));
-    descentdir_W      = (double*) malloc(nchannels*nclasses*sizeof(double));
-    descentdir_Mu     = (double*) malloc(nclasses*sizeof(double));
     batch             = (int*) malloc(nbatch*sizeof(int));
-    Hessian           = (double*) malloc(ntheta*ntheta*sizeof(double));
-    Hessian_classW    = (double*) malloc(pow(nchannels*nclasses,2)*sizeof(double));
-    Hessian_classMu   = (double*) malloc(pow(nclasses,2)*sizeof(double));
+    Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
+    global_design     = (double*) malloc(ndesign*sizeof(double));
+    global_design0    = (double*) malloc(ndesign*sizeof(double));
+    global_gradient   = (double*) malloc(ndesign*sizeof(double));
+    global_gradient0  = (double*) malloc(ndesign*sizeof(double));
+    descentdir        = (double*) malloc(ndesign*sizeof(double));
     Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
     Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
     Cval              = (double*) malloc(nclasses*nval*sizeof(double));
@@ -168,32 +154,32 @@ int main (int argc, char *argv[])
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
         theta[itheta]            = theta_init * itheta; 
-        theta0[itheta]           = 0.0; 
-        descentdir_theta[itheta] = 0.0; 
         theta_grad[itheta]       = 0.0; 
-        theta_grad0[itheta]      = 0.0; 
     }
-    set_identity(ntheta, Hessian);
 
-    /* Initialize classification problem */
+    /* Initialize classification parameters and gradient */
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
             classW[iclasses * nchannels + ichannels]       = class_init * iclasses * ichannels; 
-            classW0[iclasses * nchannels + ichannels]      = 0.0; 
             classW_grad[iclasses * nchannels + ichannels]  = 0.0; 
-            classW_grad0[iclasses * nchannels + ichannels] = 0.0; 
-            descentdir_W[iclasses * nchannels + ichannels] = 0.0; 
         }
         classMu[iclasses]       = class_init * iclasses;
-        classMu0[iclasses]      = 0.0;
         classMu_grad[iclasses]  = 0.0;
-        classMu_grad0[iclasses] = 0.0;
-        descentdir_Mu[iclasses] = 0.0; 
     }
-    set_identity(nchannels*nclasses, Hessian_classW);
-    set_identity(nclasses, Hessian_classMu);
+
+    /* Initialize optimization variables */
+    for (int idesign = 0; idesign < ndesign; idesign++)
+    {
+        global_design[idesign]    = 0.0;
+        global_design0[idesign]   = 0.0;
+        global_gradient[idesign]  = 0.0;
+        global_gradient0[idesign] = 0.0;
+        descentdir[idesign]       = 0.0; 
+    }
+    set_identity(ndesign, Hessian);
+    concat_3vectors(ntheta, theta, nchannels*nclasses, classW, nclasses, classMu, global_design);
 
     /* Initialize the batch (same as examples for now) */
     for (int ibatch = 0; ibatch < nbatch; ibatch++)
@@ -213,9 +199,7 @@ int main (int argc, char *argv[])
     app->Ctrain            = Ctrain;
     app->Ytrain            = Ytrain;
     app->theta             = theta;
-    app->theta0            = theta0;
     app->theta_grad        = theta_grad;
-    app->theta_grad0       = theta_grad0;
     app->classW           = classW;
     app->classW_grad      = classW_grad;
     app->classMu          = classMu;
@@ -250,12 +234,12 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||       || r_adj ||      Objective     || theta_grad ||   || class_grad ||   Stepsize   ls_iter   Accuracy_train \n");
+       printf("\n#    || r ||       || r_adj ||      Objective     || grad ||     Stepsize   ls_iter   Accuracy_train \n");
        
        /* History file */
        sprintf(optimfilename, "%s.dat", "optim");
        optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective             || theta_grad ||     || class_grad ||      Stepsize  ls_iter   Accuracy_train\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective          || grad ||       Stepsize  ls_iter   Accuracy_train\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -269,6 +253,7 @@ int main (int argc, char *argv[])
         braid_SetObjectiveOnly(core, 0);
         braid_Drive(core);
 
+
         /* Get objective function value */
         braid_GetObjective(core, &objective);
 
@@ -277,54 +262,60 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core, &nreq, &rnorm);
         braid_GetRNormAdjoint(core, &rnorm_adj);
 
-        /* Collect sensitivities from all processors */
-        gradient_allreduce(app, MPI_COMM_WORLD);
+        /* Collect sensitivity information into the 'global_gradient' vector */
+        collect_gradient(app, MPI_COMM_WORLD, global_gradient);
 
         /* Compute gradient norm */
-        gradient_norm(app, &theta_gnorm, &class_gnorm);
+        gnorm = vector_norm(ndesign, global_gradient);
 
-
-        /* Output */
-        if (myid == 0)
-        {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e %8e %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter, app->accuracy);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e %1.14e  %6f %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, theta_gnorm, class_gnorm, stepsize, ls_iter, app->accuracy);
-            fflush(optimfile);
-        }
+        /* Compute loss on validation data set */
+        /* TODO: - second braid core?? 
+         * or put validation data into same braid_vector ?  and do if (validation)... */
 
         /* Check optimization convergence */
-        if (  ( theta_gnorm < gtol && class_gnorm < gtol ) || iter == maxoptimiter - 1 )
+        if (  gnorm < gtol )
         {
            break;
         }
 
-        /* Hessian approximation for theta */
-        bfgs(ntheta, app->theta, app->theta0, app->theta_grad, app->theta_grad0, Hessian);
+        /* Output */
+        if (myid == 0)
+        {
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accuracy);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, app->accuracy);
+            fflush(optimfile);
+        }
+
+        /* Hessian approximation */
+        bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
 
         /* Compute descent direction for the design and wolfe condition */
-        wolfe_theta = get_descentdir(ntheta, Hessian, app->theta_grad, descentdir_theta);
-        wolfe_cW    = get_descentdir(nchannels*nclasses, Hessian_classW, app->classW_grad, descentdir_W);
-        wolfe_cMu   = get_descentdir(nclasses, Hessian_classMu, app->classMu_grad, descentdir_Mu);
+        wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
 
         /* Store current design and gradient into *0 vectors */
-        copy_vector(ntheta, app->theta_grad, app->theta_grad0);
-        copy_vector(ntheta, app->theta, app->theta0);
-
+        copy_vector(ndesign, global_design, global_design0);
+        copy_vector(ndesign, global_gradient, global_gradient0);
 
         /* Backtracking linesearch */
         stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
+
             /* Take a trial step using the current stepsize) */
-            update_design(ntheta, stepsize, descentdir_theta, app->theta);
+            update_design(ndesign, stepsize, descentdir, global_design);
+            split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
 
             /* Compute new objective function value for that trial step */
             braid_SetObjectiveOnly(core, 1);
+            braid_SetPrintLevel(core, 0);
             braid_Drive(core);
             braid_GetObjective(core, &ls_objective);
+            braid_SetPrintLevel( core, braid_printlevel);
+
+            printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
-            if (ls_objective <= objective + ls_factor * stepsize * wolfe_theta ) 
+            if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
             {
                 /* Success, use this new theta -> keep it in app->theta */
                 break;
@@ -339,7 +330,8 @@ int main (int argc, char *argv[])
                 }
 
                 /* Restore the previous design */
-                copy_vector(ntheta, app->theta0, app->theta);
+                copy_vector(ndesign, global_design0, global_design);
+                split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
 
                 /* Decrease the stepsize */
                 stepsize = stepsize * ls_factor;
@@ -347,9 +339,6 @@ int main (int argc, char *argv[])
 
         }
 
-        /* Update the classifier */
-        update_design(nchannels*nclasses, stepsize_init, descentdir_W, app->classW);
-        update_design(nclasses, stepsize_init, descentdir_Mu, app->classMu);
    }
 
 
@@ -357,15 +346,13 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
         printf("\n Objective     %1.14e", objective);
-        printf("\n Gradientnorm: %1.14e  %1.14e", theta_gnorm, class_gnorm);
+        printf("\n Gradientnorm: %1.14e", gnorm);
         printf("\n\n");
 
 
         /* Print to file */
-        write_data("theta_opt.dat", app->theta, ntheta);
-        write_data("theta_grad.dat", app->theta_grad, ntheta);
-        write_data("classW_grad.dat", app->classW_grad, nchannels * nclasses);
-        write_data("classmu_grad.dat", app->classMu_grad, nclasses);
+        write_data("design_opt.dat", global_design, ndesign);
+        // write_data("gradient.dat", global_gradient, ndesign);
     }
 
 
@@ -443,23 +430,17 @@ int main (int argc, char *argv[])
     free(Cval);
     free(Yval);
     free(Hessian);
-    free(Hessian_classW);
-    free(Hessian_classMu);
+    free(global_design);
+    free(global_design0);
+    free(global_gradient);
+    free(global_gradient0);
+    free(descentdir);
     free(theta);
-    free(theta0);
     free(theta_grad);
-    free(theta_grad0);
     free(classW);
-    free(classW0);
     free(classW_grad);
-    free(classW_grad0);
     free(classMu);
-    free(classMu0);
     free(classMu_grad);
-    free(classMu_grad0);
-    free(descentdir_theta);
-    free(descentdir_W);
-    free(descentdir_Mu);
     free(batch);
     free(app);
 

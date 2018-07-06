@@ -1,10 +1,12 @@
 # TODO
 
 ## Programming
+* Compute accuracy for the Validation data set. 
+    - Forward propagation -> Xbraid or time-serial?
+    - Softmax-loss evaluation. 
 * Control output of optimization:
     - Loss function AND 
     - Objective function (= Loss + Regularization)
-* Implement bfgs for both, theta as well as the classifier!
 
 * If batch != examples: Initialize u->Ytrain with correct values in my_Init
 

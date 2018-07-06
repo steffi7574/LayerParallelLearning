@@ -299,38 +299,38 @@ regularization_theta(myDouble* theta,
 
 
 int
-gradient_allreduce(braid_App app, 
-                   MPI_Comm comm)
+collect_gradient(braid_App    app, 
+                   MPI_Comm   comm,
+                   double    *gradient)
 {
 
-   int ntheta   = (app->nchannels * app->nchannels + 1) * app->ntimes;
-   int nclassW  =  app->nchannels * app->nclasses;
-   int nclassmu =  app->nclasses;
+   int ntheta    = (app->nchannels * app->nchannels + 1) * app->ntimes;
+   int nclassW   = app->nchannels * app->nclasses;
+   int nclassmu  = app->nclasses;
+   int igradient = 0;
 
-   double *theta_grad   = (double*) malloc(ntheta   *sizeof(double));
-   double *classW_grad  = (double*) malloc(nclassW  *sizeof(double));
-   double *classmu_grad = (double*) malloc(nclassmu *sizeof(double));
-   for (int i = 0; i<ntheta; i++)
+   double* local_grad = (double*) malloc((ntheta+nclassW+nclassmu)*sizeof(double));
+
+   for (int itheta = 0; itheta < ntheta; itheta++)
    {
-       theta_grad[i] = app->theta_grad[i];
+       local_grad[igradient] = app->theta_grad[itheta];
+       igradient++;
    }
-   for (int i = 0; i < nclassW; i++)
+   for (int iclassW = 0; iclassW < nclassW; iclassW++)
    {
-       classW_grad[i] = app->classW_grad[i];
+       local_grad[igradient] = app->classW_grad[iclassW];
+       igradient++;
    }
-   for (int i = 0; i < nclassmu; i++)
+   for (int iclassmu = 0; iclassmu < nclassmu; iclassmu++)
    {
-       classmu_grad[i] = app->classMu_grad[i];
+       local_grad[igradient] = app->classMu_grad[iclassmu];
+       igradient++;
    }
 
    /* Collect sensitivities from all time-processors */
-   MPI_Allreduce(theta_grad, app->theta_grad, ntheta, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classW_grad, app->classW_grad, nclassW, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-   MPI_Allreduce(classmu_grad, app->classMu_grad, nclassmu, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+   MPI_Allreduce(local_grad, gradient, igradient, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-   free(theta_grad);
-   free(classW_grad);
-   free(classmu_grad);
+   free(local_grad);
 
    return 0;
 }                  
@@ -338,40 +338,40 @@ gradient_allreduce(braid_App app,
 
 
 
-int
-gradient_norm(braid_App app,
-              double   *theta_gnorm_prt,
-              double   *class_gnorm_prt)
+// int
+// gradient_norm(braid_App app,
+//               double   *theta_gnorm_prt,
+//               double   *class_gnorm_prt)
 
-{
-    double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
-    int nclassW   =  app->nchannels * app->nclasses;
-    int nclassmu  =  app->nclasses;
-    double theta_gnorm, class_gnorm;
+// {
+//     double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
+//     int nclassW   =  app->nchannels * app->nclasses;
+//     int nclassmu  =  app->nclasses;
+//     double theta_gnorm, class_gnorm;
 
-    /* Norm of gradient */
-    theta_gnorm = 0.0;
-    class_gnorm = 0.0;
-    for (int itheta = 0; itheta < ntheta; itheta++)
-    {
-        theta_gnorm += pow(getValue(app->theta_grad[itheta]), 2);
-    }
-    for (int i = 0; i < nclassW; i++)
-    {
-        class_gnorm += pow(getValue(app->classW_grad[i]),2);
-    }
-    for (int i = 0; i < nclassmu; i++)
-    {
-        class_gnorm += pow(getValue(app->classMu_grad[i]),2);
-    }
-    theta_gnorm = sqrt(theta_gnorm);
-    class_gnorm = sqrt(class_gnorm);
+//     /* Norm of gradient */
+//     theta_gnorm = 0.0;
+//     class_gnorm = 0.0;
+//     for (int itheta = 0; itheta < ntheta; itheta++)
+//     {
+//         theta_gnorm += pow(getValue(app->theta_grad[itheta]), 2);
+//     }
+//     for (int i = 0; i < nclassW; i++)
+//     {
+//         class_gnorm += pow(getValue(app->classW_grad[i]),2);
+//     }
+//     for (int i = 0; i < nclassmu; i++)
+//     {
+//         class_gnorm += pow(getValue(app->classMu_grad[i]),2);
+//     }
+//     theta_gnorm = sqrt(theta_gnorm);
+//     class_gnorm = sqrt(class_gnorm);
 
-    *theta_gnorm_prt = theta_gnorm;
-    *class_gnorm_prt = class_gnorm;
+//     *theta_gnorm_prt = theta_gnorm;
+//     *class_gnorm_prt = class_gnorm;
     
-    return 0;
-}
+//     return 0;
+// }
     
 int 
 update_design(int       N, 
@@ -390,7 +390,7 @@ update_design(int       N,
 
 
 double
-get_descentdir(int     N,
+compute_descentdir(int     N,
                double* Hessian,
                double* gradient,
                double* descentdir)
@@ -426,6 +426,79 @@ copy_vector(int N,
     return 0;
 }
 
+
+double
+vector_norm(int    size_t,
+            double *vector)
+{
+    double norm = 0.0;
+    for (int i = 0; i<size_t; i++)
+    {
+        norm += pow(vector[i],2);
+    }
+    norm = sqrt(norm);
+
+    return norm;
+}
+
+
+int
+concat_3vectors(int     size1,
+                double *vec1,
+                int     size2,
+                double *vec2,
+                int     size3,
+                double *vec3,
+                double *globalvec)
+{
+    int iglob = 0;
+    for (int i = 0; i < size1; i++)
+    {
+        globalvec[iglob] = vec1[i];
+        iglob++;
+    }
+    for (int i = 0; i < size2; i++)
+    {
+        globalvec[iglob] = vec2[i];
+        iglob++;
+    }
+    for (int i = 0; i < size3; i++)
+    {
+        globalvec[iglob] = vec3[i];
+        iglob++;
+    }
+
+    return 0;
+}
+
+int
+split_into_3vectors(double *globalvec,
+                    int     size1,
+                    double *vec1,
+                    int     size2,
+                    double *vec2,
+                    int     size3,
+                    double *vec3)
+{
+    int iglob = 0;
+    for (int i = 0; i < size1; i++)
+    {
+        vec1[i] = globalvec[iglob];
+        iglob++;
+    }
+    for (int i = 0; i < size2; i++)
+    {
+        vec2[i] = globalvec[iglob];
+        iglob++;
+    }
+    for (int i = 0; i < size3; i++)
+    {
+        vec3[i] = globalvec[iglob];
+        iglob++;
+    }
+
+    return 0;
+}
 
 template <typename myDouble> 
 int

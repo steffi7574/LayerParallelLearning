@@ -40,7 +40,7 @@ sigma_diff(double x);
 
 
 /**
- * Return maximum of two doubles */
+ * Return maximum of a vector of size 'size_t' */
 template <typename myDouble>
 myDouble 
 maximum(myDouble *a,
@@ -90,20 +90,22 @@ regularization_class(myDouble *classW,
 
 
 /** 
- * Invoke an MPI_allreduce call on the gradient 
+ * Put all gradient information into one global vector and 
+ * invoke an MPI_allreduce to collect information from all processors.  
  */
 int
-gradient_allreduce(braid_App app, 
-                   MPI_Comm comm);
+collect_gradient(braid_App  app, 
+                 MPI_Comm   comm,
+                 double    *gradient);
 
 
-/** 
- * Set the gradient to zero 
- */
-int
-gradient_norm(braid_App app,
-              double   *theta_gnorm_prt,
-              double   *class_gnorm_prt);
+// /** 
+//  * Set the gradient to zero 
+//  */
+// int
+// gradient_norm(braid_App app,
+//               double   *theta_gnorm_prt,
+//               double   *class_gnorm_prt);
 
 
 /**
@@ -122,7 +124,7 @@ update_design(int       N,
  * return: Wolfe condition: gradient * descentdir
  */
 double
-get_descentdir(int     N,
+compute_descentdir(int     N,
                double* Hessian,
                double* gradient,        
                double* descent_dir);
@@ -134,6 +136,40 @@ int
 copy_vector(int N, 
             double* u, 
             double* u_copy);
+
+
+/**
+ * Return the norm of a vector of size 'size_t'
+ */
+double
+vector_norm(int    size_t,
+            double *vector);
+
+
+/**
+ * Concatenate the three vectors into a global vector
+ */
+int
+concat_3vectors(int     size1,
+                double *vec1,
+                int     size2,
+                double *vec2,
+                int     size3,
+                double *vec3,
+                double *globalvec);
+
+/**
+ * Split a global vector into three seperate vectors
+ */
+int
+split_into_3vectors(double *globalvec,
+                    int     size1,
+                    double *vec1,
+                    int     size2,
+                    double *vec2,
+                    int     size3,
+                    double *vec3);
+
 /**
  * Read data from file 
  */

@@ -8,16 +8,14 @@
 typedef struct _braid_App_struct
 {
     int      myid;          /* Processor rank*/
-    double  *Ctrain;       /* Data: Label vectors (C) */
+    double  *Ctrain;        /* Data: Label vectors (C) */
     double  *Ytrain;        /* Training data */
     double  *theta;         /* theta variables */
-    double  *theta0;        /* Stores theta variables of previous iteration */
     double  *theta_grad;    /* Gradient of objective function wrt theta */
-    double  *theta_grad0;   /* Gradient of previous iteration */
-    double  *classW;       /* Weights of the classification problem (W) */
-    double  *classW_grad;  /* Gradient wrt the classification weights */
-    double  *classMu;      /* Bias of the classification problem (mu) */
-    double  *classMu_grad; /* Gradient wrt the classification bias */
+    double  *classW;        /* Weights of the classification problem (W) */
+    double  *classW_grad;   /* Gradient wrt the classification weights */
+    double  *classMu;       /* Bias of the classification problem (mu) */
+    double  *classMu_grad;  /* Gradient wrt the classification bias */
     int     *batch;         /* List of Indicees of the batch elements */
     int      nclasses;      /* Number of classes */
     int      nbatch;        /* Number of elements in the batch */

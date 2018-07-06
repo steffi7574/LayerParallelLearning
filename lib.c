@@ -140,7 +140,7 @@ loss(myDouble     *Y,
      int           nchannels,
      int          *success_ptr)
 {
-   myDouble loss_sum, loss_local, normalization, tmp; 
+   myDouble loss_sum, loss_local, normalization, sum; 
    int      batch_id, weight_id, y_id, target_id;
    int      predicted_class;
    int      success;
@@ -184,23 +184,22 @@ loss(myDouble     *Y,
         }
 
 
-
         /* First cross entrpy term: sum (C.*YW) */
-        tmp = 0.0;
+        sum = 0.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
             target_id = batch_id * nclasses + iclass;
-            tmp += Target[target_id] * YW_batch[iclass];
+            sum += Target[target_id] * YW_batch[iclass];
         }
-        loss_local = -tmp;
+        loss_local = -sum;
 
         /* Second cross entropy term: log(sum(exp.(YW))) */
-        tmp = 0.0;
+        sum = 0.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            tmp += exp(YW_batch[iclass]);
+            sum += exp(YW_batch[iclass]);
         }
-        loss_local += log(tmp);
+        loss_local += log(sum);
 
         /* Add to loss */
         loss_sum += loss_local;
@@ -209,7 +208,7 @@ loss(myDouble     *Y,
         max             = -1.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            probability = exp(getValue(YW_batch[iclass])) / getValue(tmp);
+            probability = exp(getValue(YW_batch[iclass])) / getValue(sum);
             if (probability > max)
             {
                 max             = probability; 

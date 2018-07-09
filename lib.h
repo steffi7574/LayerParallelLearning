@@ -54,9 +54,9 @@ myDouble
 loss(myDouble    *Y,
      double      *Target,
      double      *Yinit,
-     int          nelem,
      myDouble    *classW,
      myDouble    *classMu,
+     int          nelem,
      int          nclasses,
      int          nchannels,
      int         *success_ptr);

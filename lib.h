@@ -59,6 +59,7 @@ loss(myDouble    *Y,
      int          nelem,
      int          nclasses,
      int          nchannels,
+     int          output,
      int         *success_ptr);
 
 

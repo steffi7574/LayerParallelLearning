@@ -204,6 +204,7 @@ int main (int argc, char *argv[])
     app->gamma_class       = gamma_class;
     app->deltaT            = deltaT;
     app->accuracy          = 0;
+    app->output            = 0;
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;

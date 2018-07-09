@@ -349,7 +349,7 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, &success);
+       obj = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, app->output, &success);
        app->accuracy = 100.0 * (double) success / nelem;  
 
        /* Add regularization for classifier */
@@ -434,7 +434,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain,  classW, classMu, ntraining, nclasses, nchannels, &success);
+       obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain,  classW, classMu, ntraining, nclasses, nchannels, app->output, &success);
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */

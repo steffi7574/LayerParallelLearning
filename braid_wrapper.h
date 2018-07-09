@@ -28,6 +28,7 @@ typedef struct _braid_App_struct
     double   deltaT;        /* Time-step size on fine grid */
     double   accuracy;      /* accur_train of the training data */
     int      training;      /* Flag, if training (1) or not (0) */
+    int      output;        /* Determine, if loss function write to prediction.dat */
 } my_App;
 
 

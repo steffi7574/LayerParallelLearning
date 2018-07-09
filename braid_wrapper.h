@@ -47,15 +47,9 @@ my_Step(braid_App        app,
         braid_StepStatus status);
 
 int
-my_Init_Train(braid_App     app,
-              double        t,
-              braid_Vector *u_ptr);
-
-
-int
-my_Init_Val(braid_App     app,
-              double        t,
-              braid_Vector *u_ptr);
+my_Init(braid_App     app,
+        double        t,
+        braid_Vector *u_ptr);
 
 
 int
@@ -110,16 +104,10 @@ my_BufUnpack(braid_App           app,
 
 
 int 
-my_ObjectiveT_Train(braid_App              app,
-                    braid_Vector           u,
-                    braid_ObjectiveStatus  ostatus,
-                    double                *objective_ptr);
-
-int 
-my_ObjectiveT_Val(braid_App              app,
-                  braid_Vector           u,
-                  braid_ObjectiveStatus  ostatus,
-                  double                *objective_ptr);
+my_ObjectiveT(braid_App              app,
+              braid_Vector           u,
+              braid_ObjectiveStatus  ostatus,
+              double                *objective_ptr);
 
 
 int

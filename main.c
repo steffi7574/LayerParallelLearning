@@ -207,13 +207,13 @@ int main (int argc, char *argv[])
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Train, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_InitAdjoint( my_ObjectiveT_Train, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Val, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-    braid_InitAdjoint( my_ObjectiveT_Val, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);

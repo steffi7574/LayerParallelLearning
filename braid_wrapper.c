@@ -49,68 +49,46 @@ my_Step(braid_App        app,
 
 
 int
-my_Init_Train(braid_App     app,
-              double        t,
-              braid_Vector *u_ptr)
+my_Init(braid_App     app,
+        double        t,
+        braid_Vector *u_ptr)
 {
 
     my_Vector *u;
     int nchannels = app->nchannels;
-    int ntraining = app->ntraining;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    }
  
     /* Allocate the vector */
     u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->Y = (double*) malloc(nchannels * ntraining *sizeof(double));
+    u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
  
     /* Initialize the vector */
     if (t == 0.0)
     {
         /* Initialize with training data */
-        for (int i = 0; i < nchannels * ntraining; i++)
+        for (int i = 0; i < nchannels * nelem; i++)
         {
-            u->Y[i] = app->Ytrain[i];
+            if (app->training)
+            {
+                u->Y[i] = app->Ytrain[i];
+            }
+            else
+            {
+                u->Y[i] = app->Yval[i];
+            }
         }
     }
     else
     {
-        for (int i = 0; i < nchannels * ntraining; i++)
-        {
-            u->Y[i] = 0.0;
-        }
-    }
-
-    *u_ptr = u;
-
-    return 0;
-}
-
-
-int
-my_Init_Val(braid_App     app,
-            double        t,
-            braid_Vector *u_ptr)
-{
-
-    my_Vector *u;
-    int nchannels   = app->nchannels;
-    int nvalidation = app->nvalidation;
- 
-    /* Allocate the vector */
-    u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->Y = (double*) malloc(nchannels * nvalidation * sizeof(double));
- 
-    /* Initialize the vector */
-    if (t == 0.0)
-    {
-        /* Initialize with training data */
-        for (int i = 0; i < nchannels * nvalidation; i++)
-        {
-            u->Y[i] = app->Yval[i];
-        }
-    }
-    else
-    {
-        for (int i = 0; i < nchannels * nvalidation; i++)
+        for (int i = 0; i < nchannels * nelem; i++)
         {
             u->Y[i] = 0.0;
         }
@@ -332,17 +310,33 @@ my_BufUnpack(braid_App           app,
 
 
 int 
-my_ObjectiveT_Train(braid_App              app,
-                    braid_Vector           u,
-                    braid_ObjectiveStatus  ostatus,
-                    double                *objective_ptr)
+my_ObjectiveT(braid_App              app,
+              braid_Vector           u,
+              braid_ObjectiveStatus  ostatus,
+              double                *objective_ptr)
 {
-    int    ntraining = app->ntraining;
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
     int    nclasses  = app->nclasses;
     double obj = 0.0;
     int    ts, success;
+    double *Yinit;
+    double *C;
+
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+        Yinit = app->Ytrain;
+        C     = app->Ctrain;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+        Yinit = app->Yval;
+        C     = app->Cval;
+    } 
+
  
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
@@ -355,8 +349,8 @@ my_ObjectiveT_Train(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./ntraining * loss(u->Y, app->Ctrain, app->Ytrain, ntraining, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accuracy = 100.0 * (double) success / ntraining;  
+       obj = 1./nelem* loss(u->Y, C, Yinit, nelem, app->classW, app->classMu, nclasses, nchannels, &success);
+       app->accuracy = 100.0 * (double) success / nelem;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
@@ -368,44 +362,6 @@ my_ObjectiveT_Train(braid_App              app,
     return 0;
 }
 
-
-
-int 
-my_ObjectiveT_Val(braid_App              app,
-                  braid_Vector           u,
-                  braid_ObjectiveStatus  ostatus,
-                  double                *objective_ptr)
-{
-    int    nvalidation = app->nvalidation;
-    int    nchannels   = app->nchannels;
-    int    ntimes      = app->ntimes;
-    int    nclasses    = app->nclasses;
-    double obj = 0.0;
-    int    ts, success;
- 
-    /* Get the time index*/
-    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
- 
-    if (ts < ntimes)
-    {
-        /* Compute regularization term for theta */
-        obj = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
-    }
-    else
-    {
-        /* Evaluate loss */
-       obj = 1./nvalidation * loss(u->Y, app->Cval, app->Yval, nvalidation, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accuracy = 100.0 * (double) success / nvalidation;  
-
-       /* Add regularization for classifier */
-       obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
-    }
-
-    *objective_ptr = getValue(obj);
-    
-    
-    return 0;
-}
 
 int
 my_ObjectiveT_diff(braid_App            app,
@@ -424,6 +380,12 @@ my_ObjectiveT_diff(braid_App            app,
     int nclassmu  = nclasses;
     int ts, success;
     RealReverse obj = 0.0;
+
+    if (!app->training)
+    {
+        printf("\nERROR: Do not compute gradient on validation error!\n\n");
+        exit(1);
+    }
  
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts); 
@@ -535,6 +497,12 @@ my_Step_diff(braid_App         app,
     int     ntheta   = (nchannels * nchannels + 1 ) * ntimes;
     int     nstate    = nchannels * ntraining;
 
+    if (!app->training)
+    {
+        printf("\nERROR: Do not compute gradient on validation error!\n\n");
+        exit(1);
+    }
+ 
     /* Get time and time step */
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
     braid_StepStatusGetTIndex(status, &ts);

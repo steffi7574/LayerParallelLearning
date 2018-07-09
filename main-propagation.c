@@ -16,8 +16,8 @@ int main (int argc, char *argv[])
     braid_Core core_val;         /**< Braid core for validation data */
     my_App     *app;
 
-    double  *Yval;              /**< Validation data set */
-    double  *Cval;              /**< Classes of the validation data set */
+    double  *Yval;              /**< Data set */
+    double  *Cval;              /**< Classes of the Data set */
     double  *theta;             /**< theta variables for the network */
     double  *classW;           /**< Weights for the classification problem, applied at last layer */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
@@ -25,7 +25,7 @@ int main (int argc, char *argv[])
     double   gamma_theta;       /**< Relaxation parameter for theta */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int      nclasses;          /**< Number of classes / Clabels */
-    int      nvalidation;       /**< Number of examples in the validation data */
+    int      nelem;             /**< Number of examples in the data set */
     int      ntheta;            /**< dimension of the theta variables */
     int      ntimes;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
@@ -41,13 +41,23 @@ int main (int argc, char *argv[])
     double   braid_setskip;     /**< braid: skip work on first level */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
-    double   accur_val;         /**< Prediction accuracy on the validation data */
+    double   accur;             /**< Prediction accuracy on the data */
+    char   *designdatafilename;
+    char   *Ydatafilename;
+    char   *Cdatafilename;
+    int     arg_index;
+
+
+
+    /* Initialize MPI */
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 
     /* --- PROGRAMM SETUP ---*/
 
     /* Learning problem setup */ 
-    nvalidation   = 1000;
+    nelem         = 1000;
     nchannels     = 4;
     nclasses      = 5;
     ntimes        = 32;
@@ -67,7 +77,57 @@ int main (int argc, char *argv[])
     braid_abstol      = 1e-10;
     braid_abstoladj   = 1e-6; 
 
-    
+
+    /* Default: Propagate validation data */
+    designdatafilename = "./optim_STEP3_BFGSall/design_opt.dat";
+    Ydatafilename      = "./data/Yval.dat";
+    Cdatafilename      = "./data/Cval.dat";
+
+
+    /* Parse command line */
+    arg_index = 1;
+    while (arg_index < argc)
+    {
+        if ( strcmp(argv[arg_index], "-help") == 0 )
+        {
+           if ( myid == 0 )
+           {
+              printf("\n");
+              printf("USAGE  -n      <NumberOfFeatureVectors>   \n");
+              printf("       -design </path/to/designvariable.dat>   \n");
+              printf("       -Ydata  </path/to/featurevectors/Y.dat> \n");
+              printf("       -Cdata  </path/to/labelvectors/C.dat>   \n");
+           }
+           exit(1);
+        }
+        else if ( strcmp(argv[arg_index], "-n") == 0 )
+        {
+           arg_index++;
+           nelem       = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-design") == 0 )
+        {
+           arg_index++;
+           designdatafilename = argv[arg_index++];
+        }else if ( strcmp(argv[arg_index], "-Ydata") == 0 )
+        {
+           arg_index++;
+           Ydatafilename = argv[arg_index++];
+        }
+        else if ( strcmp(argv[arg_index], "-Cdata") == 0 )
+        {
+           arg_index++;
+           Cdatafilename = argv[arg_index++];
+        }
+        else
+        {
+           printf("ABORTING: incorrect command line parameter %s\n", argv[arg_index]);
+           MPI_Finalize();
+           return (0);
+  
+        }
+    }
+
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
@@ -79,16 +139,16 @@ int main (int argc, char *argv[])
     theta             = (double*) malloc(ntheta*sizeof(double));
     classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
-    Cval              = (double*) malloc(nclasses*nvalidation*sizeof(double));
-    Yval              = (double*) malloc(nvalidation*nchannels*sizeof(double));
+    Cval              = (double*) malloc(nclasses*nelem*sizeof(double));
+    Yval              = (double*) malloc(nelem*nchannels*sizeof(double));
     design_opt        = (double*) malloc(ndesign*sizeof(double));
 
-    /* Read the validation data */
-    read_data("data/Yval.dat", Yval, nchannels*nvalidation);
-    read_data("data/Cval.dat", Cval, nclasses*nvalidation);
+    /* Read the data that is to be processed */
+    read_data(Ydatafilename, Yval, nchannels*nelem);
+    read_data(Cdatafilename, Cval, nclasses*nelem);
 
     /* Read in the optimized design */
-    read_data("data/design_opt.dat", design_opt, ndesign);
+    read_data(designdatafilename, design_opt, ndesign);
 
     /* Initialize theta from optimized design */
     int idesign = 0;
@@ -108,9 +168,6 @@ int main (int argc, char *argv[])
        idesign++;
     }
 
-    /* Initialize MPI */
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
 
     /* Set up the app structure */
@@ -123,7 +180,7 @@ int main (int argc, char *argv[])
     app->classMu          = classMu;
     app->nchannels         = nchannels;
     app->nclasses          = nclasses;
-    app->nvalidation       = nvalidation;
+    app->nvalidation       = nelem;
     app->ntimes            = ntimes;
     app->deltaT            = deltaT;
     app->gamma_theta       = gamma_theta;
@@ -146,16 +203,16 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
     braid_SetObjectiveOnly(core_val, 1);
 
-    /* --- Compute Validation Accuracy --- */
+    /* --- Compute Prediction Accuracy --- */
 
     braid_Drive(core_val);
-    accur_val = app->accuracy;
+    accur = app->accuracy;
 
 
     /* Output */
     if (myid == 0)
     {
-        printf("\n Validation Accuracy: %2.1f%%", accur_val);
+        printf("\n Accuracy: %2.1f%%", accur);
         printf("\n\n");
 
     }

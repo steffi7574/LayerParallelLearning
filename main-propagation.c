@@ -24,10 +24,8 @@ int main (int argc, char *argv[])
     double  *design_opt;
     double   gamma_theta;       /**< Relaxation parameter for theta */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
-    int     *batch;             /**< Contains indicees of the batch elements */
     int      nclasses;          /**< Number of classes / Clabels */
-    int      nval;              /**< Number of examples in the validation data */
-    int      nbatch;            /**< Size of a batch */
+    int      nvalidation;       /**< Number of examples in the validation data */
     int      ntheta;            /**< dimension of the theta variables */
     int      ntimes;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
@@ -49,7 +47,7 @@ int main (int argc, char *argv[])
     /* --- PROGRAMM SETUP ---*/
 
     /* Learning problem setup */ 
-    nval          = 1000;
+    nvalidation   = 1000;
     nchannels     = 4;
     nclasses      = 5;
     ntimes        = 32;
@@ -75,21 +73,19 @@ int main (int argc, char *argv[])
     /* Init problem parameters */
     T              = deltaT * ntimes;
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
-    nbatch         = nval;
     ndesign        = ntheta+nchannels*nclasses+nclasses;
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
     classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
-    batch             = (int*) malloc(nbatch*sizeof(int));
-    Cval              = (double*) malloc(nclasses*nval*sizeof(double));
-    Yval              = (double*) malloc(nval*nchannels*sizeof(double));
+    Cval              = (double*) malloc(nclasses*nvalidation*sizeof(double));
+    Yval              = (double*) malloc(nvalidation*nchannels*sizeof(double));
     design_opt        = (double*) malloc(ndesign*sizeof(double));
 
     /* Read the validation data */
-    read_data("data/Yval.dat", Yval, nchannels*nval);
-    read_data("data/Cval.dat", Cval, nclasses*nval);
+    read_data("data/Yval.dat", Yval, nchannels*nvalidation);
+    read_data("data/Cval.dat", Cval, nclasses*nvalidation);
 
     /* Read in the optimized design */
     read_data("data/design_opt.dat", design_opt, ndesign);
@@ -112,13 +108,6 @@ int main (int argc, char *argv[])
        idesign++;
     }
 
-    /* Initialize the batch (same as examples for now) */
-    for (int ibatch = 0; ibatch < nbatch; ibatch++)
-    {
-        batch[ibatch] = ibatch;
-    }
-
-
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -132,16 +121,16 @@ int main (int argc, char *argv[])
     app->theta             = theta;
     app->classW           = classW;
     app->classMu          = classMu;
-    app->batch             = batch;
-    app->nbatch            = nbatch;
     app->nchannels         = nchannels;
     app->nclasses          = nclasses;
+    app->nvalidation       = nvalidation;
     app->ntimes            = ntimes;
     app->deltaT            = deltaT;
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
 
     /* Initialize (adjoint) XBraid for validation data set */
+    app->training = 0;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Val, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT_Val, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
@@ -156,17 +145,15 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
 
 
-     /* --- Compute Validation Accuracy --- */
+    /* --- Compute Validation Accuracy --- */
 
-     /* Prepare propagation of validation data */
-     braid_SetObjectiveOnly(core_val, 1);
-     app->nbatch = nval;
-     /* Propagate validation data */
-     braid_Drive(core_val);
-     /* Get prediction accuracy for validation data */
-     accur_val = app->accuracy;
-     /* Restore previous braid parameters for core_train */
-     braid_SetObjectiveOnly(core_val, 0);
+    /* Prepare propagation of validation data */
+    braid_SetObjectiveOnly(core_val, 1);
+    app->training = 0;
+    /* Propagate validation data */
+    braid_Drive(core_val);
+    /* Get prediction accuracy for validation data */
+    accur_val = app->accuracy;
 
 
     /* Output */
@@ -185,7 +172,6 @@ int main (int argc, char *argv[])
     free(theta);
     free(classW);
     free(classMu);
-    free(batch);
     free(app);
 
     braid_Destroy(core_val);

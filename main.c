@@ -9,9 +9,6 @@
 #include "braid_wrapper.h"
 
 
-
-
-
 int main (int argc, char *argv[])
 {
     braid_Core core_train;       /**< Braid core for training data */
@@ -31,11 +28,9 @@ int main (int argc, char *argv[])
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
     double   gamma_theta;       /**< Relaxation parameter for theta */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
-    int     *batch;             /**< Contains indicees of the batch elements */
     int      nclasses;          /**< Number of classes / Clabels */
-    int      nexamples;         /**< Number of examples in the training data */
-    int      nval;              /**< Number of examples in the validation data */
-    int      nbatch;            /**< Size of a batch */
+    int      ntraining;         /**< Number of examples in the training data */
+    int      nvalidation;       /**< Number of examples in the validation data */
     int      ntheta;            /**< dimension of the theta variables */
     int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
     int      ntimes;            /**< Number of layers / time steps */
@@ -83,8 +78,8 @@ int main (int argc, char *argv[])
     /* --- PROGRAMM SETUP ---*/
 
     /* Learning problem setup */ 
-    nexamples     = 5000;
-    nval          = 1000;
+    ntraining     = 5000;
+    nvalidation   = 1000;
     nchannels     = 4;
     nclasses      = 5;
     ntimes        = 32;
@@ -95,7 +90,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 500;
+    maxoptimiter  = 3;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -116,7 +111,6 @@ int main (int argc, char *argv[])
 
     /* Init problem parameters */
     T              = deltaT * ntimes;
-    nbatch         = nexamples;
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
 
@@ -134,23 +128,22 @@ int main (int argc, char *argv[])
     classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
     classMu_grad     = (double*) malloc(nclasses*sizeof(double));
-    batch             = (int*) malloc(nbatch*sizeof(int));
     Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
     global_design     = (double*) malloc(ndesign*sizeof(double));
     global_design0    = (double*) malloc(ndesign*sizeof(double));
     global_gradient   = (double*) malloc(ndesign*sizeof(double));
     global_gradient0  = (double*) malloc(ndesign*sizeof(double));
     descentdir        = (double*) malloc(ndesign*sizeof(double));
-    Ctrain            = (double*) malloc(nclasses*nexamples*sizeof(double));
-    Ytrain            = (double*) malloc(nexamples*nchannels*sizeof(double));
-    Cval              = (double*) malloc(nclasses*nval*sizeof(double));
-    Yval              = (double*) malloc(nval*nchannels*sizeof(double));
+    Ctrain            = (double*) malloc(nclasses*ntraining*sizeof(double));
+    Ytrain            = (double*) malloc(ntraining*nchannels*sizeof(double));
+    Cval              = (double*) malloc(nclasses*nvalidation*sizeof(double));
+    Yval              = (double*) malloc(nvalidation*nchannels*sizeof(double));
 
     /* Read the training and validation data */
-    read_data("data/Ytrain.dat", Ytrain, nchannels*nexamples);
-    read_data("data/Ctrain.dat", Ctrain, nclasses*nexamples);
-    read_data("data/Yval.dat", Yval, nchannels*nval);
-    read_data("data/Cval.dat", Cval, nclasses*nval);
+    read_data("data/Ytrain.dat", Ytrain, nchannels*ntraining);
+    read_data("data/Ctrain.dat", Ctrain, nclasses*ntraining);
+    read_data("data/Yval.dat", Yval, nchannels*nvalidation);
+    read_data("data/Cval.dat", Cval, nclasses*nvalidation);
 
 
     /* Initialize theta and its gradient */
@@ -184,13 +177,6 @@ int main (int argc, char *argv[])
     set_identity(ndesign, Hessian);
     concat_3vectors(ntheta, theta, nchannels*nclasses, classW, nclasses, classMu, global_design);
 
-    /* Initialize the batch (same as examples for now) */
-    for (int ibatch = 0; ibatch < nbatch; ibatch++)
-    {
-        batch[ibatch] = ibatch;
-    }
-
-
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
@@ -209,20 +195,23 @@ int main (int argc, char *argv[])
     app->classW_grad      = classW_grad;
     app->classMu          = classMu;
     app->classMu_grad     = classMu_grad;
-    app->batch             = batch;
-    app->nbatch            = nbatch;
-    app->nchannels         = nchannels;
+    app->ntraining         = ntraining;
+    app->nvalidation       = nvalidation;
     app->nclasses          = nclasses;
+    app->nchannels         = nchannels;
     app->ntimes            = ntimes;
-    app->deltaT            = deltaT;
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
+    app->deltaT            = deltaT;
+    app->accuracy          = 0;
 
     /* Initialize (adjoint) XBraid for training data set */
+    app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Train, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT_Train, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
 
     /* Initialize (adjoint) XBraid for validation data set */
+    app->training = 0;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init_Val, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT_Val, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
@@ -268,6 +257,7 @@ int main (int argc, char *argv[])
 
         /* Parallel-in-layer propagation and gradient computation  */
         braid_SetObjectiveOnly(core_train, 0);
+        app->training = 1;
         braid_Drive(core_train);
 
         /* Get objective function value and accuracy */
@@ -290,14 +280,13 @@ int main (int argc, char *argv[])
 
         /* Prepare propagation of validation data */
         braid_SetObjectiveOnly(core_val, 1);
-        app->nbatch = nval;
         /* Propagate validation data */
+        app->training = 0;
         braid_Drive(core_val);
         /* Get prediction accuracy for validation data */
         accur_val = app->accuracy;
         /* Restore previous braid parameters for core_train */
         braid_SetObjectiveOnly(core_val, 0);
-        app->nbatch = nexamples;
 
 
         /* --- Optimization control and output ---*/
@@ -341,6 +330,7 @@ int main (int argc, char *argv[])
             /* Compute new objective function value for that trial step */
             braid_SetObjectiveOnly(core_train, 1);
             braid_SetPrintLevel(core_train, 0);
+            app->training = 1;
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
             braid_SetPrintLevel( core_train, braid_printlevel);
@@ -423,6 +413,7 @@ int main (int argc, char *argv[])
 
             /* Run a Braid simulation */
             braid_SetObjectiveOnly(core_train, 1);
+            app->training = 1;
             braid_Drive(core_train);
 
             /* Get perturbed objective */
@@ -474,10 +465,12 @@ int main (int argc, char *argv[])
     free(classW_grad);
     free(classMu);
     free(classMu_grad);
-    free(batch);
     free(app);
 
+    app->training = 1;
     braid_Destroy(core_train);
+    app->training = 0;
+    braid_Destroy(core_val);
     MPI_Finalize();
 
     if (myid == 0)

@@ -18,15 +18,16 @@ typedef struct _braid_App_struct
     double  *classW_grad;   /* Gradient wrt the classification weights */
     double  *classMu;       /* Bias of the classification problem (mu) */
     double  *classMu_grad;  /* Gradient wrt the classification bias */
-    int     *batch;         /* List of Indicees of the batch elements */
+    int      ntraining;     /* Elements of the training data */
+    int      nvalidation;   /* Elements of the validation data */
     int      nclasses;      /* Number of classes */
-    int      nbatch;        /* Number of elements in the batch */
     int      nchannels;     /* Width of the network */
     int      ntimes;        /* number of time-steps / layers */
     double   gamma_theta;   /* Relaxation parameter for theta */
     double   gamma_class;   /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;        /* Time-step size on fine grid */
     double   accuracy;      /* accur_train of the training data */
+    int      training;      /* Flag, if training (1) or not (0) */
 } my_App;
 
 

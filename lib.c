@@ -61,22 +61,18 @@ take_step(myDouble* Y,
           myDouble* theta,
           int     ts,
           double  dt,
-          int    *batch,
-          int     nbatch,
+          int     nelem,
           int     nchannels, 
           int     parabolic)
 {
    /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
    myDouble sum;
    int    th_idx;
-   int    batch_id;
    myDouble *update = (myDouble*)malloc(nchannels * sizeof(myDouble));
 
-   /* iterate over all batch elements */ 
-   for (int i = 0; i < nbatch; i++)
+   /* iterate over all elements */ 
+   for (int ielem = 0; ielem < nelem; ielem++)
    {
-      batch_id = batch[i];
-
       /* Iterate over all channels */
       for (int ichannel = 0; ichannel < nchannels; ichannel++)
       {
@@ -85,7 +81,7 @@ take_step(myDouble* Y,
          for (int jchannel = 0; jchannel < nchannels; jchannel++)
          {
             th_idx = ts * ( nchannels * nchannels + 1) + jchannel * nchannels + ichannel;
-            sum += theta[th_idx] * Y[batch_id * nchannels + jchannel];
+            sum += theta[th_idx] * Y[ielem * nchannels + jchannel];
          }
          update[ichannel] = sum;
 
@@ -115,11 +111,9 @@ take_step(myDouble* Y,
          }
 
      
-         int idx = batch_id * nchannels + ichannel;
+         int idx = ielem * nchannels + ichannel;
          Y[idx] += dt * sum;
  
-        //  if (batch_id == 0) printf("upd %f * %1.14e ", dt, sum);
-        //  if (batch_id == 0) printf("Y[%d] = %1.14e\n", idx, Y[idx] );
       }
    }      
 
@@ -133,8 +127,7 @@ myDouble
 loss(myDouble     *Y,
      double       *Target,
      double       *Yinit,
-     int          *batch,
-     int           nbatch,
+     int           nelem,
      myDouble     *classW,
      myDouble     *classMu,
      int           nclasses,
@@ -142,13 +135,13 @@ loss(myDouble     *Y,
      int          *success_ptr)
 {
    myDouble loss_sum, loss_local, normalization, sum; 
-   int      batch_id, weight_id, y_id, target_id;
+   int      weight_id, y_id, target_id;
    int      predicted_class;
    int      success;
    double   max, probability;             
    FILE    *predictionfile;
 
-   myDouble* YW_batch = new myDouble [nclasses];
+   myDouble* YW_elem = new myDouble [nclasses];
 
    /* Open file for output of prediction data */
    predictionfile = fopen("prediction.dat", "w");
@@ -156,36 +149,33 @@ loss(myDouble     *Y,
 
    success = 0;
    loss_sum = 0.0;
-   /* Loop over batch elements */
-   for (int ibatch = 0; ibatch < nbatch; ibatch ++)
+   /* Loop over elements */
+   for (int ielem = 0; ielem < nelem; ielem ++)
    {
-       /* Get batch_id */
-       batch_id = batch[ibatch];
-
         /* Apply the classification weights YW */
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            YW_batch[iclass] = 0.0;
+            YW_elem[iclass] = 0.0;
 
             for (int ichannel = 0; ichannel < nchannels; ichannel++)
             {
-                y_id      = batch_id * nchannels + ichannel;
+                y_id      = ielem * nchannels + ichannel;
                 weight_id = iclass   * nchannels + ichannel;
-                YW_batch[iclass] += Y[y_id] * classW[weight_id];
+                YW_elem[iclass] += Y[y_id] * classW[weight_id];
             }
         }
 
         /* Add the classification bias YW + mu */
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            YW_batch[iclass] += classMu[iclass];
+            YW_elem[iclass] += classMu[iclass];
         }
 
         /* Pointwise Normalization YW + mu - max(classes) */
-        normalization = maximum (YW_batch, nclasses);
+        normalization = maximum (YW_elem, nclasses);
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            YW_batch[iclass] -= normalization;
+            YW_elem[iclass] -= normalization;
         }
 
 
@@ -193,8 +183,8 @@ loss(myDouble     *Y,
         sum = 0.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            target_id = batch_id * nclasses + iclass;
-            sum += Target[target_id] * YW_batch[iclass];
+            target_id = ielem * nclasses + iclass;
+            sum += Target[target_id] * YW_elem[iclass];
         }
         loss_local = -sum;
 
@@ -202,7 +192,7 @@ loss(myDouble     *Y,
         sum = 0.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            sum += exp(YW_batch[iclass]);
+            sum += exp(YW_elem[iclass]);
         }
         loss_local += log(sum);
 
@@ -213,7 +203,7 @@ loss(myDouble     *Y,
         max             = -1.0;
         for (int iclass = 0; iclass < nclasses; iclass++)
         {
-            probability = exp(getValue(YW_batch[iclass])) / getValue(sum);
+            probability = exp(getValue(YW_elem[iclass])) / getValue(sum);
             if (probability > max)
             {
                 max             = probability; 
@@ -222,20 +212,20 @@ loss(myDouble     *Y,
         }
 
         /* Test for success */
-        target_id = batch_id * nclasses + predicted_class;
+        target_id = ielem * nclasses + predicted_class;
         if (Target[target_id] > 0.5)
         {
             success++;
         }
 
         /* Print prediction to file */
-        y_id      = batch_id * nchannels;
+        y_id      = ielem * nchannels;
         fprintf(predictionfile, "%1.8e   %1.8e   %d\n", Yinit[y_id + 0], Yinit[y_id + 1], predicted_class);
    }
 
    *success_ptr = success;  
 
-   delete [] YW_batch;
+   delete [] YW_elem;
    fclose(predictionfile);
    printf("File written: prediction.dat\n");
 
@@ -597,54 +587,15 @@ template RealReverse maximum<RealReverse>(RealReverse* a, int size_t);
 template double sigma<double>(double x);
 template RealReverse sigma<RealReverse>(RealReverse x);
 
-template int take_step<double>(double* Y, double* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
-template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
+template int take_step<double>(double* Y, double* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
+template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
 
-template double loss<double>(double  *Y, double *Target, double  *Yinit, int *batch, int nbatch, double *classW, double *classMu, int nclasses, int nchannels, int* success_ptr);
-template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Yinit, int *batch, int nbatch, RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels, int* success_ptr);
+template double loss<double>(double  *Y, double *Target, double  *Yinit, int nelem, double *classW, double *classMu, int nclasses, int nchannels, int* success_ptr);
+template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Yinit, int nelem, RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels, int* success_ptr);
 
 template double regularization_theta<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 
 template RealReverse regularization_class<RealReverse>(RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels);
 template double regularization_class<double>(double *classW, double *classMu, int nclasses, int nchannels);
-
-
-    // /* --- CONSTRUCT A LABEL MATRIX --- */
-
-    // double *Cstore = (double*) malloc(nclasses*nexamples*sizeof(double));
-    // /* Read YTarget */
-    // double  *Ytarget = (double*) malloc(nchannels * nexamples * sizeof(double));
-    // read_data("Ytarget.transpose.dat", Ytarget, nchannels*nexamples);
-
-    // /* multiply Ytarget with W and add mu */
-    // int c_id, batch_id, weight_id, y_id;
-    // for (int ibatch = 0; ibatch < nbatch; ibatch ++)
-    // {
-    //     batch_id = batch[ibatch];
-    //     for (int iclass = 0; iclass < nclasses; iclass++)
-    //     {
-    //         c_id = batch_id * nclasses + iclass;
-    //         Cstore[c_id] = 0.0;
-        
-    //         /* Apply classification weights */
-    //         for (int ichannel = 0; ichannel < nchannels; ichannel++)
-    //         {
-    //             y_id          = batch_id * nchannels + ichannel;
-    //             weight_id     = iclass   * nchannels + ichannel;
-    //             Cstore[c_id] += Ytarget[y_id] * classW[weight_id];
-    //         }
-
-    //         /* Add classification bias */
-    //         Cstore[c_id] += classMu[iclass];
-    //     }
-    // }
-
-    // /* print Cstore to file */
-    // write_data("Cstore.dat", Cstore, nclasses*nexamples);
-
-    // free(Cstore);
-
-    // /* Stop calculating */
-    // return 0;
 

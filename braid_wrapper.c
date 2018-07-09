@@ -17,6 +17,16 @@ my_Step(braid_App        app,
     int    ts;
     double tstart, tstop;
     double deltaT;
+
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    }
     
     /* Get the time-step size */
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
@@ -27,7 +37,7 @@ my_Step(braid_App        app,
  
 
     /* Take one step */
-    take_step(u->Y, app->theta, ts, deltaT, app->batch, app->nbatch, app->nchannels, 0);
+    take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, 0);
 
  
     /* no refinement */
@@ -46,24 +56,24 @@ my_Init_Train(braid_App     app,
 
     my_Vector *u;
     int nchannels = app->nchannels;
-    int nbatch    = app->nbatch;
+    int ntraining = app->ntraining;
  
     /* Allocate the vector */
     u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->Y = (double*) malloc(nchannels * nbatch *sizeof(double));
+    u->Y = (double*) malloc(nchannels * ntraining *sizeof(double));
  
     /* Initialize the vector */
     if (t == 0.0)
     {
         /* Initialize with training data */
-        for (int i = 0; i < nchannels * nbatch; i++)
+        for (int i = 0; i < nchannels * ntraining; i++)
         {
             u->Y[i] = app->Ytrain[i];
         }
     }
     else
     {
-        for (int i = 0; i < nchannels * nbatch; i++)
+        for (int i = 0; i < nchannels * ntraining; i++)
         {
             u->Y[i] = 0.0;
         }
@@ -82,25 +92,25 @@ my_Init_Val(braid_App     app,
 {
 
     my_Vector *u;
-    int nchannels = app->nchannels;
-    int nbatch    = app->nbatch;
+    int nchannels   = app->nchannels;
+    int nvalidation = app->nvalidation;
  
     /* Allocate the vector */
     u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->Y = (double*) malloc(nchannels * nbatch *sizeof(double));
+    u->Y = (double*) malloc(nchannels * nvalidation * sizeof(double));
  
     /* Initialize the vector */
     if (t == 0.0)
     {
         /* Initialize with training data */
-        for (int i = 0; i < nchannels * nbatch; i++)
+        for (int i = 0; i < nchannels * nvalidation; i++)
         {
             u->Y[i] = app->Yval[i];
         }
     }
     else
     {
-        for (int i = 0; i < nchannels * nbatch; i++)
+        for (int i = 0; i < nchannels * nvalidation; i++)
         {
             u->Y[i] = 0.0;
         }
@@ -118,23 +128,31 @@ my_Clone(braid_App     app,
          braid_Vector  u,
          braid_Vector *v_ptr)
 {
-   my_Vector *v;
-   int nchannels = app->nchannels;
-   int nbatch    = app->nbatch;
-   
-   /* Allocate the vector */
-   v = (my_Vector *) malloc(sizeof(my_Vector));
-   v->Y = (double*) malloc(nchannels * nbatch *sizeof(double));
+    my_Vector *v;
+    int nchannels = app->nchannels;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    }
+ 
+    /* Allocate the vector */
+    v = (my_Vector *) malloc(sizeof(my_Vector));
+    v->Y = (double*) malloc(nchannels * nelem * sizeof(double));
 
-   /* Clone the values */
-    for (int i = 0; i < nchannels * nbatch; i++)
+    /* Clone the values */
+    for (int i = 0; i < nchannels * nelem; i++)
     {
         v->Y[i] = u->Y[i];
     }
 
-   *v_ptr = v;
+    *v_ptr = v;
 
-   return 0;
+    return 0;
 }
 
 
@@ -148,6 +166,7 @@ my_Free(braid_App    app,
    return 0;
 }
 
+
 int
 my_Sum(braid_App     app,
        double        alpha,
@@ -156,9 +175,17 @@ my_Sum(braid_App     app,
        braid_Vector  y)
 {
     int nchannels = app->nchannels;
-    int nbatch    = app->nbatch;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    }
 
-    for (int i = 0; i < nchannels * nbatch; i++)
+    for (int i = 0; i < nchannels * nelem; i++)
     {
        (y->Y)[i] = alpha*(x->Y)[i] + beta*(y->Y)[i];
     }
@@ -172,11 +199,19 @@ my_SpatialNorm(braid_App     app,
                double       *norm_ptr)
 {
     int nchannels = app->nchannels;
-    int nbatch    = app->nbatch;
     double dot;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    }
 
     dot = 0.0;
-    for (int i = 0; i < nchannels * nbatch; i++)
+    for (int i = 0; i < nchannels * nelem; i++)
     {
        dot += pow( getValue(u->Y[i]), 2 );
     }
@@ -194,14 +229,14 @@ my_Access(braid_App          app,
           braid_AccessStatus astatus)
 {
     int   idx;
-   char  filename[255];
+//    char  filename[255];
 
     braid_AccessStatusGetTIndex(astatus, &idx);
 
     if (idx == app->ntimes)
     {
-        sprintf(filename, "%s.%02d", "Yout.pint.myid", app->myid);
-        write_data(filename, u->Y, app->nbatch * app->nchannels);
+        // sprintf(filename, "%s.%02d", "Yout.pint.myid", app->myid);
+        // write_data(filename, u->Y, app->ntraining * app->nchannels);
     }
 
     return 0;
@@ -214,9 +249,17 @@ my_BufSize(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int nchannels = app->nchannels;
-    int nbatch    = app->nbatch;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    } 
     
-    *size_ptr = nchannels*nbatch*sizeof(double);
+    *size_ptr = nchannels*nelem*sizeof(double);
     return 0;
 }
 
@@ -230,14 +273,23 @@ my_BufPack(braid_App           app,
 {
     double *dbuffer   = (double*) buffer;
     int          nchannels = app->nchannels;
-    int          nbatch    = app->nbatch;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    } 
     
-    for (int i = 0; i < nchannels * nbatch; i++)
+    
+    for (int i = 0; i < nchannels * nelem; i++)
     {
        dbuffer[i] = (u->Y)[i];
     }
  
-    braid_BufferStatusSetSize( bstatus,  nchannels*nbatch*sizeof(double));
+    braid_BufferStatusSetSize( bstatus,  nchannels*nelem*sizeof(double));
  
    return 0;
 }
@@ -252,15 +304,24 @@ my_BufUnpack(braid_App           app,
 {
     my_Vector   *u         = NULL;
     double *dbuffer   = (double*) buffer;
-    int          nchannels = app->nchannels;
-    int          nbatch    = app->nbatch;
+    int     nchannels = app->nchannels;
+    int nelem;
+    if (app->training)
+    {
+        nelem = app->ntraining;
+    }
+    else
+    {
+        nelem = app->nvalidation;
+    } 
+    
  
      /* Allocate the vector */
      u = (my_Vector *) malloc(sizeof(my_Vector));
-     u->Y = (double*) malloc(nchannels * nbatch *sizeof(double));
+     u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
 
     /* Unpack the buffer */
-    for (int i = 0; i < nchannels * nbatch; i++)
+    for (int i = 0; i < nchannels * nelem; i++)
     {
        (u->Y)[i] = dbuffer[i];
     }
@@ -276,7 +337,7 @@ my_ObjectiveT_Train(braid_App              app,
                     braid_ObjectiveStatus  ostatus,
                     double                *objective_ptr)
 {
-    int    nbatch    = app->nbatch;
+    int    ntraining = app->ntraining;
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
     int    nclasses  = app->nclasses;
@@ -294,8 +355,8 @@ my_ObjectiveT_Train(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./nbatch * loss(u->Y, app->Ctrain, app->Ytrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accuracy = 100.0 * (double) success / nbatch;  
+       obj = 1./ntraining * loss(u->Y, app->Ctrain, app->Ytrain, ntraining, app->classW, app->classMu, nclasses, nchannels, &success);
+       app->accuracy = 100.0 * (double) success / ntraining;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
@@ -315,10 +376,10 @@ my_ObjectiveT_Val(braid_App              app,
                   braid_ObjectiveStatus  ostatus,
                   double                *objective_ptr)
 {
-    int    nbatch    = app->nbatch;
-    int    nchannels = app->nchannels;
-    int    ntimes    = app->ntimes;
-    int    nclasses  = app->nclasses;
+    int    nvalidation = app->nvalidation;
+    int    nchannels   = app->nchannels;
+    int    ntimes      = app->ntimes;
+    int    nclasses    = app->nclasses;
     double obj = 0.0;
     int    ts, success;
  
@@ -333,8 +394,8 @@ my_ObjectiveT_Val(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./nbatch * loss(u->Y, app->Cval, app->Yval, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
-       app->accuracy = 100.0 * (double) success / nbatch;  
+       obj = 1./nvalidation * loss(u->Y, app->Cval, app->Yval, nvalidation, app->classW, app->classMu, nclasses, nchannels, &success);
+       app->accuracy = 100.0 * (double) success / nvalidation;  
 
        /* Add regularization for classifier */
        obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
@@ -353,12 +414,12 @@ my_ObjectiveT_diff(braid_App            app,
                   braid_Real            f_bar,
                   braid_ObjectiveStatus ostatus)
 {
-    int nbatch    = app->nbatch;
+    int ntraining = app->ntraining;
     int nchannels = app->nchannels;
     int ntimes    = app->ntimes;
     int nclasses  = app->nclasses;
     int ntheta    = (nchannels * nchannels + 1 ) * ntimes;
-    int nstate    = nchannels * nbatch;
+    int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
     int ts, success;
@@ -411,7 +472,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->Ctrain, app->Ytrain, app->batch,  nbatch, classW, classMu, nclasses, nchannels, &success);
+       obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain,  ntraining, classW, classMu, nclasses, nchannels, &success);
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */
@@ -469,10 +530,10 @@ my_Step_diff(braid_App         app,
     double  tstop, tstart, deltaT;
     int     ts;
     int     nchannels = app->nchannels;
-    int     nbatch    = app->nbatch;
+    int     ntraining    = app->ntraining;
     int     ntimes    = app->ntimes;
     int     ntheta   = (nchannels * nchannels + 1 ) * ntimes;
-    int     nstate    = nchannels * nbatch;
+    int     nstate    = nchannels * ntraining;
 
     /* Get time and time step */
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
@@ -504,11 +565,11 @@ my_Step_diff(braid_App         app,
     }
     
     /* Take one forward step */
-    take_step(Ynext, theta, ts, deltaT, app->batch, nbatch, nchannels, 0);
+    take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, 0);
 
     /* Set the adjoint variables */
     codiTape.setPassive();
-    for (int i = 0; i < nchannels * nbatch; i++)
+    for (int i = 0; i < nchannels * ntraining; i++)
     {
         Ynext[i].setGradient(u_bar->Y[i]);
     }

@@ -54,6 +54,7 @@ template <typename myDouble>
 myDouble  
 loss(myDouble    *Y,
      double      *Target,
+     double      *Yinit,
      int         *batch,
      int          nbatch,
      myDouble    *classW,

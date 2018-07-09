@@ -132,6 +132,7 @@ template <typename myDouble>
 myDouble
 loss(myDouble     *Y,
      double       *Target,
+     double       *Yinit,
      int          *batch,
      int           nbatch,
      myDouble     *classW,
@@ -145,9 +146,13 @@ loss(myDouble     *Y,
    int      predicted_class;
    int      success;
    double   max, probability;             
+   FILE    *predictionfile;
 
    myDouble* YW_batch = new myDouble [nclasses];
 
+   /* Open file for output of prediction data */
+   predictionfile = fopen("prediction.dat", "w");
+   fprintf(predictionfile, "# x-coord      y-coord     predicted class\n");
 
    success = 0;
    loss_sum = 0.0;
@@ -222,11 +227,17 @@ loss(myDouble     *Y,
         {
             success++;
         }
+
+        /* Print prediction to file */
+        y_id      = batch_id * nchannels;
+        fprintf(predictionfile, "%1.8e   %1.8e   %d\n", Yinit[y_id + 0], Yinit[y_id + 1], predicted_class);
    }
 
    *success_ptr = success;  
 
    delete [] YW_batch;
+   fclose(predictionfile);
+   printf("File written: prediction.dat\n");
 
    return loss_sum;
 }
@@ -589,8 +600,8 @@ template RealReverse sigma<RealReverse>(RealReverse x);
 template int take_step<double>(double* Y, double* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
 template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int *batch, int nbatch, int nchannels, int parabolic);
 
-template double loss<double>(double  *Y, double *Target, int *batch, int nbatch, double *classW, double *classMu, int nclasses, int nchannels, int* success_ptr);
-template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, int *batch, int nbatch, RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels, int* success_ptr);
+template double loss<double>(double  *Y, double *Target, double  *Yinit, int *batch, int nbatch, double *classW, double *classMu, int nclasses, int nchannels, int* success_ptr);
+template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Yinit, int *batch, int nbatch, RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels, int* success_ptr);
 
 template double regularization_theta<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);

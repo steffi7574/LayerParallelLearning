@@ -294,7 +294,7 @@ my_ObjectiveT_Train(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./nbatch * loss(u->Y, app->Ctrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
+       obj = 1./nbatch * loss(u->Y, app->Ctrain, app->Ytrain, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
        app->accuracy = 100.0 * (double) success / nbatch;  
 
        /* Add regularization for classifier */
@@ -333,7 +333,7 @@ my_ObjectiveT_Val(braid_App              app,
     else
     {
         /* Evaluate loss */
-       obj = 1./nbatch * loss(u->Y, app->Cval, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
+       obj = 1./nbatch * loss(u->Y, app->Cval, app->Yval, app->batch, nbatch, app->classW, app->classMu, nclasses, nchannels, &success);
        app->accuracy = 100.0 * (double) success / nbatch;  
 
        /* Add regularization for classifier */
@@ -411,7 +411,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->nbatch * loss(Ycodi, app->Ctrain, app->batch,  nbatch, classW, classMu, nclasses, nchannels, &success);
+       obj = 1./app->nbatch * loss(Ycodi, app->Ctrain, app->Ytrain, app->batch,  nbatch, classW, classMu, nclasses, nchannels, &success);
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */

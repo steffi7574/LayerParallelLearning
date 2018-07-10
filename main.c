@@ -70,12 +70,17 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
 
-    int      nreq; 
     char     optimfilename[255]; /**< Name of the optimization output file */
     FILE     *optimfile;      /**< File for optimization history */
+    int      nreq, arg_index; 
 
 
-    /* --- PROGRAMM SETUP ---*/
+    /* Initialize MPI */
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+
+
+    /* --- PROGRAMM SETUP (Default parameters) ---*/
 
     /* Learning problem setup */ 
     ntraining     = 5000;
@@ -90,7 +95,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 3;
+    maxoptimiter  = 50;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -106,6 +111,64 @@ int main (int argc, char *argv[])
     braid_abstol      = 1e-10;
     braid_abstoladj   = 1e-6; 
 
+
+
+    /* Parse command line */
+    arg_index = 1;
+    while (arg_index < argc)
+    {
+        if ( strcmp(argv[arg_index], "-help") == 0 )
+        {
+           if ( myid == 0 )
+           {
+              printf("\n");
+              printf("USAGE  -n      <Number of Layers (Default is 32)>   \n");
+              printf("       -c      <coarsening factor (Default is 2)>   \n");
+              printf("       -ml     <maximum number of levels (Default is 1, serial run)>   \n");
+              printf("       -p      <xbraid print level (Default is 1)>   \n");
+              printf("       -oi     <maximum number of optimization iterations (Default is 50)>   \n");
+              printf("       -li     <maximum number of linesearch iterations (Default is 20)>   \n");
+              printf("\n");
+           }
+           exit(1);
+        }
+        else if ( strcmp(argv[arg_index], "-n") == 0 )
+        {
+           arg_index++;
+           ntimes = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-c") == 0 )
+        {
+           arg_index++;
+           braid_cfactor = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-ml") == 0 )
+        {
+           arg_index++;
+           braid_maxlevels = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-p") == 0 )
+        {
+           arg_index++;
+           braid_printlevel = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-oi") == 0 )
+        {
+           arg_index++;
+           maxoptimiter = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-li") == 0 )
+        {
+           arg_index++;
+           ls_maxiter = atoi(argv[arg_index++]);
+        }
+        else
+        {
+           printf("ABORTING: incorrect command line parameter %s\n", argv[arg_index]);
+           MPI_Finalize();
+           return (0);
+        }
+    }
     
     /*--- INITIALIZATION ---*/
 
@@ -176,11 +239,6 @@ int main (int argc, char *argv[])
     }
     set_identity(ndesign, Hessian);
     concat_3vectors(ntheta, theta, nchannels*nclasses, classW, nclasses, classMu, global_design);
-
-    /* Initialize MPI */
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));

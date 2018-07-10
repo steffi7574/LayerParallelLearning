@@ -42,6 +42,7 @@ int main (int argc, char *argv[])
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
     double   accur;             /**< Prediction accuracy on the data */
+    double   objective;         /**< Optimization objective function (Loss + Regularization) */
     char   *designdatafilename;
     char   *Ydatafilename;
     char   *Cdatafilename;
@@ -230,14 +231,17 @@ int main (int argc, char *argv[])
     /* --- Compute Prediction Accuracy --- */
 
     braid_Drive(core_val);
-    accur = app->accuracy;
+    braid_GetObjective(core_val, &objective);
+    MPI_Allreduce(&app->accuracy, &accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
     /* Output */
     if (myid == 0)
     {
-        printf("\n Accuracy: %2.1f%%", accur);
-        printf("\n\n");
+        printf("\n");
+        printf(" Objective: %1.14e\n", objective);
+        printf(" Accuracy:  %2.1f%%\n", accur);
+        printf("\n");
 
     }
 

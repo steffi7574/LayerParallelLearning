@@ -319,9 +319,9 @@ int main (int argc, char *argv[])
         app->training = 1;
         braid_Drive(core_train);
 
-        /* Get objective function value and accuracy */
+        /* Get objective function value and prediction accuracy for training data */
         braid_GetObjective(core_train, &objective);
-        accur_train = app->accuracy;
+        MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Get the state and adjoint residual norms */
         nreq = -1;
@@ -337,15 +337,13 @@ int main (int argc, char *argv[])
 
         /* --- Compute Validation Accuracy --- */
 
-        /* Prepare propagation of validation data */
-        braid_SetObjectiveOnly(core_val, 1);
         /* Propagate validation data */
+        braid_SetObjectiveOnly(core_val, 1);
         app->training = 0;
         braid_Drive(core_val);
+
         /* Get prediction accuracy for validation data */
-        accur_val = app->accuracy;
-        /* Restore previous braid parameters for core_train */
-        braid_SetObjectiveOnly(core_val, 0);
+        MPI_Allreduce(&app->accuracy, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
         /* --- Optimization control and output ---*/
@@ -387,14 +385,14 @@ int main (int argc, char *argv[])
             split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
 
             /* Compute new objective function value for that trial step */
-            braid_SetObjectiveOnly(core_train, 1);
             braid_SetPrintLevel(core_train, 0);
+            braid_SetObjectiveOnly(core_train, 1);
             app->training = 1;
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
             braid_SetPrintLevel( core_train, braid_printlevel);
 
-            printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
+            if (myid == 0) printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 

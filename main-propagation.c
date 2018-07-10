@@ -1,3 +1,4 @@
+#include <sys/resource.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,12 +49,12 @@ int main (int argc, char *argv[])
     char   *Cdatafilename;
     int     arg_index;
 
-
+    struct rusage r_usage;
+    double StartTime, StopTime, UsedTime;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
 
     /* --- PROGRAMM SETUP ---*/
 
@@ -228,6 +229,9 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
     braid_SetObjectiveOnly(core_val, 1);
 
+    /* Start Timer */
+    StartTime = MPI_Wtime();
+
     /* --- Compute Prediction Accuracy --- */
 
     braid_Drive(core_val);
@@ -247,15 +251,29 @@ int main (int argc, char *argv[])
 
 
 
+    /* --- Print statistics on this run --- */
+
+    StopTime = MPI_Wtime();
+    UsedTime = StopTime-StartTime;
+    getrusage(RUSAGE_SELF,&r_usage);
+    if (myid == 0) 
+    {
+        printf("Used Time:    %.2f seconds\n", UsedTime);
+        printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);
+    }
+
+
+
     /* Clean up */
     free(Cval);
     free(Yval);
     free(theta);
     free(classW);
     free(classMu);
-    free(app);
 
     braid_Destroy(core_val);
+    free(app);
+    
     MPI_Finalize();
 
 

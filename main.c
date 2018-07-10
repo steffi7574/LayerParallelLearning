@@ -1,3 +1,4 @@
+#include <sys/resource.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -74,11 +75,14 @@ int main (int argc, char *argv[])
     FILE     *optimfile;      /**< File for optimization history */
     int      nreq, arg_index; 
 
+    struct rusage r_usage;
+    double StartTime, StopTime, UsedTime;
+
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
+    StartTime = MPI_Wtime();
 
     /* --- PROGRAMM SETUP (Default parameters) ---*/
 
@@ -502,6 +506,16 @@ int main (int argc, char *argv[])
         
         free(err);
         free(grad_store);
+    }
+
+    StopTime = MPI_Wtime();
+    UsedTime = StopTime-StartTime;
+    getrusage(RUSAGE_SELF,&r_usage);
+
+    if (myid == 0) 
+    {
+        printf("Used Time:    %.2f seconds\n", UsedTime);
+        printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);
     }
 
 

@@ -93,14 +93,18 @@ int main (int argc, char *argv[])
            if ( myid == 0 )
            {
               printf("\n");
-              printf("USAGE  -n      <NumberOfFeatureVectors>   \n");
+              printf("USAGE  -nf     <NumberOfFeatureVectors>   \n");
               printf("       -design </path/to/designvariable.dat>   \n");
               printf("       -Ydata  </path/to/featurevectors/Y.dat> \n");
               printf("       -Cdata  </path/to/labelvectors/C.dat>   \n");
+              printf("       -nl     <Number of Layers (Default is 32)>   \n");
+              printf("       -c      <coarsening factor (Default is 2)>   \n");
+              printf("       -ml     <maximum number of levels (Default is 1, serial run)>   \n");
+              printf("       -p      <xbraid print level (Default is 1)>   \n");
            }
            exit(1);
         }
-        else if ( strcmp(argv[arg_index], "-n") == 0 )
+        else if ( strcmp(argv[arg_index], "-nf") == 0 )
         {
            arg_index++;
            nelem       = atoi(argv[arg_index++]);
@@ -118,6 +122,26 @@ int main (int argc, char *argv[])
         {
            arg_index++;
            Cdatafilename = argv[arg_index++];
+        }
+        else if ( strcmp(argv[arg_index], "-nl") == 0 )
+        {
+           arg_index++;
+           ntimes = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-c") == 0 )
+        {
+           arg_index++;
+           braid_cfactor = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-ml") == 0 )
+        {
+           arg_index++;
+           braid_maxlevels = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-p") == 0 )
+        {
+           arg_index++;
+           braid_printlevel = atoi(argv[arg_index++]);
         }
         else
         {

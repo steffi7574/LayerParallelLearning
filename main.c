@@ -522,12 +522,13 @@ int main (int argc, char *argv[])
     free(classW_grad);
     free(classMu);
     free(classMu_grad);
-    free(app);
 
     app->training = 1;
     braid_Destroy(core_train);
     app->training = 0;
     braid_Destroy(core_val);
+
+    free(app);
     MPI_Finalize();
 
     if (myid == 0)

@@ -60,12 +60,12 @@ int main (int argc, char *argv[])
     double   ls_factor;         /**< Reduction factor for linesearch */
     int      ls_iter;           /**< Iterator for linesearch */
     double   wolfe;             /**< Wolfe conditoin for linesearch */
-    double   braid_maxlevels;   /**< max. levels of temporal refinement */
-    double   braid_printlevel;  /**< print level of xbraid */
-    double   braid_cfactor;     /**< temporal coarsening factor */
-    double   braid_accesslevel; /**< braid access level */
-    double   braid_maxiter;     /**< max. iterations of xbraid */ 
-    double   braid_setskip;     /**< braid: skip work on first level */
+    int      braid_maxlevels;   /**< max. levels of temporal refinement */
+    int      braid_printlevel;  /**< print level of xbraid */
+    int      braid_cfactor;     /**< temporal coarsening factor */
+    int      braid_accesslevel; /**< braid access level */
+    int      braid_maxiter;     /**< max. iterations of xbraid */ 
+    int      braid_setskip;     /**< braid: skip work on first level */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
     double   accur_train;       /**< Prediction accuracy on the training data */
@@ -126,22 +126,25 @@ int main (int argc, char *argv[])
            if ( myid == 0 )
            {
               printf("\n");
-              printf("USAGE  -n      <Number of Layers (Default is 32)>   \n");
-              printf("       -c      <coarsening factor (Default is 2)>   \n");
-              printf("       -ml     <maximum number of levels (Default is 1, serial run)>   \n");
-              printf("       -p      <xbraid print level (Default is 1)>   \n");
-              printf("       -oi     <maximum number of optimization iterations (Default is 50)>   \n");
-              printf("       -li     <maximum number of linesearch iterations (Default is 20)>   \n");
+              printf("USAGE  -nl     <number of layers>             (Default: 32)  \n");
+              printf("       -cf     <coarsening factor>            (Default: 2)   \n");
+              printf("       -ml     <max. xbraid levels>           (Default: 1)   \n");
+              printf("       -mbi    <max. xbraid iterations>       (Default: 10   \n");
+              printf("       -btol   <xbraid tolerance>             (Default: 1e-10\n");
+              printf("       -abtol  <adjoint xbraid tolerance>     (Default: 1e-6\n");
+              printf("       -moi    <max. optimization iterations> (Default: 50)  \n");
+              printf("       -mli    <max. linesearch iterations>   (Default: 20)  \n");
+              printf("       -pl     <print level>                  (Default is 1) \n");
               printf("\n");
            }
            exit(1);
         }
-        else if ( strcmp(argv[arg_index], "-n") == 0 )
+        else if ( strcmp(argv[arg_index], "-nl") == 0 )
         {
            arg_index++;
            ntimes = atoi(argv[arg_index++]);
         }
-        else if ( strcmp(argv[arg_index], "-c") == 0 )
+        else if ( strcmp(argv[arg_index], "-cf") == 0 )
         {
            arg_index++;
            braid_cfactor = atoi(argv[arg_index++]);
@@ -151,20 +154,35 @@ int main (int argc, char *argv[])
            arg_index++;
            braid_maxlevels = atoi(argv[arg_index++]);
         }
-        else if ( strcmp(argv[arg_index], "-p") == 0 )
+        else if ( strcmp(argv[arg_index], "-mbi") == 0 )
         {
            arg_index++;
-           braid_printlevel = atoi(argv[arg_index++]);
+           braid_maxiter = atoi(argv[arg_index++]);
         }
-        else if ( strcmp(argv[arg_index], "-oi") == 0 )
+        else if ( strcmp(argv[arg_index], "-btol") == 0 )
+        {
+           arg_index++;
+           braid_abstol = atof(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-abtol") == 0 )
+        {
+           arg_index++;
+           braid_abstoladj = atof(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-moi") == 0 )
         {
            arg_index++;
            maxoptimiter = atoi(argv[arg_index++]);
         }
-        else if ( strcmp(argv[arg_index], "-li") == 0 )
+        else if ( strcmp(argv[arg_index], "-mli") == 0 )
         {
            arg_index++;
            ls_maxiter = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-pl") == 0 )
+        {
+           arg_index++;
+           braid_printlevel = atoi(argv[arg_index++]);
         }
         else
         {

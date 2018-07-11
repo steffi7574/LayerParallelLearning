@@ -104,7 +104,7 @@ int main (int argc, char *argv[])
     ls_factor     = 0.5;
 
     /* XBraid setup */
-    braid_maxlevels   = 1;
+    braid_maxlevels   = 10;
     braid_printlevel  = 1;
     braid_cfactor     = 2;
     braid_accesslevel = 0;
@@ -124,15 +124,15 @@ int main (int argc, char *argv[])
            if ( myid == 0 )
            {
               printf("\n");
-              printf("USAGE  -nl     <number of layers>             (Default: 32)  \n");
-              printf("       -cf     <coarsening factor>            (Default: 2)   \n");
-              printf("       -ml     <max. xbraid levels>           (Default: 1)   \n");
-              printf("       -mbi    <max. xbraid iterations>       (Default: 10   \n");
-              printf("       -btol   <xbraid tolerance>             (Default: 1e-10\n");
-              printf("       -abtol  <adjoint xbraid tolerance>     (Default: 1e-6\n");
-              printf("       -moi    <max. optimization iterations> (Default: 50)  \n");
-              printf("       -mli    <max. linesearch iterations>   (Default: 20)  \n");
-              printf("       -pl     <print level>                  (Default is 1) \n");
+              printf("USAGE  -nl     <number of layers>             (Default: 32)    \n");
+              printf("       -cf     <coarsening factor>            (Default: 2)     \n");
+              printf("       -ml     <max. xbraid levels>           (Default: 10)    \n");
+              printf("       -mbi    <max. xbraid iterations>       (Default: 10)    \n");
+              printf("       -btol   <xbraid tolerance>             (Default: 1e-10) \n");
+              printf("       -abtol  <adjoint xbraid tolerance>     (Default: 1e-6)  \n");
+              printf("       -moi    <max. optimization iterations> (Default: 50)    \n");
+              printf("       -mli    <max. linesearch iterations>   (Default: 20)    \n");
+              printf("       -pl     <print level>                  (Default is 1)   \n");
               printf("\n");
            }
            exit(1);
@@ -369,12 +369,15 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&app->accuracy, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
+
         /* --- Optimization control and output ---*/
 
         /* Check optimization convergence */
         if (  gnorm < gtol )
         {
-           break;
+            printf("Optimization has converged. \n");
+            printf("Be happy and go home!       \n");
+            break;
         }
 
         /* Output */
@@ -542,7 +545,7 @@ int main (int argc, char *argv[])
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
 
-    if (myid == 0) 
+    // if (myid == 0) 
     {
         printf("Used Time:    %.2f seconds\n", UsedTime);
         printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);

@@ -362,6 +362,7 @@ int main (int argc, char *argv[])
 
         /* Propagate validation data */
         braid_SetObjectiveOnly(core_val, 1);
+        braid_SetPrintLevel( core_val,   0);
         app->training = 0;
         braid_Drive(core_val);
 
@@ -401,29 +402,27 @@ int main (int argc, char *argv[])
         copy_vector(ndesign, global_design, global_design0);
         copy_vector(ndesign, global_gradient, global_gradient0);
 
+        /* Update the design using the initial stepsize) */
+        update_design(ndesign, stepsize, descentdir, global_design);
+        split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
+
         /* Backtracking linesearch */
         stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
-
-            /* Take a trial step using the current stepsize) */
-            update_design(ndesign, stepsize, descentdir, global_design);
-            split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
-
-            /* Compute new objective function value for that trial step */
+            /* Compute new objective function value for current trial step */
             braid_SetPrintLevel(core_train, 0);
             braid_SetObjectiveOnly(core_train, 1);
             app->training = 1;
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
-            braid_SetPrintLevel( core_train, braid_printlevel);
 
             if (myid == 0) printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
             {
-                /* Success, use this new theta -> keep it in app->theta */
+                /* Success, use this new design */
                 break;
             }
             else
@@ -437,10 +436,13 @@ int main (int argc, char *argv[])
 
                 /* Restore the previous design */
                 copy_vector(ndesign, global_design0, global_design);
-                split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
 
                 /* Decrease the stepsize */
                 stepsize = stepsize * ls_factor;
+
+                /* Update the design with new stepsize */
+                update_design(ndesign, stepsize, descentdir, global_design);
+                split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
             }
 
         }

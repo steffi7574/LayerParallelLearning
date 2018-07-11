@@ -92,7 +92,7 @@ int main (int argc, char *argv[])
     nchannels     = 4;
     nclasses      = 5;
     ntimes        = 32;
-    deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
+    T             = 10.0;
     theta_init    = 1e-2;
     class_init    = 1e-1;
 
@@ -195,7 +195,7 @@ int main (int argc, char *argv[])
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
-    T              = deltaT * ntimes;
+    deltaT         = T /(double)ntimes; 
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
 

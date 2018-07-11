@@ -93,8 +93,6 @@ int main (int argc, char *argv[])
     nclasses      = 5;
     ntimes        = 32;
     T             = 10.0;
-    theta_init    = 1e-2;
-    class_init    = 1e-1;
 
     /* Optimization setup */
     gamma_theta   = 1e-2;
@@ -198,6 +196,8 @@ int main (int argc, char *argv[])
     deltaT         = T /(double)ntimes; 
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
+    class_init     = 1e-1;
+    theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! */
 
     /* Init optimization parameters */
     ls_iter       = 0;

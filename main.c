@@ -202,6 +202,7 @@ int main (int argc, char *argv[])
     /* Init optimization parameters */
     ls_iter       = 0;
     gnorm         = 0.0;
+    objective     = 0.0;
     rnorm         = 0.0;
     rnorm_adj     = 0.0;
     stepsize      = stepsize_init;
@@ -444,7 +445,18 @@ int main (int argc, char *argv[])
    }
 
 
-    /* Output */
+    /* --- Run a final propagation ---- */
+
+    /* Parallel-in-layer propagation and gradient computation  */
+    braid_SetObjectiveOnly(core_train, 1);
+    app->training = 1;
+    braid_Drive(core_train);
+
+    /* Get objective function value and prediction accuracy for training data */
+    braid_GetObjective(core_train, &objective);
+    MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    /* --- Output --- */
     if (myid == 0)
     {
         printf("\n Objective     %1.14e", objective);

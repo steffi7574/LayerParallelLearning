@@ -97,7 +97,7 @@ int main (int argc, char *argv[])
     /* Optimization setup */
     gamma_theta   = 1e-2;
     gamma_class   = 1e-5;
-    maxoptimiter  = 50;
+    maxoptimiter  = 500;
     gtol          = 1e-4;
     stepsize_init = 1.0;
     ls_maxiter    = 20;
@@ -106,7 +106,7 @@ int main (int argc, char *argv[])
     /* XBraid setup */
     braid_maxlevels   = 10;
     braid_printlevel  = 1;
-    braid_cfactor     = 2;
+    braid_cfactor     = 8;
     braid_accesslevel = 0;
     braid_maxiter     = 10;
     braid_setskip     = 0;
@@ -125,12 +125,12 @@ int main (int argc, char *argv[])
            {
               printf("\n");
               printf("USAGE  -nl     <number of layers>             (Default: 32)    \n");
-              printf("       -cf     <coarsening factor>            (Default: 2)     \n");
+              printf("       -cf     <coarsening factor>            (Default: 8)     \n");
               printf("       -ml     <max. xbraid levels>           (Default: 10)    \n");
               printf("       -mbi    <max. xbraid iterations>       (Default: 10)    \n");
               printf("       -btol   <xbraid tolerance>             (Default: 1e-10) \n");
               printf("       -abtol  <adjoint xbraid tolerance>     (Default: 1e-6)  \n");
-              printf("       -moi    <max. optimization iterations> (Default: 50)    \n");
+              printf("       -moi    <max. optimization iterations> (Default: 500)   \n");
               printf("       -mli    <max. linesearch iterations>   (Default: 20)    \n");
               printf("       -pl     <print level>                  (Default is 1)   \n");
               printf("\n");

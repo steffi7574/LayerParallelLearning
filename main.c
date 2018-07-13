@@ -16,13 +16,15 @@ int main (int argc, char *argv[])
     braid_Core core_val;         /**< Braid core for validation data */
     my_App     *app;
 
-    double   objective;         /**< Objective function */
-    double  *Ytrain;            /**< Traning data set */
-    double  *Ctrain;            /**< Classes of the training data set */
-    double  *Yval;              /**< Validation data set */
-    double  *Cval;              /**< Classes of the validation data set */
-    double  *theta;             /**< theta variables for the network */
-    double  *theta_grad;        /**< Gradient of objective function wrt theta */
+    double   objective;        /**< Objective function */
+    double   obj_loss;         /**< Loss term of the objective function */
+    double   obj_regul;        /**< Regulariation term of the objective function */
+    double  *Ytrain;           /**< Traning data set */
+    double  *Ctrain;           /**< Classes of the training data set */
+    double  *Yval;             /**< Validation data set */
+    double  *Cval;             /**< Classes of the validation data set */
+    double  *theta;            /**< theta variables for the network */
+    double  *theta_grad;       /**< Gradient of objective function wrt theta */
     double  *classW;           /**< Weights for the classification problem, applied at last layer */
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
@@ -197,15 +199,17 @@ int main (int argc, char *argv[])
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
     class_init     = 1e-1;
-    theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! */
+    theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
 
     /* Init optimization parameters */
-    ls_iter       = 0;
-    gnorm         = 0.0;
-    objective     = 0.0;
-    rnorm         = 0.0;
-    rnorm_adj     = 0.0;
-    stepsize      = stepsize_init;
+    ls_iter   = 0;
+    gnorm     = 0.0;
+    objective = 0.0;
+    obj_loss  = 0.0;
+    obj_regul = 0.0;
+    rnorm     = 0.0;
+    rnorm_adj = 0.0;
+    stepsize  = stepsize_init;
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
@@ -284,7 +288,9 @@ int main (int argc, char *argv[])
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
     app->deltaT            = deltaT;
-    app->accuracy          = 0;
+    app->loss              = 0.0;
+    app->regularization    = 0.0;
+    app->accuracy          = 0.0;
     app->output            = 0;
 
     /* Initialize (adjoint) XBraid for training data set */
@@ -335,9 +341,9 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||       || r_adj ||      Objective     || grad ||     Stepsize   ls_iter   Accuracy_train  Accuracy_val\n");
+       printf("\n#    || r ||          || r_adj ||      Objective       Loss        Regul       || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
        
-       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective             || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss          Regul         || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -354,8 +360,10 @@ int main (int argc, char *argv[])
         app->training = 1;
         braid_Drive(core_train);
 
-        /* Get objective function value and prediction accuracy for training data */
+        /* Get objective function and prediction accuracy for training data */
         braid_GetObjective(core_train, &objective);
+        MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&app->regularization, &obj_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Get the state and adjoint residual norms */
@@ -396,8 +404,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d      %2.2f%%  %2.2f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d         %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %1.4e  %1.4e  %1.8e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, obj_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.6e  %1.6e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, obj_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
         }
 

@@ -348,12 +348,14 @@ my_ObjectiveT(braid_App              app,
     }
     else
     {
-        /* Evaluate loss */
-       obj = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, app->output, &success);
+        /* Evaluate loss and accuracy */
+       app->loss = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, app->output, &success);
        app->accuracy = 100.0 * (double) success / nelem;  
+       obj = app->loss;
 
        /* Add regularization for classifier */
-       obj += app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
+       app->regularization =  regularization_class(app->classW, app->classMu, nclasses, nchannels);
+       obj += app->gamma_class * app->regularization;
     }
 
     *objective_ptr = getValue(obj);

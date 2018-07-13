@@ -315,6 +315,21 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
 
+    /* Open and prepare optimization output file*/
+    sprintf(optimfilename, "%s.dat", "optim");
+    optimfile = fopen(optimfilename, "w");
+    fprintf(optimfile, "# Problem setup: ntimes          %d \n", ntimes);
+    fprintf(optimfile, "#                nchannels       %d \n", nchannels);
+    fprintf(optimfile, "#                nclasses        %d \n", nclasses);
+    fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);
+    fprintf(optimfile, "#                coasening       %d \n", braid_cfactor);
+    fprintf(optimfile, "#                max. braid iter %d \n", braid_maxiter);
+    fprintf(optimfile, "#                abs. tol        %1.e \n", braid_abstol);
+    fprintf(optimfile, "#                abs. toladj     %1.e \n", braid_abstoladj);
+    fprintf(optimfile, "# OPtimization:  max. optim iter %d \n", maxoptimiter);
+    fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
+    fprintf(optimfile, "\n");
+
 
     /* Prepare optimization output */
     if (myid == 0)
@@ -322,10 +337,7 @@ int main (int argc, char *argv[])
        /* Screen output */
        printf("\n#    || r ||       || r_adj ||      Objective     || grad ||     Stepsize   ls_iter   Accuracy_train  Accuracy_val\n");
        
-       /* History file */
-       sprintf(optimfilename, "%s.dat", "optim");
-       optimfile = fopen(optimfilename, "w");
-       fprintf(optimfile, "#    || r ||         || r_adj ||     Objective          || grad ||       Stepsize  ls_iter   Accuracy_train  Accuracy_val\n");
+       fprintf(optimfile, "#    || r ||         || r_adj ||       Objective             || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -384,8 +396,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d   %2.1f%%  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d  %2.1f%%  %2.1f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %8e  %5f  %2d      %2.2f%%  %2.2f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %6f  %2d         %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
         }
 

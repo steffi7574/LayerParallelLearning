@@ -241,8 +241,16 @@ int main (int argc, char *argv[])
     /* Initialize theta and its gradient */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        theta[itheta]            = theta_init * itheta; 
-        theta_grad[itheta]       = 0.0; 
+        int ifirstbias = pow(nchannels, 2) + 1 + pow(nchannels,2); 
+        if (itheta < ifirstbias)
+        {
+            theta[itheta] = theta_init; 
+        }
+        else
+        {
+            theta[itheta] = 0.0; 
+        }
+        theta_grad[itheta] = 0.0; 
     }
 
     /* Initialize classification parameters and gradient */

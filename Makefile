@@ -4,8 +4,8 @@ MPICC  = mpicc
 MPICXX = mpicxx
 
 INC = -I. -I$(BRAID_INC_DIR) -I$(CODI_DIR)
-BRAID_INC_DIR = /home/sguenther/Software/xbraid/
-BRAID_LIB_FILE = /home/sguenther/Software/xbraid/libbraid.a
+BRAID_INC_DIR = /home/sguenther/Software/xbraid/braid
+BRAID_LIB_FILE = /home/sguenther/Software/xbraid/braid/libbraid.a
 CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 
 # set compiler flags

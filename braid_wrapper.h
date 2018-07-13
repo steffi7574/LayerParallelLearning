@@ -27,7 +27,8 @@ typedef struct _braid_App_struct
     double   gamma_class;    /* Relaxation parameter for the classification weights W and bias mu */
     double   deltaT;         /* Time-step size on fine grid */
     double   accuracy;       /* accur_train of the training data */
-    double   regularization; /* Regularization term of the objective function */
+    double   theta_regul;    /* Theta-Regularization term of the objective function */
+    double   class_regul;    /* Classifier-Regularization term of the objective function */
     double   loss;           /* Loss term of the objective function */
     int      training;       /* Flag, if training (1) or not (0) */
     int      output;         /* Determine, if loss function writes to prediction.dat */

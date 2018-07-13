@@ -18,7 +18,8 @@ int main (int argc, char *argv[])
 
     double   objective;        /**< Objective function */
     double   obj_loss;         /**< Loss term of the objective function */
-    double   obj_regul;        /**< Regulariation term of the objective function */
+    double   theta_regul;      /**< Theta-Regulariation term of the objective function */
+    double   class_regul;      /**< Classifier-Regulariation term of the objective function */
     double  *Ytrain;           /**< Traning data set */
     double  *Ctrain;           /**< Classes of the training data set */
     double  *Yval;             /**< Validation data set */
@@ -116,7 +117,6 @@ int main (int argc, char *argv[])
     braid_abstoladj   = 1e-6; 
 
 
-
     /* Parse command line */
     arg_index = 1;
     while (arg_index < argc)
@@ -199,17 +199,19 @@ int main (int argc, char *argv[])
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
     class_init     = 1e-1;
-    theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
+    // theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
+    theta_init     = 1e-2;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
 
     /* Init optimization parameters */
-    ls_iter   = 0;
-    gnorm     = 0.0;
-    objective = 0.0;
-    obj_loss  = 0.0;
-    obj_regul = 0.0;
-    rnorm     = 0.0;
-    rnorm_adj = 0.0;
-    stepsize  = stepsize_init;
+    ls_iter     = 0;
+    gnorm       = 0.0;
+    objective   = 0.0;
+    obj_loss    = 0.0;
+    theta_regul = 0.0;
+    class_regul = 0.0;
+    rnorm       = 0.0;
+    rnorm_adj   = 0.0;
+    stepsize    = stepsize_init;
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
@@ -289,7 +291,8 @@ int main (int argc, char *argv[])
     app->gamma_class       = gamma_class;
     app->deltaT            = deltaT;
     app->loss              = 0.0;
-    app->regularization    = 0.0;
+    app->class_regul       = 0.0;
+    app->theta_regul       = 0.0;
     app->accuracy          = 0.0;
     app->output            = 0;
 
@@ -341,9 +344,9 @@ int main (int argc, char *argv[])
     if (myid == 0)
     {
        /* Screen output */
-       printf("\n#    || r ||          || r_adj ||      Objective       Loss        Regul       || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
+       printf("\n#    || r ||          || r_adj ||      Objective       Loss      theta_R   class_R   || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
        
-       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss          Regul         || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss        theta_reg   class_reg   || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
     }
 
     // app->theta[3] += 1e-4;
@@ -352,6 +355,11 @@ int main (int argc, char *argv[])
 
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
+
+        /* Reset the app */
+        app->loss        = 0.0;
+        app->theta_regul = 0.0;
+        app->class_regul = 0.0;
 
         /* --- Training data: Objective function evaluation and gradient computation ---*/ 
 
@@ -363,7 +371,8 @@ int main (int argc, char *argv[])
         /* Get objective function and prediction accuracy for training data */
         braid_GetObjective(core_train, &objective);
         MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app->regularization, &obj_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&app->theta_regul, &theta_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&app->class_regul, &class_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Get the state and adjoint residual norms */
@@ -404,8 +413,8 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %1.4e  %1.4e  %1.8e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, obj_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.6e  %1.6e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, obj_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            printf("%3d  %1.8e  %1.8e  %1.8e  %1.2e  %1.2e  %1.2e  %1.8e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.4e  %1.4e  %1.4e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
         }
 

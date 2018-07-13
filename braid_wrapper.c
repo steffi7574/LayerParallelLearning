@@ -345,17 +345,20 @@ my_ObjectiveT(braid_App              app,
     {
         /* Compute regularization term for theta */
         obj = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
+        app->theta_regul += obj;
     }
     else
     {
-        /* Evaluate loss and accuracy */
+        /* Evaluate loss */
        app->loss = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, app->output, &success);
-       app->accuracy = 100.0 * (double) success / nelem;  
        obj = app->loss;
 
+       /* Compute accuracy */
+       app->accuracy = 100.0 * (double) success / nelem;  
+
        /* Add regularization for classifier */
-       app->regularization =  regularization_class(app->classW, app->classMu, nclasses, nchannels);
-       obj += app->gamma_class * app->regularization;
+       app->class_regul = app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
+       obj += app->class_regul;
     }
 
     *objective_ptr = getValue(obj);

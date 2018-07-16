@@ -35,13 +35,12 @@ int main (int argc, char *argv[])
     int      nclasses;          /**< Number of classes / Clabels */
     int      ntraining;         /**< Number of examples in the training data */
     int      nvalidation;       /**< Number of examples in the validation data */
+    int      nfeatures;         /**< Number of features in the data set */
     int      ntheta;            /**< dimension of the theta variables */
     int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
     int      ntimes;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
     double   T;                 /**< Final time */
-    double   theta_init;        /**< Initial theta value */
-    double   class_init;        /**< Initial value for the classification weights and biases */
     int      myid;              /**< Processor rank */
     double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
@@ -74,9 +73,13 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
 
-    char     optimfilename[255]; /**< Name of the optimization output file */
-    FILE     *optimfile;      /**< File for optimization history */
     int      nreq, arg_index; 
+    char     Ytrain_file[255];
+    char     Ctrain_file[255];
+    char     Yval_file[255];
+    char     Cval_file[255];
+    char     optimfilename[255]; /**< Name of the optimization output file */
+    FILE    *optimfile;      /**< File for optimization history */
 
     struct rusage r_usage;
     double StartTime, StopTime, UsedTime;
@@ -89,17 +92,24 @@ int main (int argc, char *argv[])
 
     /* --- PROGRAMM SETUP (Default parameters) ---*/
 
+    /* Data files */
+    sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
+    sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
+    sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
+    sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
+
     /* Learning problem setup */ 
     ntraining     = 5000;
-    nvalidation   = 1000;
-    nchannels     = 4;
+    nvalidation   = 200;
+    nfeatures     = 2;
+    nchannels     = 8;
     nclasses      = 5;
     ntimes        = 32;
     T             = 10.0;
 
     /* Optimization setup */
-    gamma_theta   = 1e-2;
-    gamma_class   = 1e-5;
+    gamma_theta   = 1e-1;
+    gamma_class   = 1e-9;
     maxoptimiter  = 500;
     gtol          = 1e-4;
     stepsize_init = 1.0;
@@ -198,9 +208,6 @@ int main (int argc, char *argv[])
     deltaT         = T /(double)ntimes; 
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
     ndesign        = ntheta + nchannels * nclasses + nclasses;
-    class_init     = 1e-1;
-    // theta_init     = 0.0003125 * ntimes;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
-    theta_init     = 1e-2;   /* Adapt theta_init to problem size! gives 1e-2 for n=32*/
 
     /* Init optimization parameters */
     ls_iter     = 0;
@@ -226,30 +233,22 @@ int main (int argc, char *argv[])
     global_gradient   = (double*) malloc(ndesign*sizeof(double));
     global_gradient0  = (double*) malloc(ndesign*sizeof(double));
     descentdir        = (double*) malloc(ndesign*sizeof(double));
-    Ctrain            = (double*) malloc(nclasses*ntraining*sizeof(double));
-    Ytrain            = (double*) malloc(ntraining*nchannels*sizeof(double));
-    Cval              = (double*) malloc(nclasses*nvalidation*sizeof(double));
-    Yval              = (double*) malloc(nvalidation*nchannels*sizeof(double));
 
     /* Read the training and validation data */
-    read_data("data/Ytrain.dat", Ytrain, nchannels*ntraining);
-    read_data("data/Ctrain.dat", Ctrain, nclasses*ntraining);
-    read_data("data/Yval.dat", Yval, nchannels*nvalidation);
-    read_data("data/Cval.dat", Cval, nclasses*nvalidation);
+    Ytrain = (double*) malloc(ntraining   * nfeatures * sizeof(double));
+    Ctrain = (double*) malloc(ntraining   * nchannels * sizeof(double));
+    Yval   = (double*) malloc(nvalidation * nfeatures * sizeof(double));
+    Cval   = (double*) malloc(nvalidation * nchannels * sizeof(double));
+    read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
+    read_data(Ctrain_file, Ctrain, ntraining   * nchannels);
+    read_data(Yval_file,   Yval,   nvalidation * nfeatures);
+    read_data(Cval_file,   Cval,   nvalidation * nchannels);
 
 
     /* Initialize theta and its gradient */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        int ifirstbias = pow(nchannels, 2) + 1 + pow(nchannels,2); 
-        if (itheta < ifirstbias)
-        {
-            theta[itheta] = theta_init; 
-        }
-        else
-        {
-            theta[itheta] = 0.0; 
-        }
+        theta[itheta]      = 0.0; 
         theta_grad[itheta] = 0.0; 
     }
 
@@ -258,10 +257,10 @@ int main (int argc, char *argv[])
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            classW[iclasses * nchannels + ichannels]       = class_init * iclasses * ichannels; 
-            classW_grad[iclasses * nchannels + ichannels]  = 0.0; 
+            classW[iclasses * nchannels + ichannels]      = 0.0; 
+            classW_grad[iclasses * nchannels + ichannels] = 0.0; 
         }
-        classMu[iclasses]       = class_init * iclasses;
+        classMu[iclasses]       = 0.0;
         classMu_grad[iclasses]  = 0.0;
     }
 
@@ -279,30 +278,31 @@ int main (int argc, char *argv[])
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
-    app->myid              = myid;
-    app->Ctrain            = Ctrain;
-    app->Ytrain            = Ytrain;
-    app->Cval              = Cval;
-    app->Yval              = Yval;
-    app->theta             = theta;
-    app->theta_grad        = theta_grad;
-    app->classW           = classW;
-    app->classW_grad      = classW_grad;
-    app->classMu          = classMu;
-    app->classMu_grad     = classMu_grad;
-    app->ntraining         = ntraining;
-    app->nvalidation       = nvalidation;
-    app->nclasses          = nclasses;
-    app->nchannels         = nchannels;
-    app->ntimes            = ntimes;
-    app->gamma_theta       = gamma_theta;
-    app->gamma_class       = gamma_class;
-    app->deltaT            = deltaT;
-    app->loss              = 0.0;
-    app->class_regul       = 0.0;
-    app->theta_regul       = 0.0;
-    app->accuracy          = 0.0;
-    app->output            = 0;
+    app->myid         = myid;
+    app->Ytrain       = Ytrain;
+    app->Ctrain       = Ctrain;
+    app->Yval         = Yval;
+    app->Cval         = Cval;
+    app->theta        = theta;
+    app->theta_grad   = theta_grad;
+    app->classW       = classW;
+    app->classW_grad  = classW_grad;
+    app->classMu      = classMu;
+    app->classMu_grad = classMu_grad;
+    app->ntraining    = ntraining;
+    app->nvalidation  = nvalidation;
+    app->nfeatures    = nfeatures;
+    app->nclasses     = nclasses;
+    app->nchannels    = nchannels;
+    app->ntimes       = ntimes;
+    app->gamma_theta  = gamma_theta;
+    app->gamma_class  = gamma_class;
+    app->deltaT       = deltaT;
+    app->loss         = 0.0;
+    app->class_regul  = 0.0;
+    app->theta_regul  = 0.0;
+    app->accuracy     = 0.0;
+    app->output       = 0;
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
@@ -314,6 +314,9 @@ int main (int argc, char *argv[])
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
+
+    return 0;
+    
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);

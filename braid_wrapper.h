@@ -20,6 +20,7 @@ typedef struct _braid_App_struct
     double  *classMu_grad;   /* Gradient wrt the classification bias */
     int      ntraining;      /* Elements of the training data */
     int      nvalidation;    /* Elements of the validation data */
+    int      nfeatures;      /* Number of features in the training data */
     int      nclasses;       /* Number of classes */
     int      nchannels;      /* Width of the network */
     int      ntimes;         /* number of time-steps / layers */

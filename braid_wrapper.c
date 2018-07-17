@@ -57,7 +57,7 @@ my_Init(braid_App     app,
     my_Vector *u;
     int nfeatures      = app->nfeatures;
     int nchannels      = app->nchannels;
-    double *open_layer = app->open_layer;
+    double *theta_open = app->theta_open;
     int nelem, y_id;
     double *data;
     if (app->training)
@@ -79,7 +79,7 @@ my_Init(braid_App     app,
     if (t == 0.0)
     {
         /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        opening_layer(u->Y, data, open_layer, nelem, nchannels, nfeatures);
+        opening_layer(u->Y, data, theta_open, nelem, nchannels, nfeatures);
     }
     else
     {

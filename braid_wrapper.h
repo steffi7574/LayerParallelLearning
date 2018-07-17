@@ -14,8 +14,8 @@ typedef struct _braid_App_struct
     double  *Cval;             /* Validation data: Label vectors (C) */
     double  *theta;            /* theta variables */
     double  *theta_grad;       /* Gradient of objective function wrt theta */
-    double  *open_layer;       /* Weights and bias of the opening layer */
-    double  *open_layer_grad;  /* Gradient of the weights and bias of the opening layer */
+    double  *theta_open;       /* Weights and bias of the opening layer */
+    double  *theta_open_grad;  /* Gradient of the weights and bias of the opening layer */
     double  *classW;           /* Weights of the classification problem (W) */
     double  *classW_grad;      /* Gradient wrt the classification weights */
     double  *classMu;          /* Bias of the classification problem (mu) */

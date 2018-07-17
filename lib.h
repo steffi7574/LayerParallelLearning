@@ -12,7 +12,7 @@ using namespace codi;
 int 
 opening_layer(double *Y,
               double *Ydata, 
-              double *open_layer, 
+              double *theta_open, 
               int     nelem, 
               int     nchannels, 
               int     nfeatures);

@@ -58,7 +58,7 @@ sigma_diff(double x)
 int 
 opening_layer(double *Y,
               double *Ydata, 
-              double *open_layer, 
+              double *theta_open, 
               int nelem, 
               int nchannels, 
               int nfeatures)
@@ -76,10 +76,10 @@ opening_layer(double *Y,
             {
                 y_id = ielem * nfeatures + ifeatures;
                 k_id = ifeatures * nchannels + ichannels;
-                sum += Ydata[y_id] * open_layer[k_id];
+                sum += Ydata[y_id] * theta_open[k_id];
             }
             bias_id = nfeatures * nchannels;
-            sum += open_layer[bias_id];
+            sum += theta_open[bias_id];
 
             /* Apply nonlinear activation */
             y_id = ielem * nchannels + ichannels;

@@ -26,8 +26,8 @@ int main (int argc, char *argv[])
     double  *Cval;             /**< Classes of the validation data set */
     double  *theta;            /**< Weights of the network layers */
     double  *theta_grad;       /**< Gradient of objective function wrt theta */
-    double  *open_layer;       /**< Weights and bias of the opening layer */
-    double  *open_layer_grad;  /**< Gradient of the weights and bias of the opening layer */
+    double  *theta_open;       /**< Weights and bias of the opening layer */
+    double  *theta_open_grad;  /**< Gradient of the weights and bias of the opening layer */
     double  *classW;           /**< Weights for the classification problem, applied at last layer */
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
@@ -227,8 +227,8 @@ int main (int argc, char *argv[])
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
     theta_grad        = (double*) malloc(ntheta*sizeof(double));
-    open_layer        = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
-    open_layer_grad   = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
+    theta_open        = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
+    theta_open_grad   = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
     classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
     classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
@@ -256,14 +256,14 @@ int main (int argc, char *argv[])
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
             idx = ifeatures * nchannels + ichannels;
-            open_layer[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
-            open_layer_grad[idx] = 0.0;
+            theta_open[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
+            theta_open_grad[idx] = 0.0;
         }
     }
     idx = nfeatures * nchannels;
-    // open_layer[idx]      = 1e-2 * (double) rand() / ((double) RAND_MAX);
-    open_layer[idx]      = 0.0;
-    open_layer_grad[idx] = 0.0;
+    // theta_open[idx]      = 1e-2 * (double) rand() / ((double) RAND_MAX);
+    theta_open[idx]      = 0.0;
+    theta_open_grad[idx] = 0.0;
 
 
 
@@ -308,8 +308,8 @@ int main (int argc, char *argv[])
     app->Cval            = Cval;
     app->theta           = theta;
     app->theta_grad      = theta_grad;
-    app->open_layer      = open_layer;
-    app->open_layer_grad = open_layer_grad;
+    app->theta_open      = theta_open;
+    app->theta_open_grad = theta_open_grad;
     app->classW          = classW;
     app->classW_grad     = classW_grad;
     app->classMu         = classMu;
@@ -637,8 +637,8 @@ int main (int argc, char *argv[])
     free(descentdir);
     free(theta);
     free(theta_grad);
-    free(open_layer);
-    free(open_layer_grad);
+    free(theta_open);
+    free(theta_open_grad);
     free(classW);
     free(classW_grad);
     free(classMu);

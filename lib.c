@@ -316,10 +316,10 @@ regularization_class(myDouble *classW,
 template <typename myDouble>
 myDouble
 regularization_theta(myDouble* theta,
-                     int          ts,
-                     double       dt,
-                     int          ntime,
-                     int          nchannels)
+                     int       ts,
+                     double    dt,
+                     int       ntime,
+                     int       nchannels)
 {
    myDouble relax = 0.0;
    int      idx, idx1;

@@ -104,18 +104,18 @@ int main (int argc, char *argv[])
     sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
 
     /* Learning problem setup */ 
-    ntraining     = 50;
+    ntraining     = 5000;
     nvalidation   = 200;
     nfeatures     = 2;
-    nchannels     = 8;
+    nchannels     = 4;
     nclasses      = 5;
-    ntimes        = 10;
+    ntimes        = 32;
     T             = 10.0;
 
     /* Optimization setup */
     design_init   = 1e-3;
-    gamma_theta   = 1e-1;
-    gamma_class   = 1e-9;
+    gamma_theta   = 1e-2;
+    gamma_class   = 1e-5;
     maxoptimiter  = 500;
     gtol          = 1e-4;
     stepsize_init = 1.0;
@@ -485,7 +485,7 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            if (myid == 0) printf("ls_iter %d, ls_objective %1.14e\n", ls_iter, ls_objective);
+            if (myid == 0) printf("ls_iter %d\n", ls_iter);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 

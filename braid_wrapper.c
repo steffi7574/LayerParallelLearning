@@ -79,7 +79,7 @@ my_Init(braid_App     app,
     if (t == 0.0)
     {
         /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        opening_layer(u->Y, data, theta_open, nelem, nchannels, nfeatures);
+        opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
     }
     else
     {

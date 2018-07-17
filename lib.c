@@ -55,16 +55,17 @@ sigma_diff(double x)
 }
 
 
-int 
-opening_layer(double *Y,
-              double *Ydata, 
-              double *theta_open, 
+template <typename myDouble>
+int
+opening_layer(myDouble *Y,
+              myDouble *theta_open, 
+              double   *Ydata, 
               int nelem, 
               int nchannels, 
               int nfeatures)
 {
-    double sum;
-    int    y_id, k_id, bias_id;
+    myDouble sum;
+    int      y_id, k_id, bias_id;
 
     for (int ielem = 0; ielem < nelem; ielem++)
     {
@@ -652,3 +653,6 @@ template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int t
 template RealReverse regularization_class<RealReverse>(RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels);
 template double regularization_class<double>(double *classW, double *classMu, int nclasses, int nchannels);
 
+
+template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);
+template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);

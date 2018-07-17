@@ -8,14 +8,14 @@
 #include "codi.hpp"
 using namespace codi;
 
-
+template <typename myDouble>
 int 
-opening_layer(double *Y,
-              double *Ydata, 
-              double *theta_open, 
-              int     nelem, 
-              int     nchannels, 
-              int     nfeatures);
+opening_layer(myDouble *Y,
+              myDouble *theta_open, 
+              double   *Ydata, 
+              int       nelem, 
+              int       nchannels, 
+              int       nfeatures);
 
 /** 
  * Forward propagation 

@@ -246,13 +246,14 @@ int main (int argc, char *argv[])
 
     /* Read the training and validation data */
     Ytrain = (double*) malloc(ntraining   * nfeatures * sizeof(double));
-    Ctrain = (double*) malloc(ntraining   * nchannels * sizeof(double));
+    Ctrain = (double*) malloc(ntraining   * nclasses * sizeof(double));
     Yval   = (double*) malloc(nvalidation * nfeatures * sizeof(double));
-    Cval   = (double*) malloc(nvalidation * nchannels * sizeof(double));
+    Cval   = (double*) malloc(nvalidation * nclasses * sizeof(double));
     read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-    read_data(Ctrain_file, Ctrain, ntraining   * nchannels);
+    read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
     read_data(Yval_file,   Yval,   nvalidation * nfeatures);
-    read_data(Cval_file,   Cval,   nvalidation * nchannels);
+    read_data(Cval_file,   Cval,   nvalidation * nclasses);
+
 
     /* Initialize opening layer with random values */
     for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)

@@ -24,12 +24,15 @@ int main (int argc, char *argv[])
     double  *Ctrain;           /**< Classes of the training data set */
     double  *Yval;             /**< Validation data set */
     double  *Cval;             /**< Classes of the validation data set */
-    double  *theta;            /**< theta variables for the network */
+    double  *theta;            /**< Weights of the network layers */
     double  *theta_grad;       /**< Gradient of objective function wrt theta */
+    double  *open_layer;       /**< Weights and bias of the opening layer */
+    double  *open_layer_grad;  /**< Gradient of the weights and bias of the opening layer */
     double  *classW;           /**< Weights for the classification problem, applied at last layer */
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
+    double   design_init;      /**< Factor to scale the initial opening layer and classification weights and biases */
     double   gamma_theta;       /**< Relaxation parameter for theta */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int      nclasses;          /**< Number of classes / Clabels */
@@ -73,7 +76,7 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
 
-    int      nreq, arg_index; 
+    int      nreq, arg_index, idx; 
     char     Ytrain_file[255];
     char     Ctrain_file[255];
     char     Yval_file[255];
@@ -99,15 +102,16 @@ int main (int argc, char *argv[])
     sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
 
     /* Learning problem setup */ 
-    ntraining     = 5000;
+    ntraining     = 50;
     nvalidation   = 200;
     nfeatures     = 2;
     nchannels     = 8;
     nclasses      = 5;
-    ntimes        = 32;
+    ntimes        = 10;
     T             = 10.0;
 
     /* Optimization setup */
+    design_init   = 1e-3;
     gamma_theta   = 1e-1;
     gamma_class   = 1e-9;
     maxoptimiter  = 500;
@@ -223,6 +227,8 @@ int main (int argc, char *argv[])
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
     theta_grad        = (double*) malloc(ntheta*sizeof(double));
+    open_layer        = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
+    open_layer_grad   = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
     classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
     classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
@@ -244,24 +250,41 @@ int main (int argc, char *argv[])
     read_data(Yval_file,   Yval,   nvalidation * nfeatures);
     read_data(Cval_file,   Cval,   nvalidation * nchannels);
 
-
-    /* Initialize theta and its gradient */
-    for (int itheta = 0; itheta < ntheta; itheta++)
+    /* Initialize opening layer with random values */
+    for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
     {
-        theta[itheta]      = 0.0; 
-        theta_grad[itheta] = 0.0; 
+        for (int ichannels = 0; ichannels < nchannels; ichannels++)
+        {
+            idx = ifeatures * nchannels + ichannels;
+            open_layer[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
+            open_layer_grad[idx] = 0.0;
+        }
     }
+    idx = nfeatures * nchannels;
+    // open_layer[idx]      = 1e-2 * (double) rand() / ((double) RAND_MAX);
+    open_layer[idx]      = 0.0;
+    open_layer_grad[idx] = 0.0;
 
-    /* Initialize classification parameters and gradient */
+
+
+    /* Initialize classification parameters with random values */
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            classW[iclasses * nchannels + ichannels]      = 0.0; 
-            classW_grad[iclasses * nchannels + ichannels] = 0.0; 
+            idx = iclasses * nchannels + ichannels;
+            classW[idx]      = design_init * (double) rand() / ((double) RAND_MAX); 
+            classW_grad[idx] = 0.0; 
         }
-        classMu[iclasses]       = 0.0;
+        classMu[iclasses]       = design_init * (double) rand() / ((double) RAND_MAX);
         classMu_grad[iclasses]  = 0.0;
+    }
+
+    /* Initialize theta with zero for all layers */
+    for (int itheta = 0; itheta < ntheta; itheta++)
+    {
+        theta[itheta]      = 0.0; 
+        theta_grad[itheta] = 0.0; 
     }
 
     /* Initialize optimization variables */
@@ -278,31 +301,33 @@ int main (int argc, char *argv[])
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
-    app->myid         = myid;
-    app->Ytrain       = Ytrain;
-    app->Ctrain       = Ctrain;
-    app->Yval         = Yval;
-    app->Cval         = Cval;
-    app->theta        = theta;
-    app->theta_grad   = theta_grad;
-    app->classW       = classW;
-    app->classW_grad  = classW_grad;
-    app->classMu      = classMu;
-    app->classMu_grad = classMu_grad;
-    app->ntraining    = ntraining;
-    app->nvalidation  = nvalidation;
-    app->nfeatures    = nfeatures;
-    app->nclasses     = nclasses;
-    app->nchannels    = nchannels;
-    app->ntimes       = ntimes;
-    app->gamma_theta  = gamma_theta;
-    app->gamma_class  = gamma_class;
-    app->deltaT       = deltaT;
-    app->loss         = 0.0;
-    app->class_regul  = 0.0;
-    app->theta_regul  = 0.0;
-    app->accuracy     = 0.0;
-    app->output       = 0;
+    app->myid            = myid;
+    app->Ytrain          = Ytrain;
+    app->Ctrain          = Ctrain;
+    app->Yval            = Yval;
+    app->Cval            = Cval;
+    app->theta           = theta;
+    app->theta_grad      = theta_grad;
+    app->open_layer      = open_layer;
+    app->open_layer_grad = open_layer_grad;
+    app->classW          = classW;
+    app->classW_grad     = classW_grad;
+    app->classMu         = classMu;
+    app->classMu_grad    = classMu_grad;
+    app->ntraining       = ntraining;
+    app->nvalidation     = nvalidation;
+    app->nfeatures       = nfeatures;
+    app->nclasses        = nclasses;
+    app->nchannels       = nchannels;
+    app->ntimes          = ntimes;
+    app->gamma_theta     = gamma_theta;
+    app->gamma_class     = gamma_class;
+    app->deltaT          = deltaT;
+    app->loss            = 0.0;
+    app->class_regul     = 0.0;
+    app->theta_regul     = 0.0;
+    app->accuracy        = 0.0;
+    app->output          = 0;
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
@@ -315,8 +340,7 @@ int main (int argc, char *argv[])
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
 
-    return 0;
-    
+
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);
@@ -493,17 +517,23 @@ int main (int argc, char *argv[])
     /* --- Run a final propagation ---- */
 
     /* Parallel-in-layer propagation and gradient computation  */
-    braid_SetObjectiveOnly(core_train, 1);
+    braid_SetObjectiveOnly(core_train, 0);
     app->training = 1;
     braid_Drive(core_train);
 
+    /* Compute gradient norm */
+    collect_gradient(app, MPI_COMM_WORLD, global_gradient);
+    gnorm = vector_norm(ndesign, global_gradient);
+
     /* Get objective function value and prediction accuracy for training data */
     braid_GetObjective(core_train, &objective);
+    MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* --- Output --- */
     if (myid == 0)
     {
+        printf("\n Loss          %1.14e", obj_loss);
         printf("\n Objective     %1.14e", objective);
         printf("\n Gradientnorm: %1.14e", gnorm);
         printf("\n\n");
@@ -607,6 +637,8 @@ int main (int argc, char *argv[])
     free(descentdir);
     free(theta);
     free(theta_grad);
+    free(open_layer);
+    free(open_layer_grad);
     free(classW);
     free(classW_grad);
     free(classMu);

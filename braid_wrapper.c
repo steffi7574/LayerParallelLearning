@@ -55,42 +55,61 @@ my_Init(braid_App     app,
 {
 
     my_Vector *u;
+    int nfeatures = app->nfeatures;
     int nchannels = app->nchannels;
     int nelem;
+    int y_id, k_id, bias_id;
+    double sum;
+    double *data;
     if (app->training)
     {
         nelem = app->ntraining;
+        data  = app->Ytrain;
     }
     else
     {
         nelem = app->nvalidation;
+        data  = app->Yval;
     }
  
     /* Allocate the vector */
     u = (my_Vector *) malloc(sizeof(my_Vector));
     u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
+
  
-    /* Initialize the vector */
-    if (t == 0.0)
+    for (int ielem = 0; ielem < nelem; ielem++)
     {
-        /* Initialize with training data */
-        for (int i = 0; i < nchannels * nelem; i++)
+        /* Elementwise for each channel */
+        for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            if (app->training)
+
+            /* Apply the opening layer sigma(K*Y + bias) at t==0. else: 0.0*/
+            if (t == 0.0)
             {
-                u->Y[i] = app->Ytrain[i];
+                /* Apply K matrix and bias */
+                sum = 0.0;
+                for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+                {
+                    y_id = ielem * nfeatures + ifeatures;
+                    k_id = ifeatures * nchannels + ichannels;
+                    sum += data[y_id] * app->open_layer[k_id];
+                }
+                bias_id = nfeatures * nchannels;
+                sum += app->open_layer[bias_id];
+
+                /* Apply nonlinear activation */
+                y_id = ielem * nchannels + ichannels;
+                u->Y[y_id] = sigma(sum);
             }
             else
             {
-                u->Y[i] = app->Yval[i];
+                /* Initialize with zeros */
+                y_id = ielem * nchannels + ichannels;
+                u->Y[y_id] = 0.0;
             }
-        }
-    }
-    else
-    {
-        for (int i = 0; i < nchannels * nelem; i++)
-        {
-            u->Y[i] = 0.0;
+
+            // y_id = ielem * nchannels + ichannels;
+            // printf("%d %d u->Y[y_id] %1.14e\n", ielem, ichannels, u->Y[y_id]);
         }
     }
 
@@ -318,23 +337,24 @@ my_ObjectiveT(braid_App              app,
     int    nchannels = app->nchannels;
     int    ntimes    = app->ntimes;
     int    nclasses  = app->nclasses;
+    int    nfeatures = app->nfeatures;
     double obj = 0.0;
     int    ts, success;
-    double *Yinit;
-    double *C;
+    double *Ydata;
+    double *Cdata;
 
     int nelem;
     if (app->training)
     {
         nelem = app->ntraining;
-        Yinit = app->Ytrain;
-        C     = app->Ctrain;
+        Ydata = app->Ytrain;
+        Cdata = app->Ctrain;
     }
     else
     {
         nelem = app->nvalidation;
-        Yinit = app->Yval;
-        C     = app->Cval;
+        Ydata = app->Yval;
+        Cdata = app->Cval;
     } 
 
  
@@ -350,7 +370,7 @@ my_ObjectiveT(braid_App              app,
     else
     {
         /* Evaluate loss */
-       app->loss = 1./nelem* loss(u->Y, C, Yinit, app->classW, app->classMu, nelem, nclasses, nchannels, app->output, &success);
+       app->loss = 1./nelem* loss(u->Y, Cdata, Ydata, app->classW, app->classMu, nelem, nclasses, nchannels, nfeatures, app->output, &success);
        obj = app->loss;
 
        /* Compute accuracy */
@@ -379,6 +399,7 @@ my_ObjectiveT_diff(braid_App            app,
     int nchannels = app->nchannels;
     int ntimes    = app->ntimes;
     int nclasses  = app->nclasses;
+    int nfeatures = app->nfeatures;
     int ntheta    = (nchannels * nchannels + 1 ) * ntimes;
     int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
@@ -439,7 +460,7 @@ my_ObjectiveT_diff(braid_App            app,
     else
     {
         /* Evaluate loss at last layer*/
-       obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain,  classW, classMu, ntraining, nclasses, nchannels, app->output, &success);
+       obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain, classW, classMu, ntraining, nclasses, nchannels, nfeatures, app->output, &success);
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */

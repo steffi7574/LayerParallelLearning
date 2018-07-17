@@ -7,32 +7,34 @@
 /* Define the app structure */
 typedef struct _braid_App_struct
 {
-    int      myid;           /* Processor rank*/
-    double  *Ytrain;         /* Training data points of matlab's peak() function */
-    double  *Ctrain;         /* Training data: Label vectors (C) */
-    double  *Yval;           /* Validation data points of matlab's peak() function */
-    double  *Cval;           /* Validation data: Label vectors (C) */
-    double  *theta;          /* theta variables */
-    double  *theta_grad;     /* Gradient of objective function wrt theta */
-    double  *classW;         /* Weights of the classification problem (W) */
-    double  *classW_grad;    /* Gradient wrt the classification weights */
-    double  *classMu;        /* Bias of the classification problem (mu) */
-    double  *classMu_grad;   /* Gradient wrt the classification bias */
-    int      ntraining;      /* Elements of the training data */
-    int      nvalidation;    /* Elements of the validation data */
-    int      nfeatures;      /* Number of features in the training data */
-    int      nclasses;       /* Number of classes */
-    int      nchannels;      /* Width of the network */
-    int      ntimes;         /* number of time-steps / layers */
-    double   gamma_theta;    /* Relaxation parameter for theta */
-    double   gamma_class;    /* Relaxation parameter for the classification weights W and bias mu */
-    double   deltaT;         /* Time-step size on fine grid */
-    double   accuracy;       /* accur_train of the training data */
-    double   theta_regul;    /* Theta-Regularization term of the objective function */
-    double   class_regul;    /* Classifier-Regularization term of the objective function */
-    double   loss;           /* Loss term of the objective function */
-    int      training;       /* Flag, if training (1) or not (0) */
-    int      output;         /* Determine, if loss function writes to prediction.dat */
+    int      myid;             /* Processor rank*/
+    double  *Ytrain;           /* Training data points of matlab's peak() function */
+    double  *Ctrain;           /* Training data: Label vectors (C) */
+    double  *Yval;             /* Validation data points of matlab's peak() function */
+    double  *Cval;             /* Validation data: Label vectors (C) */
+    double  *theta;            /* theta variables */
+    double  *theta_grad;       /* Gradient of objective function wrt theta */
+    double  *open_layer;       /* Weights and bias of the opening layer */
+    double  *open_layer_grad;  /* Gradient of the weights and bias of the opening layer */
+    double  *classW;           /* Weights of the classification problem (W) */
+    double  *classW_grad;      /* Gradient wrt the classification weights */
+    double  *classMu;          /* Bias of the classification problem (mu) */
+    double  *classMu_grad;     /* Gradient wrt the classification bias */
+    int      ntraining;        /* Elements of the training data */
+    int      nvalidation;      /* Elements of the validation data */
+    int      nfeatures;        /* Number of features in the training data */
+    int      nclasses;         /* Number of classes */
+    int      nchannels;        /* Width of the network */
+    int      ntimes;           /* number of time-steps / layers */
+    double   gamma_theta;      /* Relaxation parameter for theta */
+    double   gamma_class;      /* Relaxation parameter for the classification weights W and bias mu */
+    double   deltaT;           /* Time-step size on fine grid */
+    double   accuracy;         /* accur_train of the training data */
+    double   theta_regul;      /* Theta-Regularization term of the objective function */
+    double   class_regul;      /* Classifier-Regularization term of the objective function */
+    double   loss;             /* Loss term of the objective function */
+    int      training;         /* Flag, if training (1) or not (0) */
+    int      output;           /* Determine, if loss function writes to prediction.dat */
 } my_App;
 
 

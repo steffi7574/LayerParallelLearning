@@ -113,7 +113,8 @@ take_step(myDouble* Y,
      
          int idx = ielem * nchannels + ichannel;
          Y[idx] += dt * sum;
- 
+
+        //  printf("%d %d u->Y[idx] %1.14e\n", ielem, ichannel, getValue(Y[idx]));
       }
    }      
 
@@ -126,12 +127,13 @@ template <typename myDouble>
 myDouble
 loss(myDouble     *Y,
      double       *Target,
-     double       *Yinit,
+     double       *Ydata,
      myDouble     *classW,
      myDouble     *classMu,
      int           nelem,
      int           nclasses,
      int           nchannels,
+     int           nfeatures,
      int           output,
      int          *success_ptr)
 {
@@ -174,6 +176,7 @@ loss(myDouble     *Y,
         {
             YW_elem[iclass] += classMu[iclass];
         }
+
 
         /* Pointwise Normalization YW + mu - max(classes) */
         normalization = maximum (YW_elem, nclasses);
@@ -225,8 +228,12 @@ loss(myDouble     *Y,
         /* Print prediction to file */
         if (output)
         {
-            y_id      = ielem * nchannels;
-            fprintf(predictionfile, "%1.8e   %1.8e   %d\n", Yinit[y_id + 0], Yinit[y_id + 1], predicted_class);
+            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+            {
+                y_id = ielem * nchannels + ifeatures;
+                fprintf(predictionfile, "%1.8e  ", Ydata[y_id]);
+            }
+            fprintf(predictionfile, "%d\n", predicted_class);
         }
    }
 
@@ -600,8 +607,8 @@ template RealReverse sigma<RealReverse>(RealReverse x);
 template int take_step<double>(double* Y, double* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
 template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
 
-template double loss<double>(double  *Y, double *Target, double  *Yinit, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int output, int* success_ptr);
-template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Yinit, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int output, int* success_ptr);
+template double loss<double>(double  *Y, double *Target, double  *Ydata, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
+template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Ydata, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 
 template double regularization_theta<double>(double* theta, int ts, double dt, int ntime, int nchannels);
 template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);

@@ -53,12 +53,13 @@ template <typename myDouble>
 myDouble  
 loss(myDouble    *Y,
      double      *Target,
-     double      *Yinit,
+     double      *Ydata,
      myDouble    *classW,
      myDouble    *classMu,
      int          nelem,
      int          nclasses,
      int          nchannels,
+     int          nfeatures,
      int          output,
      int         *success_ptr);
 

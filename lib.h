@@ -156,28 +156,32 @@ vector_norm(int    size_t,
 
 
 /**
- * Concatenate the three vectors into a global vector
+ * Concatenate the four vectors into a global vector
  */
 int
-concat_3vectors(int     size1,
+concat_4vectors(int     size1,
                 double *vec1,
                 int     size2,
                 double *vec2,
                 int     size3,
                 double *vec3,
+                int     size4,
+                double *vec4,
                 double *globalvec);
 
 /**
- * Split a global vector into three seperate vectors
+ * Split a global vector into four seperate vectors
  */
 int
-split_into_3vectors(double *globalvec,
+split_into_4vectors(double *globalvec,
                     int     size1,
                     double *vec1,
                     int     size2,
                     double *vec2,
                     int     size3,
-                    double *vec3);
+                    double *vec3,
+                    int     size4,
+                    double *vec4);
 
 /**
  * Read data from file 

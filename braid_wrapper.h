@@ -58,6 +58,10 @@ my_Init(braid_App     app,
         double        t,
         braid_Vector *u_ptr);
 
+int
+my_Init_diff(braid_App     app,
+             double        t,
+             braid_Vector  ubar);
 
 int
 my_Clone(braid_App     app,

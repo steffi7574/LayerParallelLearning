@@ -359,13 +359,19 @@ collect_gradient(braid_App    app,
                    double    *gradient)
 {
 
-   int ntheta    = (app->nchannels * app->nchannels + 1) * app->ntimes;
-   int nclassW   = app->nchannels * app->nclasses;
-   int nclassmu  = app->nclasses;
-   int igradient = 0;
+   int ntheta_open = app->nfeatures * app->nchannels + 1;
+   int ntheta      = (app->nchannels * app->nchannels + 1) * app->ntimes;
+   int nclassW     = app->nchannels * app->nclasses;
+   int nclassmu    = app->nclasses;
+   int igradient   = 0;
 
-   double* local_grad = (double*) malloc((ntheta+nclassW+nclassmu)*sizeof(double));
+   double* local_grad = (double*) malloc((ntheta_open + ntheta + nclassW + nclassmu)*sizeof(double));
 
+   for (int itheta_open = 0; itheta_open < ntheta_open; itheta_open++)
+   {
+       local_grad[igradient] = app->theta_open_grad[itheta_open];
+       igradient++;
+   }
    for (int itheta = 0; itheta < ntheta; itheta++)
    {
        local_grad[igradient] = app->theta_grad[itheta];
@@ -498,12 +504,14 @@ vector_norm(int    size_t,
 
 
 int
-concat_3vectors(int     size1,
+concat_4vectors(int     size1,
                 double *vec1,
                 int     size2,
                 double *vec2,
                 int     size3,
                 double *vec3,
+                int     size4,
+                double *vec4,
                 double *globalvec)
 {
     int iglob = 0;
@@ -522,18 +530,24 @@ concat_3vectors(int     size1,
         globalvec[iglob] = vec3[i];
         iglob++;
     }
-
+    for (int i = 0; i < size4; i++)
+    {
+        globalvec[iglob] = vec4[i];
+        iglob++;
+    }
     return 0;
 }
 
 int
-split_into_3vectors(double *globalvec,
+split_into_4vectors(double *globalvec,
                     int     size1,
                     double *vec1,
                     int     size2,
                     double *vec2,
                     int     size3,
-                    double *vec3)
+                    double *vec3,
+                    int     size4,
+                    double *vec4)
 {
     int iglob = 0;
     for (int i = 0; i < size1; i++)
@@ -549,6 +563,11 @@ split_into_3vectors(double *globalvec,
     for (int i = 0; i < size3; i++)
     {
         vec3[i] = globalvec[iglob];
+        iglob++;
+    }
+    for (int i = 0; i < size4; i++)
+    {
+        vec4[i] = globalvec[iglob];
         iglob++;
     }
 

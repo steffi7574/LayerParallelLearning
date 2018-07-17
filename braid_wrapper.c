@@ -101,6 +101,65 @@ my_Init(braid_App     app,
 }
 
 
+int
+my_Init_diff(braid_App     app,
+             double        t,
+             braid_Vector  ubar)
+{
+    int nfeatures   = app->nfeatures;
+    int nchannels   = app->nchannels;
+    int ntraining   = app->ntraining;
+    int nstate      = ntraining * nchannels;
+    int ntheta_open = nfeatures * nchannels + 1;
+    double *data    = app->Ytrain;
+
+
+
+    if (t == 0)
+    {
+        /* Set up CoDiPack */       
+        RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
+        codiTape.setActive();
+
+        /* Register input */
+        RealReverse* theta_open;
+        theta_open = (RealReverse*) malloc(ntheta_open * sizeof(RealReverse));
+        for (int i = 0; i < ntheta_open; i++)
+        {
+            theta_open[i] = app->theta_open[i];
+            codiTape.registerInput(theta_open[i]);
+        }
+
+        /* Set up output */
+        RealReverse* Y;
+        Y = (RealReverse*) malloc(nstate * sizeof(RealReverse));
+
+        /* Tape the opening layer */
+        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures);
+
+
+        /* Set the adjoint variables */
+        for (int i = 0; i < nstate; i++)
+        {
+            Y[i].setGradient(ubar->Y[i]);
+        }
+
+        /* Evaluate the tape */
+        codiTape.evaluate();
+
+        /* Update the gradient */
+        for (int i = 0; i < ntheta_open; i++)
+        {
+            app->theta_open_grad[i] += theta_open[i].getGradient();
+        }
+
+        free(Y);
+        free(theta_open);
+    }
+
+    return 0;
+}         
+
 
 int
 my_Clone(braid_App     app,
@@ -578,14 +637,19 @@ my_Step_diff(braid_App         app,
 int 
 my_ResetGradient(braid_App app)
 {
-    int ntheta   = (app->nchannels * app->nchannels + 1) * app->ntimes;
-    int nclassW  =  app->nchannels * app->nclasses;
-    int nclassmu =  app->nclasses;
+    int ntheta_open = app->nfeatures  * app->nchannels + 1;
+    int ntheta      = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    int nclassW     =  app->nchannels * app->nclasses;
+    int nclassmu    =  app->nclasses;
 
     /* Set the gradient to zero */
-    for (int itheta = 0; itheta < ntheta; itheta++)
+    for (int i = 0; i < ntheta_open; i++)
     {
-        app->theta_grad[itheta] = 0.0;
+        app->theta_open_grad[i] = 0.0;
+    }
+    for (int i = 0; i < ntheta; i++)
+    {
+        app->theta_grad[i] = 0.0;
     }
     for (int i = 0; i < nclassW; i++)
     {

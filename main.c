@@ -39,7 +39,9 @@ int main (int argc, char *argv[])
     int      ntraining;         /**< Number of examples in the training data */
     int      nvalidation;       /**< Number of examples in the validation data */
     int      nfeatures;         /**< Number of features in the data set */
+    int      ntheta_open;       /**< dimension of the opening layer theta variables */
     int      ntheta;            /**< dimension of the theta variables */
+    int      nclassW;           /**< dimension of the classification weights W */
     int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
     int      ntimes;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
@@ -55,7 +57,7 @@ int main (int argc, char *argv[])
     double  *global_gradient0;  /**< Old gradient at previous iteration */
     double  *descentdir;       /**< Descent direction for optimization algorithm  */
     double   gnorm;             /**< Norm of the global gradient */
-    double   findiff;           /**< flag: test gradient with finite differences (1) */
+    // double   findiff;           /**< flag: test gradient with finite differences (1) */
     int      maxoptimiter;      /**< Maximum number of optimization iterations */
     double   rnorm;             /**< Space-time Norm of the state variables */
     double   rnorm_adj;         /**< Space-time norm of the adjoint variables */
@@ -210,8 +212,10 @@ int main (int argc, char *argv[])
 
     /* Init problem parameters */
     deltaT         = T /(double)ntimes; 
+    ntheta_open    = nfeatures * nchannels + 1;
     ntheta         = (nchannels * nchannels + 1 )* ntimes;
-    ndesign        = ntheta + nchannels * nclasses + nclasses;
+    nclassW        = nchannels * nclasses;
+    ndesign        = ntheta_open + ntheta + nclassW + nclasses;
 
     /* Init optimization parameters */
     ls_iter     = 0;
@@ -227,10 +231,10 @@ int main (int argc, char *argv[])
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
     theta_grad        = (double*) malloc(ntheta*sizeof(double));
-    theta_open        = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
-    theta_open_grad   = (double*) malloc((nfeatures*nchannels+1)*sizeof(double));
-    classW           = (double*) malloc(nchannels*nclasses*sizeof(double));
-    classW_grad      = (double*) malloc(nchannels*nclasses*sizeof(double));
+    theta_open        = (double*) malloc(ntheta_open*sizeof(double));
+    theta_open_grad   = (double*) malloc(ntheta_open*sizeof(double));
+    classW           = (double*) malloc(nclassW*sizeof(double));
+    classW_grad      = (double*) malloc(nclassW*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
     classMu_grad     = (double*) malloc(nclasses*sizeof(double));
     Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
@@ -297,7 +301,7 @@ int main (int argc, char *argv[])
         descentdir[idesign]       = 0.0; 
     }
     set_identity(ndesign, Hessian);
-    concat_3vectors(ntheta, theta, nchannels*nclasses, classW, nclasses, classMu, global_design);
+    concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
@@ -333,12 +337,12 @@ int main (int argc, char *argv[])
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
+    braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
-
 
 
     /* Set Braid parameters */
@@ -468,7 +472,7 @@ int main (int argc, char *argv[])
 
         /* Update the design using the initial stepsize) */
         update_design(ndesign, stepsize, descentdir, global_design);
-        split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
+        split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
 
         /* Backtracking linesearch */
         stepsize = stepsize_init;
@@ -506,7 +510,7 @@ int main (int argc, char *argv[])
 
                 /* Update the design with new stepsize */
                 update_design(ndesign, stepsize, descentdir, global_design);
-                split_into_3vectors(global_design, ntheta, app->theta, nchannels*nclasses, app->classW, nclasses, app->classMu);
+                split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
             }
 
         }
@@ -541,77 +545,77 @@ int main (int argc, char *argv[])
 
         /* Print to file */
         write_data("design_opt.dat", global_design, ndesign);
-        // write_data("gradient.dat", global_gradient, ndesign);
+        write_data("gradient.dat", global_gradient, ndesign);
     }
 
 
-    /* Switch for finite difference testing */
-    findiff = 0;
+    // /* Switch for finite difference testing */
+    // findiff = 0;
 
-    /** ---------------------------------------------------------- 
-     * DEBUG: Finite difference testing 
-     * ---------------------------------------------------------- */
-    if (findiff)
-    {
-        printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
-        double obj_store, obj_perturb;
-        double findiff, relerror;
-        double max_err = 0.0;
-        double *err = (double*)malloc(ntheta*sizeof(double));
-        double EPS    = 1e-8;
-        double tolerr = 1e-0;
+    // /** ---------------------------------------------------------- 
+    //  * DEBUG: Finite difference testing 
+    //  * ---------------------------------------------------------- */
+    // if (findiff)
+    // {
+    //     printf("\n\n------- FINITE DIFFERENCE TESTING --------\n\n");
+    //     double obj_store, obj_perturb;
+    //     double findiff, relerror;
+    //     double max_err = 0.0;
+    //     double *err = (double*)malloc(ntheta*sizeof(double));
+    //     double EPS    = 1e-8;
+    //     double tolerr = 1e-0;
 
-        /* Store the objective function and the gradient */
-        double *grad_store = (double*)malloc(ntheta*sizeof(double));
-        for (int idesign = 0; idesign < ntheta; idesign++)
-        {
-            grad_store[idesign] = app->theta_grad[idesign];
-        }
-        braid_GetObjective(core_train, &obj_store);
-        my_ResetGradient(app);
+    //     /* Store the objective function and the gradient */
+    //     double *grad_store = (double*)malloc(ntheta*sizeof(double));
+    //     for (int idesign = 0; idesign < ntheta; idesign++)
+    //     {
+    //         grad_store[idesign] = app->theta_grad[idesign];
+    //     }
+    //     braid_GetObjective(core_train, &obj_store);
+    //     my_ResetGradient(app);
 
-        /* Loop over all design variables */
-        // for (int idx = 0; idx < ntheta; idx++)
-        int idx = 8;
-        {
-            /* Perturb the theta */
-            app->theta[idx] += EPS;
+    //     /* Loop over all design variables */
+    //     // for (int idx = 0; idx < ntheta; idx++)
+    //     int idx = 8;
+    //     {
+    //         /* Perturb the theta */
+    //         app->theta[idx] += EPS;
 
-            /* Run a Braid simulation */
-            braid_SetObjectiveOnly(core_train, 1);
-            app->training = 1;
-            braid_Drive(core_train);
+    //         /* Run a Braid simulation */
+    //         braid_SetObjectiveOnly(core_train, 1);
+    //         app->training = 1;
+    //         braid_Drive(core_train);
 
-            /* Get perturbed objective */
-            braid_GetObjective(core_train, &obj_perturb);
+    //         /* Get perturbed objective */
+    //         braid_GetObjective(core_train, &obj_perturb);
 
-            /* Reset the design */
-            app->theta[idx] -= EPS;
+    //         /* Reset the design */
+    //         app->theta[idx] -= EPS;
 
-            /* Finite differences */
-            findiff  = (obj_perturb - obj_store) / EPS;
-            relerror = (grad_store[idx] - findiff) / findiff;
-            relerror = sqrt(relerror*relerror);
-            err[idx] = relerror;
-            if (max_err < relerror)
-            {
-                max_err = relerror;
-            }
-            printf("\n %d: obj_store %1.14e, obj_perturb %1.14e\n", idx, obj_store, obj_perturb );
-            printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, grad_store[idx], relerror );
+    //         /* Finite differences */
+    //         findiff  = (obj_perturb - obj_store) / EPS;
+    //         relerror = (grad_store[idx] - findiff) / findiff;
+    //         relerror = sqrt(relerror*relerror);
+    //         err[idx] = relerror;
+    //         if (max_err < relerror)
+    //         {
+    //             max_err = relerror;
+    //         }
+    //         printf("\n %d: obj_store %1.14e, obj_perturb %1.14e\n", idx, obj_store, obj_perturb );
+    //         printf("     findiff %1.14e, grad %1.14e, -> ERR %1.14e\n\n", findiff, grad_store[idx], relerror );
 
-            if (fabs(relerror) > tolerr)
-            {
-                printf("\n\n RELATIVE ERROR TO BIG! DEBUG! \n\n");
-                exit(1);
-            }
+    //         if (fabs(relerror) > tolerr)
+    //         {
+    //             printf("\n\n RELATIVE ERROR TO BIG! DEBUG! \n\n");
+    //             exit(1);
+    //         }
 
-        }
-        printf("\n\n MAX. FINITE DIFFERENCES ERROR: %1.14e\n\n", max_err);
+    //     }
+    //     printf("\n\n MAX. FINITE DIFFERENCES ERROR: %1.14e\n\n", max_err);
         
-        free(err);
-        free(grad_store);
-    }
+    //     free(err);
+    //     free(grad_store);
+    // }
 
     StopTime = MPI_Wtime();
     UsedTime = StopTime-StartTime;

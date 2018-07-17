@@ -55,6 +55,42 @@ sigma_diff(double x)
 }
 
 
+int 
+opening_layer(double *Y,
+              double *Ydata, 
+              double *open_layer, 
+              int nelem, 
+              int nchannels, 
+              int nfeatures)
+{
+    double sum;
+    int    y_id, k_id, bias_id;
+
+    for (int ielem = 0; ielem < nelem; ielem++)
+    {
+        for (int ichannels = 0; ichannels < nchannels; ichannels++)
+        {
+            /* Apply K matrix and bias */
+            sum = 0.0;
+            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+            {
+                y_id = ielem * nfeatures + ifeatures;
+                k_id = ifeatures * nchannels + ichannels;
+                sum += Ydata[y_id] * open_layer[k_id];
+            }
+            bias_id = nfeatures * nchannels;
+            sum += open_layer[bias_id];
+
+            /* Apply nonlinear activation */
+            y_id = ielem * nchannels + ichannels;
+            Y[y_id] = sigma(sum);
+        }
+    }
+
+    return 0;
+}
+
+
 template <typename myDouble>
 int
 take_step(myDouble* Y,

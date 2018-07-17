@@ -9,6 +9,14 @@
 using namespace codi;
 
 
+int 
+opening_layer(double *Y,
+              double *Ydata, 
+              double *open_layer, 
+              int     nelem, 
+              int     nchannels, 
+              int     nfeatures);
+
 /** 
  * Forward propagation 
  */

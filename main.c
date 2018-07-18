@@ -266,8 +266,7 @@ int main (int argc, char *argv[])
         }
     }
     idx = nfeatures * nchannels;
-    // theta_open[idx]      = 1e-2 * (double) rand() / ((double) RAND_MAX);
-    theta_open[idx]      = 0.0;
+    theta_open[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
     theta_open_grad[idx] = 0.0;
 
 
@@ -334,11 +333,12 @@ int main (int argc, char *argv[])
     app->accuracy        = 0.0;
     app->output          = 0;
 
+    
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    braid_SetInit_diff(core_train, my_Init_diff);
+    // braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
@@ -405,6 +405,7 @@ int main (int argc, char *argv[])
 
         /* Parallel-in-layer propagation and gradient computation  */
         braid_SetObjectiveOnly(core_train, 0);
+        braid_SetPrintLevel(core_train, 1);
         app->training = 1;
         braid_Drive(core_train);
 
@@ -442,13 +443,6 @@ int main (int argc, char *argv[])
 
         /* --- Optimization control and output ---*/
 
-        /* Check optimization convergence */
-        if (  gnorm < gtol )
-        {
-            printf("Optimization has converged. \n");
-            printf("Be happy and go home!       \n");
-            break;
-        }
 
         /* Output */
         if (myid == 0)

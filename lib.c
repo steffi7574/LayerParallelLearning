@@ -55,6 +55,30 @@ sigma_diff(double x)
 }
 
 
+int
+opening_expand(double *Y, 
+               double *data, 
+               int     nelem, 
+               int     nchannels, 
+               int     nfeatures)
+{
+    int idata = 0;
+    for (int ielem = 0; ielem < nelem; ielem++)
+    {
+        Y[ielem*nchannels + 0] = data[idata];
+        idata++;
+        Y[ielem*nchannels + 1] = data[idata];
+        idata++;
+        for (int ichannels = 2; ichannels < nchannels; ichannels++)
+        {
+            Y[ielem*nchannels + ichannels] = 0.0;
+        }
+    }
+
+    return 0;
+}           
+
+
 template <typename myDouble>
 int
 opening_layer(myDouble *Y,

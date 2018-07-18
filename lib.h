@@ -8,6 +8,15 @@
 #include "codi.hpp"
 using namespace codi;
 
+
+int
+opening_expand(double *Y, 
+               double *data, 
+               int     nelem, 
+               int     nchannels, 
+               int     nfeatures);
+
+
 template <typename myDouble>
 int 
 opening_layer(myDouble *Y,

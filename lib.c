@@ -313,37 +313,26 @@ loss(myDouble     *Y,
 
 template <typename myDouble>
 myDouble
-regularization_class(myDouble *classW, 
-                     myDouble *classMu, 
-                     int       nclasses, 
-                     int       nchannels)
+tikhonov_regul(myDouble *variable,
+               int       size)
 {
-    myDouble relax = 0.0;
-    int      idx;
-
-    /* W-part */
-    for (idx = 0; idx < nclasses * nchannels; idx++)
+    myDouble tik = 0.0;
+    for (int idx = 0; idx < size; idx++)
     {
-        relax += 1./2. * (classW[idx] * classW[idx]);
+        tik += pow(variable[idx],2);
     }
 
-    /* mu-part */
-    for (idx = 0; idx < nclasses; idx++)
-    {
-        relax += 1./2. * (classMu[idx] * classMu[idx]);
-    }
-
-    return relax;
-}
+    return tik / 2.0;
+}           
 
 
 template <typename myDouble>
 myDouble
-regularization_theta(myDouble* theta,
-                     int       ts,
-                     double    dt,
-                     int       ntime,
-                     int       nchannels)
+ddt_theta_regul(myDouble* theta,
+                int       ts,
+                double    dt,
+                int       ntime,
+                int       nchannels)
 {
    myDouble relax = 0.0;
    int      idx, idx1;
@@ -356,24 +345,22 @@ regularization_theta(myDouble* theta,
             idx  = ts       * (nchannels * nchannels + 1) + ichannel *  nchannels + jchannel;
             idx1 = ( ts+1 ) * (nchannels * nchannels + 1) + ichannel *  nchannels + jchannel;
   
-            relax += 1./2.* theta[idx] * theta[idx];
             if (ts < ntime - 1) 
             {
-               relax += 1./2. * (theta[idx1] - theta[idx]) * (theta[idx1] - theta  [idx]) / dt;
+               relax += pow( (theta[idx1] - theta[idx]) / dt,2 );
             } 
         }
     }
 
     /* b(theta)-part */
     idx  =   ts     * ( nchannels * nchannels + 1) + nchannels*nchannels;
-    relax += 1./2. * theta[idx] * theta[idx];
     if (ts < ntime - 1)
     {
         idx1 = ( ts+1 ) * ( nchannels * nchannels + 1) + nchannels*nchannels;
-        relax += 1./2. * (theta[idx1] - theta[idx]) * (theta[idx1] - theta[idx]) / dt;
+        relax += pow( (theta[idx1] - theta[idx]) / dt, 2 );
     }
 
-    return relax;
+    return relax / 2.0;
 }        
 
 
@@ -690,12 +677,11 @@ template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, 
 template double loss<double>(double  *Y, double *Target, double  *Ydata, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Ydata, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 
-template double regularization_theta<double>(double* theta, int ts, double dt, int ntime, int nchannels);
-template RealReverse regularization_theta<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
+template double ddt_theta_regul<double>(double* theta, int ts, double dt, int ntime, int nchannels);
+template RealReverse ddt_theta_regul<RealReverse>(RealReverse* theta, int ts, double dt, int ntime, int nchannels);
 
-template RealReverse regularization_class<RealReverse>(RealReverse *classW, RealReverse *classMu, int nclasses, int nchannels);
-template double regularization_class<double>(double *classW, double *classMu, int nclasses, int nchannels);
-
+template double tikhonov_regul<double>(double *variable, int size);
+template RealReverse tikhonov_regul<RealReverse>(RealReverse *variable, int size);
 
 template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);
 template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);

@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 #include "lib.h"
 #include "bfgs.h"
 #include "braid.h"
@@ -338,7 +337,7 @@ int main (int argc, char *argv[])
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    // braid_SetInit_diff(core_train, my_Init_diff);
+    braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
@@ -452,11 +451,29 @@ int main (int argc, char *argv[])
             fflush(optimfile);
         }
 
+        // /* Print to file */
+        // char designoptfile[128];
+        // char gradientfile[128];
+        // sprintf(designoptfile, "design.dat.%d", iter);
+        // sprintf(gradientfile, "gradient.dat.%d", iter);
+        // write_data(designoptfile, global_design, ndesign);
+        // write_data(gradientfile, global_gradient, ndesign);
 
+        /* Check optimization convergence */
+        if (  gnorm < gtol )
+        {
+            printf("Optimization has converged. \n");
+            printf("Be happy and go home!       \n");
+            break;
+        }
+        
         /* --- Design update --- */
 
         /* Hessian approximation */
-        bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+        if (iter > 2)
+        {
+            bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+        }
 
         /* Compute descent direction for the design and wolfe condition */
         wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
@@ -480,7 +497,7 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            if (myid == 0) printf("ls_iter %d\n", ls_iter);
+            if (myid == 0) printf("ls_iter %d ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 

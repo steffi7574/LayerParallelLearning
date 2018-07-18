@@ -82,29 +82,24 @@ loss(myDouble    *Y,
 
 
 /**
- * Regularization for theta. Includes two terms:
- * -> small theta: Tikhonov
- * -> small derivative in time
+ * Tikhonov regularization 
+ */
+template <typename myDouble>
+myDouble
+tikhonov_regul(myDouble *variable,
+               int       size);
+
+/**
+ * Time-derivative regularization term for theta.
  * 
  */
 template <typename myDouble>
 myDouble
-regularization_theta(myDouble* theta,
-                     int          ts,
-                     double       dt,
-                     int          ntime,
-                     int          nchannels);
-
-
-/**
- * Tikhonov regularization for the classification weights and bias.
- */
-template <typename myDouble>
-myDouble
-regularization_class(myDouble *classW, 
-                     myDouble *classMu, 
-                     int       nclasses, 
-                     int       nchannels);
+ddt_theta_regul(myDouble* theta,
+                int          ts,
+                double       dt,
+                int          ntime,
+                int          nchannels);
 
 
 /** 

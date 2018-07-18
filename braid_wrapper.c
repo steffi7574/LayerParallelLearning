@@ -79,8 +79,8 @@ my_Init(braid_App     app,
     if (t == 0.0)
     {
         /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        // opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
-        opening_expand(u->Y, data, nelem, nchannels, nfeatures);
+        opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
+        // opening_expand(u->Y, data, nelem, nchannels, nfeatures);
     }
     else
     {
@@ -153,6 +153,9 @@ my_Init_diff(braid_App     app,
         {
             app->theta_open_grad[i] += theta_open[i].getGradient();
         }
+
+        /* Reset the codi tape */
+        codiTape.reset();
 
         free(Y);
         free(theta_open);
@@ -384,6 +387,7 @@ my_ObjectiveT(braid_App              app,
     int    ts, success;
     double *Ydata;
     double *Cdata;
+    double regul;
 
     int nelem;
     if (app->training)
@@ -403,24 +407,35 @@ my_ObjectiveT(braid_App              app,
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
-    if (ts < ntimes)
+    if (ts == 0)
+    {
+        /* Compute regularization term for opening layer */
+        regul = tikhonov_regul(app->theta_open, nfeatures * nchannels + 1);
+        obj   = app->gamma_theta * regul;
+        app->theta_regul += obj;
+    }
+    else if (ts < ntimes)
     {
         /* Compute regularization term for theta */
-        obj = app->gamma_theta * regularization_theta(app->theta, ts, app->deltaT, ntimes, nchannels);
+        regul  = tikhonov_regul(app->theta, (nchannels * nchannels + 1) * ntimes);
+        regul += ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
+        obj    = app->gamma_theta * regul;
         app->theta_regul += obj;
     }
     else
     {
-        /* Evaluate loss */
+       /* Evaluate loss */
        app->loss = 1./nelem* loss(u->Y, Cdata, Ydata, app->classW, app->classMu, nelem, nclasses, nchannels, nfeatures, app->output, &success);
        obj = app->loss;
 
+       /* Add regularization for classifier */
+       regul  = tikhonov_regul(app->classW, nclasses * nchannels);
+       regul += tikhonov_regul(app->classMu, nclasses);
+       obj   += app->class_regul;
+       app->class_regul = app->gamma_class * regul;
+
        /* Compute accuracy */
        app->accuracy = 100.0 * (double) success / nelem;  
-
-       /* Add regularization for classifier */
-       app->class_regul = app->gamma_class * regularization_class(app->classW, app->classMu, nclasses, nchannels);
-       obj += app->class_regul;
     }
 
     *objective_ptr = getValue(obj);
@@ -443,10 +458,12 @@ my_ObjectiveT_diff(braid_App            app,
     int nclasses  = app->nclasses;
     int nfeatures = app->nfeatures;
     int ntheta    = (nchannels * nchannels + 1 ) * ntimes;
+    int ntheta_open = nfeatures * nchannels + 1;
     int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
     int ts, success;
+    RealReverse regul;
     RealReverse obj = 0.0;
 
     if (!app->training)
@@ -463,14 +480,16 @@ my_ObjectiveT_diff(braid_App            app,
     codiTape.setActive();
 
     /* Register input */
-    RealReverse* Ycodi;   /* CodiType for the state */
-    RealReverse* theta;   /* CodiType for the theta */
-    RealReverse* classW; /* CoDiTypye for classW */
-    RealReverse* classMu; /* CoDiTypye for classMu */
-    Ycodi     = (RealReverse*) malloc(nstate   * sizeof(RealReverse));
-    theta     = (RealReverse*) malloc(ntheta   * sizeof(RealReverse));
-    classW   = (RealReverse*) malloc(nclassW  * sizeof(RealReverse));
-    classMu  = (RealReverse*) malloc(nclassmu * sizeof(RealReverse));
+    RealReverse* Ycodi;        /* CodiType for the state */
+    RealReverse* theta;        /* CodiType for theta */
+    RealReverse* theta_open;   /* CodiType for theta at opening layer */
+    RealReverse* classW;       /* CoDiTypye for classW */
+    RealReverse* classMu;      /* CoDiTypye for classMu */
+    Ycodi      = (RealReverse*) malloc(nstate      * sizeof(RealReverse));
+    theta      = (RealReverse*) malloc(ntheta      * sizeof(RealReverse));
+    theta_open = (RealReverse*) malloc(ntheta_open * sizeof(RealReverse));
+    classW     = (RealReverse*) malloc(nclassW     * sizeof(RealReverse));
+    classMu    = (RealReverse*) malloc(nclassmu    * sizeof(RealReverse));
     for (int i = 0; i < nstate; i++)
     {
         Ycodi[i] = u->Y[i];
@@ -480,6 +499,11 @@ my_ObjectiveT_diff(braid_App            app,
     {
         theta[i] = app->theta[i];
         codiTape.registerInput(theta[i]);
+    }
+    for (int i = 0; i < ntheta_open; i++)
+    {
+        theta_open[i] = app->theta_open[i];
+        codiTape.registerInput(theta_open[i]);
     }
     for (int i = 0; i < nclassW; i++)
     {
@@ -494,10 +518,18 @@ my_ObjectiveT_diff(braid_App            app,
     
 
     /* Tape the objective function evaluation */
-    if (ts < app->ntimes)
+    if (ts == 0)
+    {
+        /* Compute regularization term for opening layer */
+        regul = tikhonov_regul(theta_open, nfeatures * nchannels + 1);
+        obj   = app->gamma_theta * regul;
+    }
+    else if (ts < app->ntimes)
     {
         /* Compute regularization term */
-        obj = app->gamma_theta * regularization_theta(theta, ts, app->deltaT, ntimes, nchannels);
+        regul  = tikhonov_regul(theta, (nchannels * nchannels + 1) * ntimes);
+        regul += ddt_theta_regul(theta, ts, app->deltaT, ntimes, nchannels);
+        obj    = app->gamma_theta * regul;
     }
     else
     {
@@ -506,7 +538,9 @@ my_ObjectiveT_diff(braid_App            app,
     //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */
-       obj += app->gamma_class * regularization_class(classW, classMu, nclasses, nchannels);
+       regul  = tikhonov_regul(classW, nclasses * nchannels);
+       regul += tikhonov_regul(classMu, nclasses);
+       obj   += app->gamma_class * regul;
     } 
 
     
@@ -526,6 +560,10 @@ my_ObjectiveT_diff(braid_App            app,
     {
         app->theta_grad[i] += theta[i].getGradient();
     }
+    for (int i = 0; i < ntheta_open; i++)
+    {
+        app->theta_open_grad[i] += theta_open[i].getGradient();
+    }
     for (int i = 0; i < nclassW; i++)
     {
         app->classW_grad[i] += classW[i].getGradient();
@@ -535,6 +573,7 @@ my_ObjectiveT_diff(braid_App            app,
         app->classMu_grad[i] += classMu[i].getGradient();
         // printf("ts %d, iclass %d, gradient %1.14e\n", ts, i, classMu[i].getGradient() );
     }
+    
 
     /* Reset the codi tape */
     codiTape.reset();
@@ -542,6 +581,7 @@ my_ObjectiveT_diff(braid_App            app,
     /* Clean up */
     free(Ycodi);
     free(theta);
+    free(theta_open);
     free(classW);
     free(classMu);
 

@@ -27,7 +27,7 @@ sigma(myDouble x)
    myDouble sigma;
 
    /* ReLU activation function */
-//    sigma = max(0,x);
+//    sigma = max(0.0,x);
 
    /* tanh activation */
    sigma = tanh(x);
@@ -175,10 +175,9 @@ take_step(myDouble* Y,
          int idx = ielem * nchannels + ichannel;
          Y[idx] += dt * sum;
 
-        //  printf("%d %d u->Y[idx] %1.14e\n", ielem, ichannel, getValue(Y[idx]));
       }
    }      
-
+   
    free(update);
    return 0;
 }
@@ -347,7 +346,7 @@ ddt_theta_regul(myDouble* theta,
   
             if (ts < ntime - 1) 
             {
-               relax += pow( (theta[idx1] - theta[idx]) / dt,2 );
+               relax += pow( (theta[idx1] - theta[idx]) / dt, 2);
             } 
         }
     }
@@ -682,6 +681,7 @@ template RealReverse ddt_theta_regul<RealReverse>(RealReverse* theta, int ts, do
 
 template double tikhonov_regul<double>(double *variable, int size);
 template RealReverse tikhonov_regul<RealReverse>(RealReverse *variable, int size);
+
 
 template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);
 template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);

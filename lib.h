@@ -89,6 +89,7 @@ myDouble
 tikhonov_regul(myDouble *variable,
                int       size);
 
+
 /**
  * Time-derivative regularization term for theta.
  * 
@@ -100,8 +101,6 @@ ddt_theta_regul(myDouble* theta,
                 double       dt,
                 int          ntime,
                 int          nchannels);
-
-
 /** 
  * Put all gradient information into one global vector and 
  * invoke an MPI_allreduce to collect information from all processors.  

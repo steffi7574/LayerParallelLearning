@@ -337,7 +337,7 @@ int main (int argc, char *argv[])
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    braid_SetInit_diff(core_train, my_Init_diff);
+    // braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
@@ -470,10 +470,10 @@ int main (int argc, char *argv[])
         /* --- Design update --- */
 
         /* Hessian approximation */
-        if (iter > 2)
-        {
-            bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
-        }
+        // if (iter > 2)
+        // {
+        bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+        // }
 
         /* Compute descent direction for the design and wolfe condition */
         wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);

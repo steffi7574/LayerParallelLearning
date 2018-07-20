@@ -79,8 +79,8 @@ my_Init(braid_App     app,
     if (t == 0.0)
     {
         /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
-        // opening_expand(u->Y, data, nelem, nchannels, nfeatures);
+        // opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
+        opening_expand(u->Y, data, nelem, nchannels, nfeatures);
     }
     else
     {
@@ -384,7 +384,7 @@ my_ObjectiveT(braid_App              app,
     int    nclasses  = app->nclasses;
     int    nfeatures = app->nfeatures;
     double obj = 0.0;
-    int    ts, success;
+    int    ts, itheta, success;
     double *Ydata;
     double *Cdata;
     double regul;
@@ -407,6 +407,7 @@ my_ObjectiveT(braid_App              app,
     /* Get the time index*/
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
+    /* Regularization for theta*/
     if (ts == 0)
     {
         /* Compute regularization term for opening layer */
@@ -414,15 +415,18 @@ my_ObjectiveT(braid_App              app,
         obj   = app->gamma_theta * regul;
         app->theta_regul += obj;
     }
-    else if (ts < ntimes)
-    {
-        /* Compute regularization term for theta */
-        regul  = tikhonov_regul(app->theta, (nchannels * nchannels + 1) * ntimes);
-        regul += ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
-        obj    = app->gamma_theta * regul;
-        app->theta_regul += obj;
-    }
     else
+    {
+        itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
+        regul  = tikhonov_regul(&(app->theta[itheta]), (nchannels * nchannels + 1));
+        regul += ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
+        
+        obj               = app->gamma_theta * regul;
+        app->theta_regul += app->gamma_theta * regul;
+    }
+
+    /* At last layer: Evaluate Loss and add classification regularization */
+    if (ts == ntimes)
     {
        /* Evaluate loss */
        app->loss = 1./nelem* loss(u->Y, Cdata, Ydata, app->classW, app->classMu, nelem, nclasses, nchannels, nfeatures, app->output, &success);
@@ -431,8 +435,9 @@ my_ObjectiveT(braid_App              app,
        /* Add regularization for classifier */
        regul  = tikhonov_regul(app->classW, nclasses * nchannels);
        regul += tikhonov_regul(app->classMu, nclasses);
-       obj   += app->class_regul;
+
        app->class_regul = app->gamma_class * regul;
+       obj             += app->gamma_class * regul;
 
        /* Compute accuracy */
        app->accuracy = 100.0 * (double) success / nelem;  
@@ -462,7 +467,7 @@ my_ObjectiveT_diff(braid_App            app,
     int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
-    int ts, success;
+    int ts, itheta, success;
     RealReverse regul;
     RealReverse obj = 0.0;
 
@@ -524,25 +529,26 @@ my_ObjectiveT_diff(braid_App            app,
         regul = tikhonov_regul(theta_open, nfeatures * nchannels + 1);
         obj   = app->gamma_theta * regul;
     }
-    else if (ts < app->ntimes)
+    else 
     {
         /* Compute regularization term */
-        regul  = tikhonov_regul(theta, (nchannels * nchannels + 1) * ntimes);
+        itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
+        regul  = tikhonov_regul(&(theta[itheta]), nchannels * nchannels +1);
         regul += ddt_theta_regul(theta, ts, app->deltaT, ntimes, nchannels);
         obj    = app->gamma_theta * regul;
     }
-    else
+
+    /* At last layer: Evaluate Loss and add classification regularization */
+    if (ts == ntimes)
     {
         /* Evaluate loss at last layer*/
        obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain, classW, classMu, ntraining, nclasses, nchannels, nfeatures, app->output, &success);
-    //    printf(" ts = ntimes, my_Obj_diff %1.14e\n", obj);
 
        /* Add regularization for classifier */
        regul  = tikhonov_regul(classW, nclasses * nchannels);
        regul += tikhonov_regul(classMu, nclasses);
        obj   += app->gamma_class * regul;
     } 
-
     
     /* Set the seed */
     codiTape.setPassive();
@@ -571,9 +577,7 @@ my_ObjectiveT_diff(braid_App            app,
     for (int i=0; i < nclassmu; i++)
     {
         app->classMu_grad[i] += classMu[i].getGradient();
-        // printf("ts %d, iclass %d, gradient %1.14e\n", ts, i, classMu[i].getGradient() );
     }
-    
 
     /* Reset the codi tape */
     codiTape.reset();

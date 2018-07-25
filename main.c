@@ -106,7 +106,7 @@ int main (int argc, char *argv[])
     ntraining     = 5000;
     nvalidation   = 200;
     nfeatures     = 2;
-    nchannels     = 4;
+    nchannels     = 8;
     nclasses      = 5;
     ntimes        = 32;
     T             = 10.0;
@@ -124,7 +124,7 @@ int main (int argc, char *argv[])
     /* XBraid setup */
     braid_maxlevels   = 10;
     braid_printlevel  = 1;
-    braid_cfactor     = 8;
+    braid_cfactor     = 2;
     braid_accesslevel = 0;
     braid_maxiter     = 10;
     braid_setskip     = 0;
@@ -142,7 +142,8 @@ int main (int argc, char *argv[])
            {
               printf("\n");
               printf("USAGE  -nl     <number of layers>             (Default: 32)    \n");
-              printf("       -cf     <coarsening factor>            (Default: 8)     \n");
+              printf("       -nc     <number of channels>           (Default: 8)     \n");
+              printf("       -cf     <coarsening factor>            (Default: 2)     \n");
               printf("       -ml     <max. xbraid levels>           (Default: 10)    \n");
               printf("       -mbi    <max. xbraid iterations>       (Default: 10)    \n");
               printf("       -btol   <xbraid tolerance>             (Default: 1e-10) \n");
@@ -158,6 +159,11 @@ int main (int argc, char *argv[])
         {
            arg_index++;
            ntimes = atoi(argv[arg_index++]);
+        }
+        else if ( strcmp(argv[arg_index], "-nc") == 0 )
+        {
+           arg_index++;
+           nchannels = atoi(argv[arg_index++]);
         }
         else if ( strcmp(argv[arg_index], "-cf") == 0 )
         {

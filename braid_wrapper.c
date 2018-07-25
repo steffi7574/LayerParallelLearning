@@ -411,18 +411,16 @@ my_ObjectiveT(braid_App              app,
     if (ts == 0)
     {
         /* Compute regularization term for opening layer */
-        regul = tikhonov_regul(app->theta_open, nfeatures * nchannels + 1);
-        obj   = app->gamma_theta * regul;
+        obj = app->gamma_theta_tik * tikhonov_regul(app->theta_open, nfeatures * nchannels + 1);
         app->theta_regul += obj;
     }
     else
     {
         itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
-        regul  = tikhonov_regul(&(app->theta[itheta]), (nchannels * nchannels + 1));
-        regul += ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
+        obj  = app->gamma_theta_tik * tikhonov_regul(&(app->theta[itheta]), (nchannels * nchannels + 1));
+        obj += app->gamma_theta_ddt * ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
         
-        obj               = app->gamma_theta * regul;
-        app->theta_regul += app->gamma_theta * regul;
+        app->theta_regul += obj;
     }
 
     /* At last layer: Evaluate Loss and add classification regularization */
@@ -526,16 +524,14 @@ my_ObjectiveT_diff(braid_App            app,
     if (ts == 0)
     {
         /* Compute regularization term for opening layer */
-        regul = tikhonov_regul(theta_open, nfeatures * nchannels + 1);
-        obj   = app->gamma_theta * regul;
+        obj = app->gamma_theta_tik * tikhonov_regul(theta_open, nfeatures * nchannels + 1);
     }
     else 
     {
         /* Compute regularization term */
         itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
-        regul  = tikhonov_regul(&(theta[itheta]), nchannels * nchannels +1);
-        regul += ddt_theta_regul(theta, ts, app->deltaT, ntimes, nchannels);
-        obj    = app->gamma_theta * regul;
+        obj  = app->gamma_theta_tik * tikhonov_regul(&(theta[itheta]), nchannels * nchannels +1);
+        obj += app->gamma_theta_ddt * ddt_theta_regul(theta, ts, app->deltaT, ntimes, nchannels);
     }
 
     /* At last layer: Evaluate Loss and add classification regularization */

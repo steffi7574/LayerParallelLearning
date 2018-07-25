@@ -32,7 +32,8 @@ int main (int argc, char *argv[])
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
     double   design_init;      /**< Factor to scale the initial opening layer and classification weights and biases */
-    double   gamma_theta;       /**< Relaxation parameter for theta */
+    double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
+    double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int      nclasses;          /**< Number of classes / Clabels */
     int      ntraining;         /**< Number of examples in the training data */
@@ -112,14 +113,15 @@ int main (int argc, char *argv[])
     T             = 10.0;
 
     /* Optimization setup */
-    design_init   = 1e-3;
-    gamma_theta   = 1e-2;
-    gamma_class   = 1e-5;
-    maxoptimiter  = 500;
-    gtol          = 1e-4;
-    stepsize_init = 1.0;
-    ls_maxiter    = 20;
-    ls_factor     = 0.5;
+    design_init     = 1e-3;
+    gamma_theta_tik = 1e-2;
+    gamma_theta_ddt = 1e-1;
+    gamma_class     = 1e-5;
+    maxoptimiter    = 500;
+    gtol            = 1e-4;
+    stepsize_init   = 1.0;
+    ls_maxiter      = 20;
+    ls_factor       = 0.5;
 
     /* XBraid setup */
     braid_maxlevels   = 10;
@@ -329,7 +331,8 @@ int main (int argc, char *argv[])
     app->nclasses        = nclasses;
     app->nchannels       = nchannels;
     app->ntimes          = ntimes;
-    app->gamma_theta     = gamma_theta;
+    app->gamma_theta_tik = gamma_theta_tik;
+    app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
     app->deltaT          = deltaT;
     app->loss            = 0.0;

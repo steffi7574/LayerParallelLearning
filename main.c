@@ -44,7 +44,7 @@ int main (int argc, char *argv[])
     int      ntheta;            /**< dimension of the theta variables */
     int      nclassW;           /**< dimension of the classification weights W */
     int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
-    int      ntimes;            /**< Number of layers / time steps */
+    int      nlayers;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
     double   T;                 /**< Final time */
     int      myid;              /**< Processor rank */
@@ -147,7 +147,7 @@ int main (int argc, char *argv[])
         }
         else if ( strcmp(co->key, "nlayers") == 0 )
         {
-            ntimes = atoi(co->value);
+            nlayers = atoi(co->value);
         }
         else if ( strcmp(co->key, "T") == 0 )
         {
@@ -233,9 +233,9 @@ int main (int argc, char *argv[])
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
-    deltaT         = T /(double)ntimes; 
+    deltaT         = T /(double)nlayers; 
     ntheta_open    = nfeatures * nchannels + 1;
-    ntheta         = (nchannels * nchannels + 1 )* ntimes;
+    ntheta         = (nchannels * nchannels + 1 )* nlayers;
     nclassW        = nchannels * nclasses;
     ndesign        = ntheta_open + ntheta + nclassW + nclasses;
 
@@ -345,7 +345,7 @@ int main (int argc, char *argv[])
     app->nfeatures       = nfeatures;
     app->nclasses        = nclasses;
     app->nchannels       = nchannels;
-    app->ntimes          = ntimes;
+    app->nlayers          = nlayers;
     app->gamma_theta_tik = gamma_theta_tik;
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
@@ -359,13 +359,13 @@ int main (int argc, char *argv[])
     
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
     // braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
 
@@ -387,10 +387,11 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
 
+
     /* Open and prepare optimization output file*/
     sprintf(optimfilename, "%s.dat", "optim");
     optimfile = fopen(optimfilename, "w");
-    fprintf(optimfile, "# Problem setup: ntimes          %d \n", ntimes);
+    fprintf(optimfile, "# Problem setup: nlayers          %d \n", nlayers);
     fprintf(optimfile, "#                nchannels       %d \n", nchannels);
     fprintf(optimfile, "#                nclasses        %d \n", nclasses);
     fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);

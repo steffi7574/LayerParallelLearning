@@ -275,7 +275,7 @@ my_Access(braid_App          app,
 
     braid_AccessStatusGetTIndex(astatus, &idx);
 
-    if (idx == app->ntimes)
+    if (idx == app->nlayers)
     {
         // sprintf(filename, "%s.%02d", "Yout.pint.myid", app->myid);
         // write_data(filename, u->Y, app->ntraining * app->nchannels);
@@ -380,7 +380,7 @@ my_ObjectiveT(braid_App              app,
               double                *objective_ptr)
 {
     int    nchannels = app->nchannels;
-    int    ntimes    = app->ntimes;
+    int    nlayers    = app->nlayers;
     int    nclasses  = app->nclasses;
     int    nfeatures = app->nfeatures;
     double obj = 0.0;
@@ -418,13 +418,13 @@ my_ObjectiveT(braid_App              app,
     {
         itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
         obj  = app->gamma_theta_tik * tikhonov_regul(&(app->theta[itheta]), (nchannels * nchannels + 1));
-        obj += app->gamma_theta_ddt * ddt_theta_regul(app->theta, ts, app->deltaT, ntimes, nchannels);
+        obj += app->gamma_theta_ddt * ddt_theta_regul(app->theta, ts, app->deltaT, nlayers, nchannels);
         
         app->theta_regul += obj;
     }
 
     /* At last layer: Evaluate Loss and add classification regularization */
-    if (ts == ntimes)
+    if (ts == nlayers)
     {
        /* Evaluate loss */
        app->loss = 1./nelem* loss(u->Y, Cdata, Ydata, app->classW, app->classMu, nelem, nclasses, nchannels, nfeatures, app->output, &success);
@@ -457,10 +457,10 @@ my_ObjectiveT_diff(braid_App            app,
 {
     int ntraining = app->ntraining;
     int nchannels = app->nchannels;
-    int ntimes    = app->ntimes;
+    int nlayers    = app->nlayers;
     int nclasses  = app->nclasses;
     int nfeatures = app->nfeatures;
-    int ntheta    = (nchannels * nchannels + 1 ) * ntimes;
+    int ntheta    = (nchannels * nchannels + 1 ) * nlayers;
     int ntheta_open = nfeatures * nchannels + 1;
     int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
@@ -531,11 +531,11 @@ my_ObjectiveT_diff(braid_App            app,
         /* Compute regularization term */
         itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
         obj  = app->gamma_theta_tik * tikhonov_regul(&(theta[itheta]), nchannels * nchannels +1);
-        obj += app->gamma_theta_ddt * ddt_theta_regul(theta, ts, app->deltaT, ntimes, nchannels);
+        obj += app->gamma_theta_ddt * ddt_theta_regul(theta, ts, app->deltaT, nlayers, nchannels);
     }
 
     /* At last layer: Evaluate Loss and add classification regularization */
-    if (ts == ntimes)
+    if (ts == nlayers)
     {
         /* Evaluate loss at last layer*/
        obj = 1./app->ntraining * loss(Ycodi, app->Ctrain, app->Ytrain, classW, classMu, ntraining, nclasses, nchannels, nfeatures, app->output, &success);
@@ -601,8 +601,8 @@ my_Step_diff(braid_App         app,
     int     ts;
     int     nchannels = app->nchannels;
     int     ntraining    = app->ntraining;
-    int     ntimes    = app->ntimes;
-    int     ntheta   = (nchannels * nchannels + 1 ) * ntimes;
+    int     nlayers    = app->nlayers;
+    int     ntheta   = (nchannels * nchannels + 1 ) * nlayers;
     int     nstate    = nchannels * ntraining;
 
     if (!app->training)
@@ -679,7 +679,7 @@ int
 my_ResetGradient(braid_App app)
 {
     int ntheta_open = app->nfeatures  * app->nchannels + 1;
-    int ntheta      = (app->nchannels * app->nchannels + 1) * app->ntimes;
+    int ntheta      = (app->nchannels * app->nchannels + 1) * app->nlayers;
     int nclassW     =  app->nchannels * app->nclasses;
     int nclassmu    =  app->nclasses;
 

@@ -25,7 +25,7 @@ typedef struct _braid_App_struct
     int      nfeatures;        /* Number of features in the training data */
     int      nclasses;         /* Number of classes */
     int      nchannels;        /* Width of the network */
-    int      ntimes;           /* number of time-steps / layers */
+    int      nlayers;           /* number of time-steps / layers */
     double   gamma_theta_tik;  /* Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /* Relaxation parameter for theta time-derivative */
     double   gamma_class;      /* Relaxation parameter for the classification weights W and bias mu */

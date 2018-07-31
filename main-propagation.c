@@ -28,7 +28,7 @@ int main (int argc, char *argv[])
     int      nclasses;          /**< Number of classes / Clabels */
     int      nelem;             /**< Number of examples in the data set */
     int      ntheta;            /**< dimension of the theta variables */
-    int      ntimes;            /**< Number of layers / time steps */
+    int      nlayers;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
     int      ndesign;
     double   T;                 /**< Final time */
@@ -62,8 +62,8 @@ int main (int argc, char *argv[])
     nelem         = 1000;
     nchannels     = 4;
     nclasses      = 5;
-    ntimes        = 32;
-    deltaT        = 10./32.;     // should be T / ntimes, hard-coded for now due to testing;
+    nlayers        = 32;
+    deltaT        = 10./32.;     // should be T / nlayers, hard-coded for now due to testing;
 
     /* Optimization setup */
     gamma_theta   = 1e-2;
@@ -128,7 +128,7 @@ int main (int argc, char *argv[])
         else if ( strcmp(argv[arg_index], "-nl") == 0 )
         {
            arg_index++;
-           ntimes = atoi(argv[arg_index++]);
+           nlayers = atoi(argv[arg_index++]);
         }
         else if ( strcmp(argv[arg_index], "-c") == 0 )
         {
@@ -157,8 +157,8 @@ int main (int argc, char *argv[])
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */
-    T              = deltaT * ntimes;
-    ntheta         = (nchannels * nchannels + 1 )* ntimes;
+    T              = deltaT * nlayers;
+    ntheta         = (nchannels * nchannels + 1 )* nlayers;
     ndesign        = ntheta+nchannels*nclasses+nclasses;
 
     /* Memory allocation */
@@ -207,7 +207,7 @@ int main (int argc, char *argv[])
     app->nchannels         = nchannels;
     app->nclasses          = nclasses;
     app->nvalidation       = nelem;
-    app->ntimes            = ntimes;
+    app->nlayers            = nlayers;
     app->deltaT            = deltaT;
     app->gamma_theta       = gamma_theta;
     app->gamma_class       = gamma_class;
@@ -215,7 +215,7 @@ int main (int argc, char *argv[])
     app->output            = 1;
 
     /* Initialize (adjoint) XBraid for validation data set */
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, ntimes, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
     /* Set Braid parameters */

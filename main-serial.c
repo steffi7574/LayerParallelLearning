@@ -15,7 +15,7 @@ int main()
     int          nbatch;      /**< Size of a batch */
     int          nstate;      /**< dimension of the training data */
     int          ntheta;     /**< dimension of the theta variables */
-    int          ntimes;      /**< Number of layers / time steps */
+    int          nlayers;      /**< Number of layers / time steps */
     int          nchannels;   /**< Number of channels of the netword (width) */
     double       deltat;      /**< Time step size */
     double       T;           /**< Final time */
@@ -28,15 +28,15 @@ int main()
     /* Problem setup */
     nexamples = 5000;
     nchannels = 4;
-    ntimes    = 32;
+    nlayers    = 32;
     T         = 10.0;
     theta0    = 1e-2;
     alpha     = 1e-2;
 
     nbatch  = nexamples;
-    deltat  = T/ntimes;
+    deltat  = T/nlayers;
     nstate  = nchannels * nexamples; 
-    ntheta = (nchannels * nchannels + 1 )* ntimes;
+    ntheta = (nchannels * nchannels + 1 )* nlayers;
 
     /* Allocate memory */
     Ytrain   = (RealReverse*) malloc(nstate*sizeof(RealReverse));
@@ -73,16 +73,16 @@ int main()
 
     /* Time-loop */
     objective = 0.0;
-    for (int ts = 0; ts <= ntimes; ts++)
+    for (int ts = 0; ts <= nlayers; ts++)
     {
         /* Compute regularization term */
-        objective += alpha * regularization_theta(theta, ts, deltat, ntimes, nchannels);
+        objective += alpha * regularization_theta(theta, ts, deltat, nlayers, nchannels);
 
         /* Move to next layer */
         take_step(Ytrain, theta, ts, deltat, batch, nbatch, nchannels, 0);
 
         /* If last layer: Compute loss */
-        if ( ts == ntimes )
+        if ( ts == nlayers )
         {
             RealReverse tmp = 1./ nbatch * loss(Ytrain, Ytarget, batch, nbatch, nchannels);
             objective += tmp;

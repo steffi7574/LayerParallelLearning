@@ -370,7 +370,7 @@ collect_gradient(braid_App    app,
 {
 
    int ntheta_open = app->nfeatures * app->nchannels + 1;
-   int ntheta      = (app->nchannels * app->nchannels + 1) * app->ntimes;
+   int ntheta      = (app->nchannels * app->nchannels + 1) * app->nlayers;
    int nclassW     = app->nchannels * app->nclasses;
    int nclassmu    = app->nclasses;
    int igradient   = 0;
@@ -415,7 +415,7 @@ collect_gradient(braid_App    app,
 //               double   *class_gnorm_prt)
 
 // {
-//     double ntheta = (app->nchannels * app->nchannels + 1) * app->ntimes;
+//     double ntheta = (app->nchannels * app->nchannels + 1) * app->nlayers;
 //     int nclassW   =  app->nchannels * app->nclasses;
 //     int nclassmu  =  app->nclasses;
 //     double theta_gnorm, class_gnorm;

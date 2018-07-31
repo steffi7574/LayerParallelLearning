@@ -7,6 +7,7 @@
 #include "bfgs.h"
 #include "braid.h"
 #include "braid_wrapper.h"
+#include "parser.h"
 
 
 int main (int argc, char *argv[])
@@ -78,7 +79,7 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
 
-    int      nreq, arg_index, idx; 
+    int      nreq, idx; 
     char     Ytrain_file[255];
     char     Ctrain_file[255];
     char     Yval_file[255];
@@ -103,118 +104,132 @@ int main (int argc, char *argv[])
     sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
     sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
 
-    /* Learning problem setup */ 
-    ntraining     = 5000;
-    nvalidation   = 200;
-    nfeatures     = 2;
-    nchannels     = 8;
-    nclasses      = 5;
-    ntimes        = 32;
-    T             = 10.0;
-
-    /* Optimization setup */
-    design_init     = 1e-3;
-    gamma_theta_tik = 1e-2;
-    gamma_theta_ddt = 1e-1;
-    gamma_class     = 1e-5;
-    maxoptimiter    = 500;
-    gtol            = 1e-4;
-    stepsize_init   = 1.0;
-    ls_maxiter      = 20;
-    ls_factor       = 0.5;
-
-    /* XBraid setup */
-    braid_maxlevels   = 10;
-    braid_printlevel  = 1;
-    braid_cfactor     = 2;
-    braid_accesslevel = 0;
-    braid_maxiter     = 10;
-    braid_setskip     = 0;
-    braid_abstol      = 1e-10;
-    braid_abstoladj   = 1e-6; 
-
 
     /* Parse command line */
-    arg_index = 1;
-    while (arg_index < argc)
+    if (argc != 2)
     {
-        if ( strcmp(argv[arg_index], "-help") == 0 )
+       if ( myid == 0 )
+       {
+          printf("\n");
+          printf("USAGE: ./main </path/to/configfile> \n");
+       }
+       MPI_Finalize();
+       return (0);
+    }
+
+    /* Parse the config file */
+    config_option_t co;
+    if ((co = read_config_file(argv[1])) == NULL) {
+        perror("read_config_file()");
+        return -1;
+    }
+    while(1) {
+
+        if ( strcmp(co->key, "ntraining") == 0 )
         {
-           if ( myid == 0 )
-           {
-              printf("\n");
-              printf("USAGE  -nl     <number of layers>             (Default: 32)    \n");
-              printf("       -nc     <number of channels>           (Default: 8)     \n");
-              printf("       -cf     <coarsening factor>            (Default: 2)     \n");
-              printf("       -ml     <max. xbraid levels>           (Default: 10)    \n");
-              printf("       -mbi    <max. xbraid iterations>       (Default: 10)    \n");
-              printf("       -btol   <xbraid tolerance>             (Default: 1e-10) \n");
-              printf("       -abtol  <adjoint xbraid tolerance>     (Default: 1e-6)  \n");
-              printf("       -moi    <max. optimization iterations> (Default: 500)   \n");
-              printf("       -mli    <max. linesearch iterations>   (Default: 20)    \n");
-              printf("       -pl     <print level>                  (Default is 1)   \n");
-              printf("\n");
-           }
-           exit(1);
+            ntraining = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-nl") == 0 )
+        else if ( strcmp(co->key, "nvalidation") == 0 )
         {
-           arg_index++;
-           ntimes = atoi(argv[arg_index++]);
+            nvalidation = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-nc") == 0 )
+        else if ( strcmp(co->key, "nfeatures") == 0 )
         {
-           arg_index++;
-           nchannels = atoi(argv[arg_index++]);
+            nfeatures = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-cf") == 0 )
+        else if ( strcmp(co->key, "nchannels") == 0 )
         {
-           arg_index++;
-           braid_cfactor = atoi(argv[arg_index++]);
+            nchannels = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-ml") == 0 )
+        else if ( strcmp(co->key, "nclasses") == 0 )
         {
-           arg_index++;
-           braid_maxlevels = atoi(argv[arg_index++]);
+            nclasses = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-mbi") == 0 )
+        else if ( strcmp(co->key, "nlayers") == 0 )
         {
-           arg_index++;
-           braid_maxiter = atoi(argv[arg_index++]);
+            ntimes = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-btol") == 0 )
+        else if ( strcmp(co->key, "T") == 0 )
         {
-           arg_index++;
-           braid_abstol = atof(argv[arg_index++]);
+            T = atof(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-abtol") == 0 )
+        else if ( strcmp(co->key, "braid_cfactor") == 0 )
         {
-           arg_index++;
-           braid_abstoladj = atof(argv[arg_index++]);
+           braid_cfactor = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-moi") == 0 )
+        else if ( strcmp(co->key, "braid_maxlevels") == 0 )
         {
-           arg_index++;
-           maxoptimiter = atoi(argv[arg_index++]);
+           braid_maxlevels = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-mli") == 0 )
+        else if ( strcmp(co->key, "braid_maxiter") == 0 )
         {
-           arg_index++;
-           ls_maxiter = atoi(argv[arg_index++]);
+           braid_maxiter = atoi(co->value);
         }
-        else if ( strcmp(argv[arg_index], "-pl") == 0 )
+        else if ( strcmp(co->key, "braid_abstol") == 0 )
         {
-           arg_index++;
-           braid_printlevel = atoi(argv[arg_index++]);
+           braid_abstol = atof(co->value);
         }
-        else
+        else if ( strcmp(co->key, "braid_adjtol") == 0 )
         {
-           printf("ABORTING: incorrect command line parameter %s\n", argv[arg_index]);
-           MPI_Finalize();
-           return (0);
+           braid_abstoladj = atof(co->value);
+        }
+        else if ( strcmp(co->key, "braid_printlevel") == 0 )
+        {
+           braid_printlevel = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_accesslevel") == 0 )
+        {
+           braid_accesslevel = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_setskip") == 0 )
+        {
+           braid_setskip = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "gamma_theta_tik") == 0 )
+        {
+            gamma_theta_tik = atof(co->value);
+        }
+        else if ( strcmp(co->key, "gamma_theta_ddt") == 0 )
+        {
+            gamma_theta_ddt = atof(co->value);
+        }
+        else if ( strcmp(co->key, "gamma_class") == 0 )
+        {
+            gamma_class = atof(co->value);
+        }
+        else if ( strcmp(co->key, "stepsize") == 0 )
+        {
+            stepsize_init = atof(co->value);
+        }
+        else if ( strcmp(co->key, "optim_maxiter") == 0 )
+        {
+           maxoptimiter = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "gtol") == 0 )
+        {
+           gtol = atof(co->value);
+        }
+        else if ( strcmp(co->key, "ls_maxiter") == 0 )
+        {
+           ls_maxiter = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "ls_factor") == 0 )
+        {
+           ls_factor = atof(co->value);
+        }
+        else if ( strcmp(co->key, "design_init") == 0 )
+        {
+           design_init = atoi(co->value);
+        }
+
+        if (co->prev != NULL) {
+            co = co->prev;
+        } else {
+            break;
         }
     }
-    
+
+
     /*--- INITIALIZATION ---*/
 
     /* Init problem parameters */

@@ -219,7 +219,7 @@ int main (int argc, char *argv[])
         }
         else if ( strcmp(co->key, "design_init") == 0 )
         {
-           design_init = atoi(co->value);
+           design_init = atof(co->value);
         }
 
         if (co->prev != NULL) {
@@ -356,7 +356,6 @@ int main (int argc, char *argv[])
     app->accuracy        = 0.0;
     app->output          = 0;
 
-    
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);

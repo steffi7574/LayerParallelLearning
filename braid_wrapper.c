@@ -76,11 +76,18 @@ my_Init(braid_App     app,
     u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
 
  
+    /* Project data to the network layer */
     if (t == 0.0)
     {
-        /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        // opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures, ReLu);
-        opening_expand(u->Y, data, nelem, nchannels, nfeatures);
+        if (app->openinglayer)
+        {
+            /* Apply the opening layer sigma(K*Y + bias) */
+            opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures, app->ReLu);
+        }
+        else
+        {
+            opening_expand(u->Y, data, nelem, nchannels, nfeatures);
+        }
     }
     else
     {
@@ -135,9 +142,8 @@ my_Init_diff(braid_App     app,
         RealReverse* Y;
         Y = (RealReverse*) malloc(nstate * sizeof(RealReverse));
 
-        /* Tape the opening layer NOT WORKING RIGHT NOW FOR ACTIVATION = RELU!! */
-        int ReLu = 0;
-        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures, ReLu);
+        /* Tape the opening layer */
+        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures, app->ReLu);
 
 
         /* Set the adjoint variables */

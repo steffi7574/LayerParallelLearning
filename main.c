@@ -79,6 +79,7 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
+    int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
 
     int      nreq, idx; 
     char     Ytrain_file[255];
@@ -164,6 +165,17 @@ int main (int argc, char *argv[])
             {
                 printf("Invalid activation function!");
                 exit(1);
+            }
+        }
+        else if ( strcmp(co->key, "openinglayer") == 0 )
+        {
+            if ( strcmp(co->value, "YES") == 0 )
+            {
+                openinglayer = 1;
+            }
+            else
+            {
+                openinglayer = 0;
             }
         }
         else if ( strcmp(co->key, "T") == 0 )
@@ -367,18 +379,22 @@ int main (int argc, char *argv[])
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
     app->deltaT          = deltaT;
-    app->ReLu            = ReLu;
     app->loss            = 0.0;
     app->class_regul     = 0.0;
     app->theta_regul     = 0.0;
     app->accuracy        = 0.0;
     app->output          = 0;
+    app->ReLu            = ReLu;
+    app->openinglayer    = openinglayer;
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    // braid_SetInit_diff(core_train, my_Init_diff);
+    if (app->openinglayer)
+    {
+        braid_SetInit_diff(core_train, my_Init_diff);
+    }
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;

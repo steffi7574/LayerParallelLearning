@@ -24,7 +24,8 @@ opening_layer(myDouble *Y,
               double   *Ydata, 
               int       nelem, 
               int       nchannels, 
-              int       nfeatures);
+              int       nfeatures,
+              int       ReLu);
 
 /** 
  * Forward propagation 
@@ -37,6 +38,7 @@ take_step(myDouble *Y,
           double       dt,
           int          nelem,
           int          nchannels,
+          int          ReLu,
           int          parabolic);
 
 
@@ -45,14 +47,8 @@ take_step(myDouble *Y,
  */
 template <typename myDouble>
 myDouble 
-sigma(myDouble x);        
-
-
-/**
- * Derivative of activation function 
- */
-double
-sigma_diff(double x);
+sigma(int ReLu,
+      myDouble x);        
 
 
 /**

@@ -22,36 +22,23 @@ maximum(myDouble *a,
 
 template <typename myDouble>
 myDouble 
-sigma(myDouble x)
+sigma(int ReLu,
+      myDouble x)
 {
-   myDouble sigma;
-
-   /* ReLU activation function */
-//    sigma = max(0.0,x);
-
-   /* tanh activation */
-   sigma = tanh(x);
-
-   return sigma;
-}
-
-double
-sigma_diff(double x)
-{
-    double ddx;
-    double tmp;
-
-    /* ReLu actionvation */
-    // if (max(0,x) > 0)
-        // ddx = 1.0;
-    // else 
-        // ddx = 0.0;
-
-    /* tanh activation */
-    tmp = tanh(x);
-    ddx = 1. - tmp * tmp;
-
-    return ddx;
+    myDouble sigma;
+ 
+    if (ReLu)
+    {
+       /* ReLU activation function */
+       sigma = max(0.0,x);
+    }
+    else
+    {
+       /* tanh activation */
+       sigma = tanh(x);
+    }
+ 
+    return sigma;
 }
 
 
@@ -86,7 +73,8 @@ opening_layer(myDouble *Y,
               double   *Ydata, 
               int nelem, 
               int nchannels, 
-              int nfeatures)
+              int nfeatures,
+              int ReLu)
 {
     myDouble sum;
     int      y_id, k_id, bias_id;
@@ -108,7 +96,7 @@ opening_layer(myDouble *Y,
 
             /* Apply nonlinear activation */
             y_id = ielem * nchannels + ichannels;
-            Y[y_id] = sigma(sum);
+            Y[y_id] = sigma(ReLu,sum);
         }
     }
 
@@ -124,6 +112,7 @@ take_step(myDouble* Y,
           double  dt,
           int     nelem,
           int     nchannels, 
+          int     ReLu,
           int     parabolic)
 {
    /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
@@ -151,7 +140,7 @@ take_step(myDouble* Y,
          update[ichannel] += theta[th_idx];
 
          /* Apply nonlinear activation */
-         update[ichannel] = sigma(update[ichannel]);
+         update[ichannel] = sigma(ReLu, update[ichannel]);
       }
 
       /* Apply transposed weights, if necessary, and update */
@@ -667,11 +656,11 @@ template int write_data<RealReverse>(char *filename, RealReverse *var, int size)
 template double maximum<double>(double* a, int size_t);
 template RealReverse maximum<RealReverse>(RealReverse* a, int size_t);
 
-template double sigma<double>(double x);
-template RealReverse sigma<RealReverse>(RealReverse x);
+template double sigma<double>(int ReLu, double x);
+template RealReverse sigma<RealReverse>(int ReLu, RealReverse x);
 
-template int take_step<double>(double* Y, double* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
-template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int nelem, int nchannels, int parabolic);
+template int take_step<double>(double* Y, double* theta, int ts, double  dt, int nelem, int nchannels, int ReLu, int parabolic);
+template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int nelem, int nchannels, int ReLu, int parabolic);
 
 template double loss<double>(double  *Y, double *Target, double  *Ydata, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Ydata, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
@@ -683,5 +672,5 @@ template double tikhonov_regul<double>(double *variable, int size);
 template RealReverse tikhonov_regul<RealReverse>(RealReverse *variable, int size);
 
 
-template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);
-template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures);
+template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures, int ReLu);
+template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures, int ReLu);

@@ -37,7 +37,7 @@ my_Step(braid_App        app,
  
 
     /* Take one step */
-    take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, 0);
+    take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, app->ReLu, 0);
 
  
     /* no refinement */
@@ -79,7 +79,7 @@ my_Init(braid_App     app,
     if (t == 0.0)
     {
         /* Apply the opening layer sigma(K*Y + bias) at t==0 */
-        // opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures);
+        // opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures, ReLu);
         opening_expand(u->Y, data, nelem, nchannels, nfeatures);
     }
     else
@@ -135,8 +135,9 @@ my_Init_diff(braid_App     app,
         RealReverse* Y;
         Y = (RealReverse*) malloc(nstate * sizeof(RealReverse));
 
-        /* Tape the opening layer */
-        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures);
+        /* Tape the opening layer NOT WORKING RIGHT NOW FOR ACTIVATION = RELU!! */
+        int ReLu = 0;
+        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures, ReLu);
 
 
         /* Set the adjoint variables */
@@ -641,7 +642,7 @@ my_Step_diff(braid_App         app,
     }
     
     /* Take one forward step */
-    take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, 0);
+    take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, app->ReLu, 0);
 
     /* Set the adjoint variables */
     codiTape.setPassive();

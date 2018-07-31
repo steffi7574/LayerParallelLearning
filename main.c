@@ -78,6 +78,7 @@ int main (int argc, char *argv[])
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
+    int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
 
     int      nreq, idx; 
     char     Ytrain_file[255];
@@ -148,6 +149,22 @@ int main (int argc, char *argv[])
         else if ( strcmp(co->key, "nlayers") == 0 )
         {
             nlayers = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "activation") == 0 )
+        {
+            if ( strcmp(co->value, "ReLu") == 0 )
+            {
+                ReLu = 1;
+            }
+            else if (strcmp(co->value, "tanh") == 0 )
+            {
+                ReLu = 0;
+            }
+            else
+            {
+                printf("Invalid activation function!");
+                exit(1);
+            }
         }
         else if ( strcmp(co->key, "T") == 0 )
         {
@@ -350,6 +367,7 @@ int main (int argc, char *argv[])
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
     app->deltaT          = deltaT;
+    app->ReLu            = ReLu;
     app->loss            = 0.0;
     app->class_regul     = 0.0;
     app->theta_regul     = 0.0;

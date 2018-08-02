@@ -6,6 +6,9 @@ from batch_job import submit_job
 from config import *
 from util import *
 
+# Specify runcommand for the cluster ("srun -n" on quartz or "mpirun -np" on elwe)
+runcommand = "srun -n"
+
 # Specify name of training data folder
 datafolder = "data"
 
@@ -38,10 +41,10 @@ for i in range(len(ntraining)):
     #os.symlink("/home/sguenther/Numerics/DNN_PinT/"+datafolder, datafolder)
     
     # Create a config file
-    newconfigfile = jobname + "/" + jobname + ".cfg"
-    konfig.dump(newconfigfile)
+    newconfigfile = jobname + ".cfg"
+    konfig.dump(jobname + "/" + newconfigfile)
 
     # submit the job
     os.chdir(jobname)
-    submit_job(jobname, 1, "01:00:00","../main", newconfigfile)
+    submit_job(jobname, runcommand, 1, "01:00:00","../main", newconfigfile)
     os.chdir("../")

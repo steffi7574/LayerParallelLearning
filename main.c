@@ -462,7 +462,6 @@ int main (int argc, char *argv[])
        fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss        theta_reg   class_reg   || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
     }
 
-    // app->theta[3] += 1e-4;
 
     /* --- OPTIMIZATION --- */
 
@@ -602,7 +601,6 @@ int main (int argc, char *argv[])
         }
 
    }
-
 
     /* --- Run a final propagation ---- */
 

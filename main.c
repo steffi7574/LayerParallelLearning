@@ -32,6 +32,7 @@ int main (int argc, char *argv[])
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
+    double   theta_init;       /**< Factor to scale the initial theta weights and biases */
     double   theta_open_init;  /**< Factor to scale the initial opening layer weights and biases */
     double   class_init;       /**< Factor to scale the initial classification weights and biases */
     double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
@@ -251,6 +252,10 @@ int main (int argc, char *argv[])
         {
            theta_open_init = atof(co->value);
         }
+        else if ( strcmp(co->key, "theta_init") == 0 )
+        {
+           theta_init = atof(co->value);
+        }
         else if ( strcmp(co->key, "class_init") == 0 )
         {
            class_init = atof(co->value);
@@ -343,7 +348,8 @@ int main (int argc, char *argv[])
     /* Initialize theta with zero for all layers */
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
-        theta[itheta]      = 0.0; 
+        // theta_open[idx]      = theta_init * (double) rand() / ((double) RAND_MAX);
+        theta[itheta]      = theta_init * (double) rand() / ((double) RAND_MAX); 
         theta_grad[itheta] = 0.0; 
     }
 
@@ -454,6 +460,7 @@ int main (int argc, char *argv[])
     fprintf(optimfile, "#                gtol            %1.e \n", gtol);
     fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
     fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
+    fprintf(optimfile, "#                theta_init      %f \n", theta_init);
     fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
     fprintf(optimfile, "#                class_init      %f \n", class_init);
     fprintf(optimfile, "\n");

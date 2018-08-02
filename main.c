@@ -32,7 +32,8 @@ int main (int argc, char *argv[])
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
-    double   design_init;      /**< Factor to scale the initial opening layer and classification weights and biases */
+    double   theta_open_init;  /**< Factor to scale the initial opening layer weights and biases */
+    double   class_init;       /**< Factor to scale the initial classification weights and biases */
     double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
@@ -246,9 +247,13 @@ int main (int argc, char *argv[])
         {
            ls_factor = atof(co->value);
         }
-        else if ( strcmp(co->key, "design_init") == 0 )
+        else if ( strcmp(co->key, "theta_open_init") == 0 )
         {
-           design_init = atof(co->value);
+           theta_open_init = atof(co->value);
+        }
+        else if ( strcmp(co->key, "class_init") == 0 )
+        {
+           class_init = atof(co->value);
         }
 
         if (co->prev != NULL) {
@@ -312,12 +317,12 @@ int main (int argc, char *argv[])
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
             idx = ifeatures * nchannels + ichannels;
-            theta_open[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
+            theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
             theta_open_grad[idx] = 0.0;
         }
     }
     idx = nfeatures * nchannels;
-    theta_open[idx]      = design_init * (double) rand() / ((double) RAND_MAX);
+    theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
     theta_open_grad[idx] = 0.0;
 
 
@@ -328,10 +333,10 @@ int main (int argc, char *argv[])
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
             idx = iclasses * nchannels + ichannels;
-            classW[idx]      = design_init * (double) rand() / ((double) RAND_MAX); 
+            classW[idx]      = class_init * (double) rand() / ((double) RAND_MAX); 
             classW_grad[idx] = 0.0; 
         }
-        classMu[iclasses]       = design_init * (double) rand() / ((double) RAND_MAX);
+        classMu[iclasses]       = class_init * (double) rand() / ((double) RAND_MAX);
         classMu_grad[iclasses]  = 0.0;
     }
 
@@ -449,7 +454,8 @@ int main (int argc, char *argv[])
     fprintf(optimfile, "#                gtol            %1.e \n", gtol);
     fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
     fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
-    fprintf(optimfile, "#                design_init     %f \n", design_init);
+    fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
+    fprintf(optimfile, "#                class_init      %f \n", class_init);
     fprintf(optimfile, "\n");
 
 

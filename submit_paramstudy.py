@@ -16,7 +16,20 @@ datafolder = "data"
 configfile = Config("config.cfg")
 
 # Specify the varying parameters
-ntraining = [10]
+ntraining = [10,20]
+
+# prepare gnuplot script 
+plotfile = open("plot_optim.plt", "w")
+plotfile.write("reset\n")
+plotfile.write("set y2label 'accuracy'\n")
+plotfile.write("set ylabel 'objective'\n")
+plotfile.write("set yrange[0:1.8]\n")
+plotfile.write("set key outside\n")
+plotfile.write("set key left\n")
+plotfile.write("set y2tics\n")
+plotfile.write("set ytics nomirror\n")
+plotfile.write("\nplot \\ \n")
+plotlc = 1
 
 # Submit a job for each parameter setup
 for i in range(len(ntraining)):
@@ -46,5 +59,17 @@ for i in range(len(ntraining)):
 
     # submit the job
     os.chdir(jobname)
-    submit_job(jobname, runcommand, 1, "01:00:00","../main", newconfigfile)
+    #submit_job(jobname, runcommand, 1, "01:00:00","../main", newconfigfile)
     os.chdir("../")
+
+    # add to plotscript 
+    plotstring  = "'" + jobname + "/optim.dat' u 1:4  axis x1y1 w l lc " + str(plotlc) + " dt 1 notitle, \\ \n"
+    plotstring += "'" + jobname + "/optim.dat' u 1:11 axis x1y2 w l lc " + str(plotlc) + " dt 1 notitle, \\ \n"
+    plotstring += "'" + jobname + "/optim.dat' u 1:12 axis x1y2 w l lc " + str(plotlc) + " dt 2 notitle, \\ \n"
+    plotstring += "sin(x) - 100 lc " + str(plotlc) + " title '" + jobname + "', \\ \n"
+    plotfile.write(plotstring) 
+    plotlc = plotlc + 1
+
+
+# close gnuplot file
+plotfile.close()

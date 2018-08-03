@@ -30,6 +30,13 @@ plotfile.write("set y2tics\n")
 plotfile.write("set ytics nomirror\n")
 plotfile.write("\nplot \\ \n")
 plotlc = 1
+# prepare key file for gnuplot
+keyfile = open("plot_keys.plt","w")
+keyfile.write("reset\n")
+keyfile.write("set yrange[0:0.1]\n")
+keyfile.write("set xrange[0:0.1]\n")
+keyfile.write("set key outside\n")
+keyfile.write("\nplot \\ \n")
 
 # Submit a job for each parameter setup
 for i in range(len(ntraining)):
@@ -66,10 +73,13 @@ for i in range(len(ntraining)):
     plotstring  = "'" + jobname + "/optim.dat' u 1:4  axis x1y1 w l lc " + str(plotlc) + " dt 1 notitle, \\ \n"
     plotstring += "'" + jobname + "/optim.dat' u 1:11 axis x1y2 w l lc " + str(plotlc) + " dt 1 notitle, \\ \n"
     plotstring += "'" + jobname + "/optim.dat' u 1:12 axis x1y2 w l lc " + str(plotlc) + " dt 2 notitle, \\ \n"
-    plotstring += "sin(x) - 100 lc " + str(plotlc) + " title '" + jobname + "', \\ \n"
+    #plotstring += "sin(x) - 100 lc " + str(plotlc) + " title '" + jobname + "', \\ \n"
+    keystring = "sin(x) - 100 lc " + str(plotlc) + " title '" + jobname + "', \\ \n"
     plotfile.write(plotstring) 
+    keyfile.write(keystring) 
     plotlc = plotlc + 1
 
 
 # close gnuplot file
 plotfile.close()
+keyfile.close()

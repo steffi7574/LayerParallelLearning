@@ -76,6 +76,8 @@ int main (int argc, char *argv[])
     int      braid_accesslevel; /**< braid access level */
     int      braid_maxiter;     /**< max. iterations of xbraid */ 
     int      braid_setskip;     /**< braid: skip work on first level */
+    int      braid_fmg;         /**< braid: V-cycle or full multigrid */
+    int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
     double   accur_train;       /**< Prediction accuracy on the training data */
@@ -215,6 +217,14 @@ int main (int argc, char *argv[])
         else if ( strcmp(co->key, "braid_setskip") == 0 )
         {
            braid_setskip = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_fmg") == 0 )
+        {
+           braid_fmg = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_nrelax") == 0 )
+        {
+           braid_nrelax = atoi(co->value);
         }
         else if ( strcmp(co->key, "gamma_theta_tik") == 0 )
         {
@@ -426,6 +436,12 @@ int main (int argc, char *argv[])
     braid_SetMaxIter(core_val,   braid_maxiter);
     braid_SetSkip(core_train, braid_setskip);
     braid_SetSkip(core_val,   braid_setskip);
+    if (braid_fmg){
+        braid_SetFMG(core_train);
+        braid_SetFMG(core_val);
+    }
+    braid_SetNRelax(core_train, 1, braid_nrelax);
+    braid_SetNRelax(core_val,   1, braid_nrelax);
     braid_SetAbsTol(core_train, braid_abstol);
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
@@ -452,6 +468,8 @@ int main (int argc, char *argv[])
     fprintf(optimfile, "#                print level     %d \n", braid_printlevel);
     fprintf(optimfile, "#                access level    %d \n", braid_accesslevel);
     fprintf(optimfile, "#                skip?           %d \n", braid_setskip);
+    fprintf(optimfile, "#                fmg?            %d \n", braid_fmg);
+    fprintf(optimfile, "#                nrelax          %d \n", braid_nrelax);
     fprintf(optimfile, "# Optimization:  gamma_theta_tik %1.e \n", gamma_theta_tik);
     fprintf(optimfile, "#                gamma_theta_ddt %1.e \n", gamma_theta_ddt);
     fprintf(optimfile, "#                gamma_class     %1.e \n", gamma_class);

@@ -50,6 +50,7 @@ int main (int argc, char *argv[])
     int      nchannels;         /**< Number of channels of the netword (width) */
     double   T;                 /**< Final time */
     int      myid;              /**< Processor rank */
+    int      size;              /**< Number of processors */
     double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
@@ -100,6 +101,7 @@ int main (int argc, char *argv[])
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
     /* --- PROGRAMM SETUP (Default parameters) ---*/
@@ -315,15 +317,21 @@ int main (int argc, char *argv[])
     global_gradient0  = (double*) malloc(ndesign*sizeof(double));
     descentdir        = (double*) malloc(ndesign*sizeof(double));
 
-    /* Read the training and validation data */
-    Ytrain = (double*) malloc(ntraining   * nfeatures * sizeof(double));
-    Ctrain = (double*) malloc(ntraining   * nclasses * sizeof(double));
-    Yval   = (double*) malloc(nvalidation * nfeatures * sizeof(double));
-    Cval   = (double*) malloc(nvalidation * nclasses * sizeof(double));
-    read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-    read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
-    read_data(Yval_file,   Yval,   nvalidation * nfeatures);
-    read_data(Cval_file,   Cval,   nvalidation * nclasses);
+    /* Read the training and validation data of first processor */
+    if (myid == 0)
+    {
+        Ytrain = (double*) malloc(ntraining   * nfeatures * sizeof(double));
+        read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
+        Yval   = (double*) malloc(nvalidation * nfeatures * sizeof(double));
+        read_data(Yval_file,   Yval,   nvalidation * nfeatures);
+    }
+    if (myid == size - 1)
+    {
+        Ctrain = (double*) malloc(ntraining   * nclasses * sizeof(double));
+        Cval   = (double*) malloc(nvalidation * nclasses * sizeof(double));
+        read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
+        read_data(Cval_file,   Cval,   nvalidation * nclasses);
+    }
 
 
     /* Initialize opening layer with random values */
@@ -744,10 +752,16 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    free(Ctrain);
-    free(Ytrain);
-    free(Cval);
-    free(Yval);
+    if (myid == 0)
+    {
+        free(Ytrain);
+        free(Yval);
+    }
+    if (myid == size -1)
+    {
+        free(Ctrain);
+        free(Cval);
+    }
     free(Hessian);
     free(global_design);
     free(global_design0);

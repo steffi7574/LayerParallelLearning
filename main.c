@@ -582,10 +582,11 @@ int main (int argc, char *argv[])
         /* --- Design update --- */
 
         /* Hessian approximation */
-        // if (iter > 2)
-        // {
-        bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
-        // }
+        if (myid == 0)
+        {
+            bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+        }
+        MPI_Bcast(Hessian, ndesign*ndesign, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         /* Compute descent direction for the design and wolfe condition */
         wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);

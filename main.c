@@ -457,40 +457,42 @@ int main (int argc, char *argv[])
 
 
     /* Open and prepare optimization output file*/
-    sprintf(optimfilename, "%s.dat", "optim");
-    optimfile = fopen(optimfilename, "w");
-    fprintf(optimfile, "# Problem setup: ntraining       %d \n", ntraining);
-    fprintf(optimfile, "#                nvalidation     %d \n", nvalidation);
-    fprintf(optimfile, "#                nfeatures       %d \n", nfeatures);
-    fprintf(optimfile, "#                nclasses        %d \n", nclasses);
-    fprintf(optimfile, "#                nchannels       %d \n", nchannels);
-    fprintf(optimfile, "#                nlayers         %d \n", nlayers);
-    fprintf(optimfile, "#                T               %f \n", T);
-    fprintf(optimfile, "#                ReLu activ.?    %d \n", ReLu);
-    fprintf(optimfile, "#                opening layer?  %d \n", openinglayer);
-    fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);
-    fprintf(optimfile, "#                coasening       %d \n", braid_cfactor);
-    fprintf(optimfile, "#                max. braid iter %d \n", braid_maxiter);
-    fprintf(optimfile, "#                abs. tol        %1.e \n", braid_abstol);
-    fprintf(optimfile, "#                abs. toladj     %1.e \n", braid_abstoladj);
-    fprintf(optimfile, "#                print level     %d \n", braid_printlevel);
-    fprintf(optimfile, "#                access level    %d \n", braid_accesslevel);
-    fprintf(optimfile, "#                skip?           %d \n", braid_setskip);
-    fprintf(optimfile, "#                fmg?            %d \n", braid_fmg);
-    fprintf(optimfile, "#                nrelax          %d \n", braid_nrelax);
-    fprintf(optimfile, "# Optimization:  gamma_theta_tik %1.e \n", gamma_theta_tik);
-    fprintf(optimfile, "#                gamma_theta_ddt %1.e \n", gamma_theta_ddt);
-    fprintf(optimfile, "#                gamma_class     %1.e \n", gamma_class);
-    fprintf(optimfile, "#                stepsize        %f \n", stepsize_init);
-    fprintf(optimfile, "#                max. optim iter %d \n", maxoptimiter);
-    fprintf(optimfile, "#                gtol            %1.e \n", gtol);
-    fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
-    fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
-    fprintf(optimfile, "#                theta_init      %f \n", theta_init);
-    fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
-    fprintf(optimfile, "#                class_init      %f \n", class_init);
-    fprintf(optimfile, "\n");
-
+    if (myid == 0)
+    {
+        sprintf(optimfilename, "%s.dat", "optim");
+        optimfile = fopen(optimfilename, "w");
+        fprintf(optimfile, "# Problem setup: ntraining       %d \n", ntraining);
+        fprintf(optimfile, "#                nvalidation     %d \n", nvalidation);
+        fprintf(optimfile, "#                nfeatures       %d \n", nfeatures);
+        fprintf(optimfile, "#                nclasses        %d \n", nclasses);
+        fprintf(optimfile, "#                nchannels       %d \n", nchannels);
+        fprintf(optimfile, "#                nlayers         %d \n", nlayers);
+        fprintf(optimfile, "#                T               %f \n", T);
+        fprintf(optimfile, "#                ReLu activ.?    %d \n", ReLu);
+        fprintf(optimfile, "#                opening layer?  %d \n", openinglayer);
+        fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);
+        fprintf(optimfile, "#                coasening       %d \n", braid_cfactor);
+        fprintf(optimfile, "#                max. braid iter %d \n", braid_maxiter);
+        fprintf(optimfile, "#                abs. tol        %1.e \n", braid_abstol);
+        fprintf(optimfile, "#                abs. toladj     %1.e \n", braid_abstoladj);
+        fprintf(optimfile, "#                print level     %d \n", braid_printlevel);
+        fprintf(optimfile, "#                access level    %d \n", braid_accesslevel);
+        fprintf(optimfile, "#                skip?           %d \n", braid_setskip);
+        fprintf(optimfile, "#                fmg?            %d \n", braid_fmg);
+        fprintf(optimfile, "#                nrelax          %d \n", braid_nrelax);
+        fprintf(optimfile, "# Optimization:  gamma_theta_tik %1.e \n", gamma_theta_tik);
+        fprintf(optimfile, "#                gamma_theta_ddt %1.e \n", gamma_theta_ddt);
+        fprintf(optimfile, "#                gamma_class     %1.e \n", gamma_class);
+        fprintf(optimfile, "#                stepsize        %f \n", stepsize_init);
+        fprintf(optimfile, "#                max. optim iter %d \n", maxoptimiter);
+        fprintf(optimfile, "#                gtol            %1.e \n", gtol);
+        fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
+        fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
+        fprintf(optimfile, "#                theta_init      %f \n", theta_init);
+        fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
+        fprintf(optimfile, "#                class_init      %f \n", class_init);
+        fprintf(optimfile, "\n");
+    }
 
     /* Prepare optimization output */
     if (myid == 0)
@@ -623,7 +625,7 @@ int main (int argc, char *argv[])
                 /* Test for line-search failure */
                 if (ls_iter == ls_maxiter - 1)
                 {
-                    printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    if (myid == 0) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
                     break;
                 }
 
@@ -640,8 +642,10 @@ int main (int argc, char *argv[])
 
         }
 
+        /* Print memory consumption and time in each optimization iteration */
         getrusage(RUSAGE_SELF,&r_usage);
-        printf("%d: memory %.2f MB\n",myid, (double) r_usage.ru_maxrss / 1024.0);
+        printf(" sys: %d memory  %.2f MB\n", myid, (double) r_usage.ru_maxrss / 1024.0);
+
    }
 
     /* --- Run a final propagation ---- */
@@ -747,11 +751,8 @@ int main (int argc, char *argv[])
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
 
-    //if (myid == 0) 
-    {
-        printf("Used Time:    %.2f seconds\n", UsedTime);
-        printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);
-    }
+    printf("Used Time:    %.2f seconds\n", UsedTime);
+    printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);
 
 
     /* Clean up */

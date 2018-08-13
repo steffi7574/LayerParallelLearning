@@ -448,8 +448,8 @@ int main (int argc, char *argv[])
         braid_SetFMG(core_train);
         braid_SetFMG(core_val);
     }
-    braid_SetNRelax(core_train, 1, braid_nrelax);
-    braid_SetNRelax(core_val,   1, braid_nrelax);
+    braid_SetNRelax(core_train, -1, braid_nrelax);
+    braid_SetNRelax(core_val,   -1, braid_nrelax);
     braid_SetAbsTol(core_train, braid_abstol);
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
@@ -639,6 +639,8 @@ int main (int argc, char *argv[])
 
         }
 
+        getrusage(RUSAGE_SELF,&r_usage);
+        printf("%d: memory %.2f MB\n",myid, (double) r_usage.ru_maxrss / 1024.0);
    }
 
     /* --- Run a final propagation ---- */
@@ -744,7 +746,7 @@ int main (int argc, char *argv[])
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
 
-    // if (myid == 0) 
+    //if (myid == 0) 
     {
         printf("Used Time:    %.2f seconds\n", UsedTime);
         printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);

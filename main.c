@@ -60,7 +60,8 @@ int main (int argc, char *argv[])
     double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
     double  *global_gradient0;  /**< Old gradient at previous iteration */
     double  *descentdir;       /**< Descent direction for optimization algorithm  */
-    double   gnorm;             /**< Norm of the global gradient */
+    double   gnorm;             /**< Norm of the gradient */
+    double   mygnorm;           /**< Temporary, holding local norm of the gradient on each proc */
     // double   findiff;           /**< flag: test gradient with finite differences (1) */
     int      maxoptimiter;      /**< Maximum number of optimization iterations */
     double   rnorm;             /**< Space-time Norm of the state variables */
@@ -86,7 +87,7 @@ int main (int argc, char *argv[])
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
     int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
 
-    int      nreq, idx; 
+    int      nreq, idx, igrad; 
     char     Ytrain_file[255];
     char     Ctrain_file[255];
     char     Yval_file[255];
@@ -293,6 +294,7 @@ int main (int argc, char *argv[])
     /* Init optimization parameters */
     ls_iter     = 0;
     gnorm       = 0.0;
+    mygnorm     = 0.0;
     objective   = 0.0;
     obj_loss    = 0.0;
     theta_regul = 0.0;
@@ -310,12 +312,17 @@ int main (int argc, char *argv[])
     classW_grad      = (double*) malloc(nclassW*sizeof(double));
     classMu          = (double*) malloc(nclasses*sizeof(double));
     classMu_grad     = (double*) malloc(nclasses*sizeof(double));
-    Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
-    global_design     = (double*) malloc(ndesign*sizeof(double));
-    global_design0    = (double*) malloc(ndesign*sizeof(double));
-    global_gradient   = (double*) malloc(ndesign*sizeof(double));
-    global_gradient0  = (double*) malloc(ndesign*sizeof(double));
-    descentdir        = (double*) malloc(ndesign*sizeof(double));
+
+
+    if (myid == 0)
+    {
+        Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
+        global_design     = (double*) malloc(ndesign*sizeof(double));
+        global_design0    = (double*) malloc(ndesign*sizeof(double));
+        global_gradient   = (double*) malloc(ndesign*sizeof(double));
+        global_gradient0  = (double*) malloc(ndesign*sizeof(double));
+        descentdir        = (double*) malloc(ndesign*sizeof(double));
+    }
 
     /* Read the training and validation data of first processor */
     if (myid == 0)
@@ -372,16 +379,19 @@ int main (int argc, char *argv[])
     }
 
     /* Initialize optimization variables */
-    for (int idesign = 0; idesign < ndesign; idesign++)
+    if (myid == 0)
     {
-        global_design[idesign]    = 0.0;
-        global_design0[idesign]   = 0.0;
-        global_gradient[idesign]  = 0.0;
-        global_gradient0[idesign] = 0.0;
-        descentdir[idesign]       = 0.0; 
+        for (int idesign = 0; idesign < ndesign; idesign++)
+        {
+            global_design[idesign]    = 0.0;
+            global_design0[idesign]   = 0.0;
+            global_gradient[idesign]  = 0.0;
+            global_gradient0[idesign] = 0.0;
+            descentdir[idesign]       = 0.0; 
+        }
+        set_identity(ndesign, Hessian);
+        concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
     }
-    set_identity(ndesign, Hessian);
-    concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
@@ -522,6 +532,11 @@ int main (int argc, char *argv[])
         app->training = 1;
         braid_Drive(core_train);
 
+        /* Get the state and adjoint residual norms */
+        nreq = -1;
+        braid_GetRNorms(core_train, &nreq, &rnorm);
+        braid_GetRNormAdjoint(core_train, &rnorm_adj);
+
         /* Get objective function and prediction accuracy for training data */
         braid_GetObjective(core_train, &objective);
         MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -529,16 +544,14 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&app->class_regul, &class_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        /* Get the state and adjoint residual norms */
-        nreq = -1;
-        braid_GetRNorms(core_train, &nreq, &rnorm);
-        braid_GetRNormAdjoint(core_train, &rnorm_adj);
-
-        /* Collect sensitivity information into the 'global_gradient' vector */
-        collect_gradient(app, MPI_COMM_WORLD, global_gradient);
-
         /* Compute gradient norm */
-        gnorm = vector_norm(ndesign, global_gradient);
+        mygnorm = 0.0;
+        mygnorm += vector_normsq(ntheta_open, app->theta_open_grad);
+        mygnorm += vector_normsq(ntheta, app->theta_grad);
+        mygnorm += vector_normsq(nclassW, app->classW_grad);
+        mygnorm += vector_normsq(nclasses, app->classMu_grad);
+        mygnorm = sqrt(mygnorm);
+        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
         /* --- Compute Validation Accuracy --- */
@@ -553,14 +566,13 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&app->accuracy, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
-
         /* --- Optimization control and output ---*/
 
 
         /* Output */
         if (myid == 0)
         {
-            printf("%3d  %1.8e  %1.8e  %1.8e  %1.2e  %1.2e  %1.2e  %1.8e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            printf("%3d  %1.8e  %1.8e  %1.16e  %1.2e  %1.2e  %1.2e  %1.16e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.4e  %1.4e  %1.4e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
         }
@@ -583,23 +595,41 @@ int main (int argc, char *argv[])
         
         /* --- Design update --- */
 
-        /* Hessian approximation */
+        /* Get gradient data from app and put it into global_gradient on rank 0 */
+        igrad = 0;
+        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += ntheta_open;
+        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += ntheta;
+        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += nclassW;
+        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
         if (myid == 0)
         {
+            /* Compute the Hessian approximation */
             bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+
+            /* Compute descent direction for the design and wolfe condition */
+            double mywolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
+            MPI_Allreduce(&mywolfe, &wolfe, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+            /* Store current design and gradient into *0 vectors */
+            copy_vector(ndesign, global_design, global_design0);
+            copy_vector(ndesign, global_gradient, global_gradient0);
+
+            /* Update the global design using the initial stepsize */
+            update_design(ndesign, stepsize, descentdir, global_design);
+
+            /* Pass the design to the app */
+            split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
         }
-        MPI_Bcast(Hessian, ndesign*ndesign, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-        /* Compute descent direction for the design and wolfe condition */
-        wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
-
-        /* Store current design and gradient into *0 vectors */
-        copy_vector(ndesign, global_design, global_design0);
-        copy_vector(ndesign, global_gradient, global_gradient0);
-
-        /* Update the design using the initial stepsize) */
-        update_design(ndesign, stepsize, descentdir, global_design);
-        split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
+        /* Communicate the new app design values to all processors */
+        MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         /* Backtracking linesearch */
         stepsize = stepsize_init;
@@ -612,7 +642,7 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            if (myid == 0) printf("ls_iter %d ls_objective %1.14e\n", ls_iter, ls_objective);
+            printf("%d: ls_iter %d, ls_objective %1.14e\n", myid, ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
@@ -629,15 +659,24 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                /* Restore the previous design */
-                copy_vector(ndesign, global_design0, global_design);
-
                 /* Decrease the stepsize */
                 stepsize = stepsize * ls_factor;
 
-                /* Update the design with new stepsize */
-                update_design(ndesign, stepsize, descentdir, global_design);
-                split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
+                if (myid == 0)
+                {
+                    /* Restore the previous design */
+                    copy_vector(ndesign, global_design0, global_design);
+
+                    /* Update the design with new stepsize */
+                    update_design(ndesign, stepsize, descentdir, global_design);
+                    split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
+                }
+
+                /* Communicate the new app design values to all processors */
+                MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, 0, MPI_COMM_WORLD);
             }
 
         }
@@ -650,19 +689,19 @@ int main (int argc, char *argv[])
 
     /* --- Run a final propagation ---- */
 
-    /* Parallel-in-layer propagation and gradient computation  */
-    braid_SetObjectiveOnly(core_train, 0);
-    app->training = 1;
-    braid_Drive(core_train);
+    // /* Parallel-in-layer propagation and gradient computation  */
+    // braid_SetObjectiveOnly(core_train, 0);
+    // app->training = 1;
+    // braid_Drive(core_train);
 
-    /* Compute gradient norm */
-    collect_gradient(app, MPI_COMM_WORLD, global_gradient);
-    gnorm = vector_norm(ndesign, global_gradient);
+    // /* Compute gradient norm */
+    // collect_gradient(app, MPI_COMM_WORLD, global_gradient);
+    // gnorm = vector_normsq(ndesign, global_gradient);
 
-    /* Get objective function value and prediction accuracy for training data */
-    braid_GetObjective(core_train, &objective);
-    MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    // /* Get objective function value and prediction accuracy for training data */
+    // braid_GetObjective(core_train, &objective);
+    // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    // MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* --- Output --- */
     if (myid == 0)
@@ -766,12 +805,16 @@ int main (int argc, char *argv[])
         free(Ctrain);
         free(Cval);
     }
-    free(Hessian);
-    free(global_design);
-    free(global_design0);
-    free(global_gradient);
-    free(global_gradient0);
-    free(descentdir);
+
+    if (myid == 0)
+    {
+        free(Hessian);
+        free(global_design);
+        free(global_design0);
+        free(global_gradient);
+        free(global_gradient0);
+        free(descentdir);
+    }
     free(theta);
     free(theta_grad);
     free(theta_open);

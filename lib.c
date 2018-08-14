@@ -352,51 +352,6 @@ ddt_theta_regul(myDouble* theta,
 }        
 
 
-int
-collect_gradient(braid_App    app, 
-                   MPI_Comm   comm,
-                   double    *gradient)
-{
-
-   int ntheta_open = app->nfeatures * app->nchannels + 1;
-   int ntheta      = (app->nchannels * app->nchannels + 1) * app->nlayers;
-   int nclassW     = app->nchannels * app->nclasses;
-   int nclassmu    = app->nclasses;
-   int igradient   = 0;
-
-   double* local_grad = (double*) malloc((ntheta_open + ntheta + nclassW + nclassmu)*sizeof(double));
-
-   for (int itheta_open = 0; itheta_open < ntheta_open; itheta_open++)
-   {
-       local_grad[igradient] = app->theta_open_grad[itheta_open];
-       igradient++;
-   }
-   for (int itheta = 0; itheta < ntheta; itheta++)
-   {
-       local_grad[igradient] = app->theta_grad[itheta];
-       igradient++;
-   }
-   for (int iclassW = 0; iclassW < nclassW; iclassW++)
-   {
-       local_grad[igradient] = app->classW_grad[iclassW];
-       igradient++;
-   }
-   for (int iclassmu = 0; iclassmu < nclassmu; iclassmu++)
-   {
-       local_grad[igradient] = app->classMu_grad[iclassmu];
-       igradient++;
-   }
-
-   /* Collect sensitivities from all time-processors */
-   MPI_Allreduce(local_grad, gradient, igradient, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-   free(local_grad);
-
-   return 0;
-}                  
-
-
-
 
 // int
 // gradient_norm(braid_App app,
@@ -488,15 +443,14 @@ copy_vector(int N,
 
 
 double
-vector_norm(int    size_t,
-            double *vector)
+vector_normsq(int    size_t,
+              double *vector)
 {
     double norm = 0.0;
     for (int i = 0; i<size_t; i++)
     {
-        norm += pow(vector[i],2);
+        norm += pow(getValue(vector[i]),2);
     }
-    norm = sqrt(norm);
 
     return norm;
 }

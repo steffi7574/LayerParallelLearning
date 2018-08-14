@@ -97,15 +97,6 @@ ddt_theta_regul(myDouble* theta,
                 double       dt,
                 int          ntime,
                 int          nchannels);
-/** 
- * Put all gradient information into one global vector and 
- * invoke an MPI_allreduce to collect information from all processors.  
- */
-int
-collect_gradient(braid_App  app, 
-                 MPI_Comm   comm,
-                 double    *gradient);
-
 
 // /** 
 //  * Set the gradient to zero 
@@ -147,11 +138,11 @@ copy_vector(int N,
 
 
 /**
- * Return the norm of a vector of size 'size_t'
+ * Return the square of the norm of a vector of size 'size_t'
  */
 double
-vector_norm(int    size_t,
-            double *vector);
+vector_normsq(int    size_t,
+              double *vector);
 
 
 /**

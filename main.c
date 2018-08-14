@@ -544,13 +544,22 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&app->class_regul, &class_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
+
+        /* Get gradient data from app and put it into global_gradient on rank 0 */
+        igrad = 0;
+        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += ntheta_open;
+        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += ntheta;
+        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        igrad += nclassW;
+        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
         /* Compute gradient norm */
         mygnorm = 0.0;
-        mygnorm += vector_normsq(ntheta_open, app->theta_open_grad);
-        mygnorm += vector_normsq(ntheta, app->theta_grad);
-        mygnorm += vector_normsq(nclassW, app->classW_grad);
-        mygnorm += vector_normsq(nclasses, app->classMu_grad);
-        mygnorm = sqrt(mygnorm);
+        if (myid == 0) {
+            mygnorm = vector_normsq(ndesign, global_gradient);
+        } 
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
@@ -595,15 +604,6 @@ int main (int argc, char *argv[])
         
         /* --- Design update --- */
 
-        /* Get gradient data from app and put it into global_gradient on rank 0 */
-        igrad = 0;
-        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        igrad += ntheta_open;
-        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        igrad += ntheta;
-        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-        igrad += nclassW;
-        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
         if (myid == 0)
         {

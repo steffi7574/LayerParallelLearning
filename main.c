@@ -276,7 +276,10 @@ int main (int argc, char *argv[])
         {
            class_init = atof(co->value);
         }
-
+        else if ( strcmp(co->key, "bfgs_stages") == 0 )
+        {
+           bfgs_stages = atoi(co->value);
+        }
         if (co->prev != NULL) {
             co = co->prev;
         } else {
@@ -295,7 +298,6 @@ int main (int argc, char *argv[])
     ndesign        = ntheta_open + ntheta + nclassW + nclasses;
 
     /* Init optimization parameters */
-    bfgs_stages = 5;
     ls_iter     = 0;
     gnorm       = 0.0;
     mygnorm     = 0.0;
@@ -511,6 +513,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                theta_init      %f \n", theta_init);
         fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
         fprintf(optimfile, "#                class_init      %f \n", class_init);
+        fprintf(optimfile, "#                bfgs_stages     %d \n", bfgs_stages);
         fprintf(optimfile, "\n");
     }
 

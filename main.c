@@ -5,6 +5,7 @@
 
 #include "lib.h"
 #include "bfgs.h"
+#include "l-bfgs.hpp"
 #include "braid.h"
 #include "braid_wrapper.h"
 #include "parser.h"
@@ -54,6 +55,7 @@ int main (int argc, char *argv[])
     double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
+    L_BFGS  *bfgsstep;          /**< L-BFGS class instant */
     double  *Hessian;           /**< Hessian matrix */
     double  *global_design;     /**< All design vars: theta, classW and classMu */
     double  *global_design0;    /**< Old design vector of previous iteration  */
@@ -71,6 +73,7 @@ int main (int argc, char *argv[])
     int      ls_maxiter;        /**< Max. number of linesearch iterations */
     double   ls_factor;         /**< Reduction factor for linesearch */
     int      ls_iter;           /**< Iterator for linesearch */
+    int      bfgs_stages;       /**< Number of stages of the L-bfgs method */
     double   wolfe;             /**< Wolfe conditoin for linesearch */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
     int      braid_printlevel;  /**< print level of xbraid */
@@ -292,6 +295,7 @@ int main (int argc, char *argv[])
     ndesign        = ntheta_open + ntheta + nclassW + nclasses;
 
     /* Init optimization parameters */
+    bfgs_stages = 5;
     ls_iter     = 0;
     gnorm       = 0.0;
     mygnorm     = 0.0;
@@ -302,6 +306,12 @@ int main (int argc, char *argv[])
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
     stepsize    = stepsize_init;
+
+    /* Initialize BFGS */
+    if (myid == 0)
+    {
+        bfgsstep = new L_BFGS(ndesign, bfgs_stages);
+    }
 
     /* Memory allocation */
     theta             = (double*) malloc(ntheta*sizeof(double));
@@ -608,10 +618,14 @@ int main (int argc, char *argv[])
         if (myid == 0)
         {
             /* Compute the Hessian approximation */
-            bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
+            // bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
 
             /* Compute descent direction for the design and wolfe condition */
-            wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
+            // wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
+
+            bfgsstep->compute_step(iter, global_gradient, descentdir);
+
+            bfgsstep->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
 
             /* Store current design and gradient into *0 vectors */
             copy_vector(ndesign, global_design, global_design0);
@@ -825,6 +839,8 @@ int main (int argc, char *argv[])
     free(classW_grad);
     free(classMu);
     free(classMu_grad);
+
+    delete bfgsstep;
 
     app->training = 1;
     braid_Destroy(core_train);

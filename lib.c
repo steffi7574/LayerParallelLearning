@@ -403,6 +403,21 @@ update_design(int       N,
 }
 
 
+double 
+getWolfe(int     N,
+         double* gradient,
+         double* descentdir)
+{
+    /* compute the wolfe condition product */
+    double wolfe = 0.0;
+    for (int i = 0; i < N; i++)
+    {
+        wolfe += gradient[i] * descentdir[i];
+    }
+
+    return wolfe;
+}     
+
 
 double
 compute_descentdir(int     N,

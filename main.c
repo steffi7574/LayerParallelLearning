@@ -630,6 +630,8 @@ int main (int argc, char *argv[])
 
             bfgsstep->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
 
+            wolfe = getWolfe(ndesign, global_gradient, descentdir);
+
             /* Store current design and gradient into *0 vectors */
             copy_vector(ndesign, global_design, global_design0);
             copy_vector(ndesign, global_gradient, global_gradient0);

@@ -117,6 +117,14 @@ update_design(int       N,
               double   *direction,
               double   *design);
 
+/*
+ *  Compute the Wolfe condition: gradient * descentdir
+ */
+double 
+getWolfe(int     N,
+         double* gradient,
+         double* descentdir);
+
 
 /**
  * Compute descent direction for theta: - Hessian * gradient

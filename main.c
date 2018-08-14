@@ -72,6 +72,7 @@ int main (int argc, char *argv[])
     double   ls_objective;      /**< Objective function value for linesearch */
     int      ls_maxiter;        /**< Max. number of linesearch iterations */
     double   ls_factor;         /**< Reduction factor for linesearch */
+    double   ls_param;          /**< c-parameter for Armijo line-search test */
     int      ls_iter;           /**< Iterator for linesearch */
     int      bfgs_stages;       /**< Number of stages of the L-bfgs method */
     double   wolfe;             /**< Wolfe conditoin for linesearch */
@@ -299,6 +300,7 @@ int main (int argc, char *argv[])
 
     /* Init optimization parameters */
     ls_iter     = 0;
+    ls_param    = 1e-4;
     gnorm       = 0.0;
     mygnorm     = 0.0;
     objective   = 0.0;
@@ -663,10 +665,8 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            printf("%d: ls_iter %d, ls_objective %1.14e\n", myid, ls_iter, ls_objective);
-
             /* Test the wolfe condition */
-            if (ls_objective <= objective + ls_factor * stepsize * wolfe ) 
+            if (ls_objective <= objective + ls_param * stepsize * wolfe ) 
             {
                 /* Success, use this new design */
                 break;

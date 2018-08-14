@@ -611,8 +611,7 @@ int main (int argc, char *argv[])
             bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
 
             /* Compute descent direction for the design and wolfe condition */
-            double mywolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
-            MPI_Allreduce(&mywolfe, &wolfe, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
 
             /* Store current design and gradient into *0 vectors */
             copy_vector(ndesign, global_design, global_design0);
@@ -624,6 +623,9 @@ int main (int argc, char *argv[])
             /* Pass the design to the app */
             split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
         }
+
+        /* Communicate the wolfe condition */
+        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
         /* Communicate the new app design values to all processors */
         MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);

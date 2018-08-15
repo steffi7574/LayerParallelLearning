@@ -830,6 +830,7 @@ int main (int argc, char *argv[])
 
     if (myid == 0)
     {
+        delete bfgsstep;
         free(global_design);
         free(global_design0);
         free(global_gradient);
@@ -844,7 +845,6 @@ int main (int argc, char *argv[])
     free(classW_grad);
     free(classMu);
     free(classMu_grad);
-    delete bfgsstep;
 
     app->training = 1;
     braid_Destroy(core_train);

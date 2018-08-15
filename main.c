@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "lib.h"
-#include "bfgs.h"
 #include "l-bfgs.hpp"
 #include "braid.h"
 #include "braid_wrapper.h"
@@ -56,7 +55,6 @@ int main (int argc, char *argv[])
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
     L_BFGS  *bfgsstep;          /**< L-BFGS class instant */
-    double  *Hessian;           /**< Hessian matrix */
     double  *global_design;     /**< All design vars: theta, classW and classMu */
     double  *global_design0;    /**< Old design vector of previous iteration  */
     double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
@@ -330,7 +328,6 @@ int main (int argc, char *argv[])
 
     if (myid == 0)
     {
-        Hessian           = (double*) malloc(ndesign*ndesign*sizeof(double));
         global_design     = (double*) malloc(ndesign*sizeof(double));
         global_design0    = (double*) malloc(ndesign*sizeof(double));
         global_gradient   = (double*) malloc(ndesign*sizeof(double));
@@ -403,7 +400,6 @@ int main (int argc, char *argv[])
             global_gradient0[idesign] = 0.0;
             descentdir[idesign]       = 0.0; 
         }
-        set_identity(ndesign, Hessian);
         concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
     }
 
@@ -620,18 +616,17 @@ int main (int argc, char *argv[])
         /* --- Design update --- */
 
 
+        /* Compute new design on first processor */
         if (myid == 0)
         {
-            /* Compute the Hessian approximation */
-            // bfgs(ndesign, global_design, global_design0, global_gradient, global_gradient0, Hessian);
 
-            /* Compute descent direction for the design and wolfe condition */
-            // wolfe = compute_descentdir(ndesign, Hessian, global_gradient, descentdir);
-
+            /* Compute descent direction using L-BFGS Hessian approximation */
             bfgsstep->compute_step(iter, global_gradient, descentdir);
 
+            /* Update the L-BFGS memory */
             bfgsstep->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
 
+            /* Compute the wolfe condition */
             wolfe = getWolfe(ndesign, global_gradient, descentdir);
 
             /* Store current design and gradient into *0 vectors */
@@ -648,7 +643,7 @@ int main (int argc, char *argv[])
         /* Communicate the wolfe condition */
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-        /* Communicate the new app design values to all processors */
+        /* Communicate the new design to all processors */
         MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -664,6 +659,8 @@ int main (int argc, char *argv[])
             app->training = 1;
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
+
+            if (myid == 0) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective + ls_param * stepsize * wolfe ) 
@@ -683,9 +680,10 @@ int main (int argc, char *argv[])
                 /* Decrease the stepsize */
                 stepsize = stepsize * ls_factor;
 
+                /* Compute new design on first processor */
                 if (myid == 0)
                 {
-                    /* Restore the previous design */
+                    /* Restore the old design */
                     copy_vector(ndesign, global_design0, global_design);
 
                     /* Update the design with new stepsize */
@@ -693,7 +691,7 @@ int main (int argc, char *argv[])
                     split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
                 }
 
-                /* Communicate the new app design values to all processors */
+                /* Communicate the new design to all processors */
                 MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
                 MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
                 MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -710,19 +708,22 @@ int main (int argc, char *argv[])
 
     /* --- Run a final propagation ---- */
 
-    // /* Parallel-in-layer propagation and gradient computation  */
-    // braid_SetObjectiveOnly(core_train, 0);
-    // app->training = 1;
-    // braid_Drive(core_train);
+    /* Parallel-in-layer propagation and gradient computation  */
+    braid_SetObjectiveOnly(core_train, 0);
+    app->training = 1;
+    braid_Drive(core_train);
 
-    // /* Compute gradient norm */
-    // collect_gradient(app, MPI_COMM_WORLD, global_gradient);
-    // gnorm = vector_normsq(ndesign, global_gradient);
+    /* Compute gradient norm */
+    mygnorm = 0.0;
+    if (myid == 0) {
+        mygnorm = vector_normsq(ndesign, global_gradient);
+    } 
+    MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    // /* Get objective function value and prediction accuracy for training data */
-    // braid_GetObjective(core_train, &objective);
-    // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    // MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    /* Get objective function value and prediction accuracy for training data */
+    braid_GetObjective(core_train, &objective);
+    MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* --- Output --- */
     if (myid == 0)
@@ -829,7 +830,6 @@ int main (int argc, char *argv[])
 
     if (myid == 0)
     {
-        free(Hessian);
         free(global_design);
         free(global_design0);
         free(global_gradient);
@@ -844,7 +844,6 @@ int main (int argc, char *argv[])
     free(classW_grad);
     free(classMu);
     free(classMu_grad);
-
     delete bfgsstep;
 
     app->training = 1;

@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
     double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
-    L_BFGS  *bfgsstep;          /**< L-BFGS class instant */
+    L_BFGS  *lbfgs;          /**< L-BFGS class instant */
     double  *global_design;     /**< All design vars: theta, classW and classMu */
     double  *global_design0;    /**< Old design vector of previous iteration  */
     double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
@@ -312,7 +312,7 @@ int main (int argc, char *argv[])
     /* Initialize BFGS */
     if (myid == 0)
     {
-        bfgsstep = new L_BFGS(ndesign, bfgs_stages);
+        lbfgs = new L_BFGS(ndesign, bfgs_stages);
     }
 
     /* Memory allocation */
@@ -621,10 +621,10 @@ int main (int argc, char *argv[])
         {
 
             /* Compute descent direction using L-BFGS Hessian approximation */
-            bfgsstep->compute_step(iter, global_gradient, descentdir);
+            lbfgs->compute_step(iter, global_gradient, descentdir);
 
             /* Update the L-BFGS memory */
-            bfgsstep->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
+            lbfgs->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
 
             /* Compute the wolfe condition */
             wolfe = getWolfe(ndesign, global_gradient, descentdir);
@@ -830,7 +830,7 @@ int main (int argc, char *argv[])
 
     if (myid == 0)
     {
-        delete bfgsstep;
+        delete lbfgs;
         free(global_design);
         free(global_design0);
         free(global_gradient);

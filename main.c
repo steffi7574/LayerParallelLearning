@@ -823,8 +823,11 @@ int main (int argc, char *argv[])
     // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
     if (myid == 0)
     {
-        printf("\n Used Time:    %.2f seconds\n",UsedTime);
-        printf(" Global Memory: %.2f MB\n\n", globalMB);
+        printf("\n");
+        printf(" Used Time:        %.2f seconds\n",UsedTime);
+        printf(" Global Memory:    %.2f MB\n", globalMB);
+        printf(" Processors used:  %d\n", size);
+        printf("\n");
     }
 
 

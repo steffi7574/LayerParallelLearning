@@ -98,7 +98,7 @@ int main (int argc, char *argv[])
     FILE    *optimfile;      /**< File for optimization history */
 
     struct rusage r_usage;
-    double StartTime, StopTime, UsedTime;
+    double StartTime, StopTime, UsedTime, myMB, globalMB; 
 
 
     /* Initialize MPI */
@@ -173,7 +173,8 @@ int main (int argc, char *argv[])
             else
             {
                 printf("Invalid activation function!");
-                exit(1);
+                MPI_Finalize();
+                return(0);
             }
         }
         else if ( strcmp(co->key, "openinglayer") == 0 )
@@ -608,8 +609,11 @@ int main (int argc, char *argv[])
         /* Check optimization convergence */
         if (  gnorm < gtol )
         {
-            printf("Optimization has converged. \n");
-            printf("Be happy and go home!       \n");
+            if (myid == 0) 
+            {
+                printf("Optimization has converged. \n");
+                printf("Be happy and go home!       \n");
+            }
             break;
         }
         
@@ -701,8 +705,8 @@ int main (int argc, char *argv[])
         }
 
         /* Print memory consumption and time in each optimization iteration */
-        getrusage(RUSAGE_SELF,&r_usage);
-        printf(" sys: %d memory  %.2f MB\n", myid, (double) r_usage.ru_maxrss / 1024.0);
+        // getrusage(RUSAGE_SELF,&r_usage);
+        // printf(" sys: %d memory  %.2f MB\n", myid, (double) r_usage.ru_maxrss / 1024.0);
 
    }
 
@@ -808,12 +812,20 @@ int main (int argc, char *argv[])
     //     free(grad_store);
     // }
 
+
+    /* Print time and memory consumption */
     StopTime = MPI_Wtime();
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
+    myMB = (double) r_usage.ru_maxrss / 1024.0;
+    MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    printf("Used Time:    %.2f seconds\n", UsedTime);
-    printf("Memory Usage: %.2f MB\n",(double) r_usage.ru_maxrss / 1024.0);
+    // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
+    if (myid == 0)
+    {
+        printf("\n Used Time:    %.2f seconds\n",UsedTime);
+        printf(" Global Memory: %.2f MB\n\n", globalMB);
+    }
 
 
     /* Clean up */

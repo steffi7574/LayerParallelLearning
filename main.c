@@ -573,6 +573,7 @@ int main (int argc, char *argv[])
             mygnorm = vector_normsq(ndesign, global_gradient);
         } 
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        gnorm = sqrt(gnorm);
 
 
         /* --- Compute Validation Accuracy --- */
@@ -623,14 +624,16 @@ int main (int argc, char *argv[])
         /* Compute new design on first processor */
         if (myid == 0)
         {
+            /* Update the L-BFGS memory */
+            if (iter > 0) 
+            {
+                lbfgs->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
+            }
 
             /* Compute descent direction using L-BFGS Hessian approximation */
             lbfgs->compute_step(iter, global_gradient, descentdir);
 
-            /* Update the L-BFGS memory */
-            lbfgs->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
-
-            /* Compute the wolfe condition */
+            /* Compute Wolfe condition */
             wolfe = getWolfe(ndesign, global_gradient, descentdir);
 
             /* Store current design and gradient into *0 vectors */
@@ -642,18 +645,18 @@ int main (int argc, char *argv[])
 
             /* Pass the design to the app */
             split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
+
         }
-
-        /* Communicate the wolfe condition */
-        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
         /* Communicate the new design to all processors */
         MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
         MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-        /* Backtracking linesearch */
+        /* Communicate wolfe condition */
+        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+        /* --- Backtracking linesearch --- */
         stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
@@ -667,7 +670,7 @@ int main (int argc, char *argv[])
             if (myid == 0) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
-            if (ls_objective <= objective + ls_param * stepsize * wolfe ) 
+            if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
             {
                 /* Success, use this new design */
                 break;

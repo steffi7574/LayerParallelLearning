@@ -53,26 +53,33 @@ int L_BFGS::compute_step(int     k,
                          double* currgrad,
                          double* step)
 {
-   /* Initialize the step with steepest descent */
-   for (int istep = 0; istep < dimN; istep++)
-   {
-      step[istep] = - currgrad[istep];
-   }
-
-   /* use steepest descent direction in first iteration */
-   if (k == 0)
-   {
-      return 0;
-   }
-
-   int imin = k;
-   int imax = (k-M);
    int imemory;
    double beta;
    double* alpha = new double[M];
+   int imax, imin;
+
+
+   /* Initialize the step with steepest descent */
+   for (int istep = 0; istep < dimN; istep++)
+   {
+      step[istep] = currgrad[istep];
+   }
+
+
+   /* Set range of the two-loop recursion */
+   imax = k-1;
+   if (k < M)
+   {
+     imin = 0;
+   }
+   else
+   {
+     imin = k - M;
+   }
 
    /* Loop backwards through lbfgs memory */
-   for (int i = imax - 1; i >= imin; i--)
+
+   for (int i = imax; i >= imin; i--)
    {
       imemory = i % M;
       /* Compute alpha */
@@ -91,7 +98,7 @@ int L_BFGS::compute_step(int     k,
    }
 
   /* loop forwards through the l-bfgs memory */
-  for (int i = imin; i < imax; i++)
+  for (int i = imin; i <= imax; i++)
   {
     imemory = i % M;
     /* Compute beta */
@@ -116,29 +123,30 @@ int L_BFGS::update_memory(int     k,
                           double* gradnew,
                           double* gradold)
 {
-   int imemory = k % M;
-   /* Update y and s vector */
+   double yTy, yTs;
+   int imemory = (k-1) % M ;
+
+      /* Update BFGS memory for s, y */
    for (int istep = 0; istep < dimN; istep++)
    {
      y[imemory][istep] = gradnew[istep] - gradold[istep];
      s[imemory][istep] = xnew[istep]    - xold[istep];
    }
 
-   double yTs = vecdot(y[imemory], s[imemory]);
+   /* Update rho and H0 */
+   yTs = vecdot(y[imemory], s[imemory]);
+   yTy = vecdot(y[imemory], y[imemory]);
    if (yTs == 0.0) 
    {
      printf("  Warning: resetting yTs to 1.\n");
      yTs = 1.0;
    }
-
-   rho[imemory] = 1. / yTs;
- 
-   double yTy = vecdot(y[imemory], y[imemory]);
-   if (yTy == 0.) {
-     // should print a warning here
+   if (yTy == 0.0) 
+   {
      printf("  Warning: resetting yTy to 1.\n");
      yTy = 1.;
    }
+   rho[imemory] = 1. / yTs;
    H0 = yTs / yTy;
   
    return 0;

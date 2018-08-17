@@ -396,7 +396,7 @@ update_design(int       N,
 {
     for (int i = 0; i < N; i++)
     {
-        design[i] += stepsize * direction[i];
+        design[i] -= stepsize * direction[i];
     }
 
     return 0;

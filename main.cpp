@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "lib.h"
+#include "lib.hpp"
 #include "l-bfgs.hpp"
 #include "braid.h"
-#include "braid_wrapper.h"
+#include "braid_wrapper.hpp"
 #include "parser.h"
 
 #define MASTER_NODE 0

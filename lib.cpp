@@ -1,4 +1,4 @@
-#include "lib.h"
+#include "lib.hpp"
 
 
 template <typename myDouble>
@@ -116,9 +116,9 @@ take_step(myDouble* Y,
           int     parabolic)
 {
    /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
-   myDouble sum;
-   int    th_idx;
-   myDouble *update = (myDouble*)malloc(nchannels * sizeof(myDouble));
+   myDouble  sum;
+   int       th_idx;
+   myDouble* update = new myDouble[nchannels];
 
    /* iterate over all elements */ 
    for (int ielem = 0; ielem < nelem; ielem++)
@@ -167,7 +167,7 @@ take_step(myDouble* Y,
       }
    }      
    
-   free(update);
+   delete [] update;
    return 0;
 }
 

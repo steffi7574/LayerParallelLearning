@@ -9,21 +9,17 @@ BRAID_LIB_FILE = /home/sguenther/Software/xbraid/braid/libbraid.a
 CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 
 # set compiler flags
-CFLAGS= -g -Wall -pedantic -lm -Wno-write-strings
+CPPFLAGS= -g -Wall -pedantic -lm -Wno-write-strings
 
-DEPS = lib.h braid_wrapper.h l-bfgs.hpp
+DEPS = lib.hpp braid_wrapper.hpp l-bfgs.hpp parser.h
 OBJ-pint   = main.o lib.o braid_wrapper.o l-bfgs.o
 
-%.o: %.c $(DEPS)
-	$(MPICXX) $(CFLAGS) -c $< -o $@  $(INC)
+%.o: %.cpp $(DEPS)
+	$(MPICXX) $(CPPFLAGS) -c $< -o $@  $(INC)
 
 main: $(OBJ-pint)
-	$(MPICXX) $(CFLAGS) -o $@ $^ $(BRAID_LIB_FILE)
-
-main-prop: $(OBJ-val)
-	$(MPICXX) $(CFLAGS) -o $@ $^ $(BRAID_LIB_FILE)
+	$(MPICXX) $(CPPFLAGS) -o $@ $^ $(BRAID_LIB_FILE)
 
 clean: 
 	rm -f *.o
 	rm -f main
-	rm -f main-prop

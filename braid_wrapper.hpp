@@ -1,5 +1,5 @@
-#ifndef BRAID_WRAPPER_H_INCLUDED
-#define BRAID_WRAPPER_H_INCLUDED
+#ifndef BRAID_WRAPPER_HPP_INCLUDED
+#define BRAID_WRAPPER_HPP_INCLUDED
 
 
 #include "braid.h"
@@ -144,4 +144,4 @@ my_ResetGradient(braid_App app);
 
 
 
-#endif // BRAID_WRAPPER_H_INCLUDED
+#endif // BRAID_WRAPPER_HPP_INCLUDED

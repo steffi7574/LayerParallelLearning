@@ -40,7 +40,7 @@ L_BFGS::~L_BFGS()
 double L_BFGS::vecdot(double* x, double* y)
 {
    double dotprod = 0.0;
-   for (size_t i = 0; i < dimN; i++)
+   for (int i = 0; i < dimN; i++)
    {
       dotprod += x[i] * y[i];
    }

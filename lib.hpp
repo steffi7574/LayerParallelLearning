@@ -1,10 +1,10 @@
-#ifndef LIB_H_INCLUDED
-#define LIB_H_INCLUDED
+#ifndef LIB_HPP_INCLUDED
+#define LIB_HPP_INCLUDED
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "braid_wrapper.h"
+#include "braid_wrapper.hpp"
 #include "codi.hpp"
 using namespace codi;
 
@@ -212,4 +212,4 @@ double
 getValue(double value);
 
 
-#endif // LIB_H_INCLUDED
+#endif // LIB_HPP_INCLUDED

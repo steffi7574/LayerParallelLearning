@@ -9,6 +9,7 @@
 #include "braid_wrapper.h"
 #include "parser.h"
 
+#define MASTER_NODE 0
 
 int main (int argc, char *argv[])
 {
@@ -557,15 +558,15 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
 
-        /* Get gradient data from app and put it into global_gradient on rank 0 */
+        /* On Masternode: Get gradient data from app and put it into global_gradient */
         igrad = 0;
-        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
         igrad += ntheta_open;
-        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
         igrad += ntheta;
-        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
         igrad += nclassW;
-        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
 
         /* Compute gradient norm */
         mygnorm = 0.0;
@@ -648,13 +649,13 @@ int main (int argc, char *argv[])
 
         }
         /* Communicate the new design to all processors */
-        MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
         /* Communicate wolfe condition */
-        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
         /* --- Backtracking linesearch --- */
         stepsize = stepsize_init;
@@ -699,10 +700,10 @@ int main (int argc, char *argv[])
                 }
 
                 /* Communicate the new design to all processors */
-                MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-                MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, 0, MPI_COMM_WORLD);
-                MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, 0, MPI_COMM_WORLD);
-                MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
             }
 
         }

@@ -353,41 +353,6 @@ ddt_theta_regul(myDouble* theta,
 
 
 
-// int
-// gradient_norm(braid_App app,
-//               double   *theta_gnorm_prt,
-//               double   *class_gnorm_prt)
-
-// {
-//     double ntheta = (app->nchannels * app->nchannels + 1) * app->nlayers;
-//     int nclassW   =  app->nchannels * app->nclasses;
-//     int nclassmu  =  app->nclasses;
-//     double theta_gnorm, class_gnorm;
-
-//     /* Norm of gradient */
-//     theta_gnorm = 0.0;
-//     class_gnorm = 0.0;
-//     for (int itheta = 0; itheta < ntheta; itheta++)
-//     {
-//         theta_gnorm += pow(getValue(app->theta_grad[itheta]), 2);
-//     }
-//     for (int i = 0; i < nclassW; i++)
-//     {
-//         class_gnorm += pow(getValue(app->classW_grad[i]),2);
-//     }
-//     for (int i = 0; i < nclassmu; i++)
-//     {
-//         class_gnorm += pow(getValue(app->classMu_grad[i]),2);
-//     }
-//     theta_gnorm = sqrt(theta_gnorm);
-//     class_gnorm = sqrt(class_gnorm);
-
-//     *theta_gnorm_prt = theta_gnorm;
-//     *class_gnorm_prt = class_gnorm;
-    
-//     return 0;
-// }
-    
 int 
 update_design(int       N, 
               double    stepsize,

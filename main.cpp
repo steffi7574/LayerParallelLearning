@@ -318,37 +318,37 @@ int main (int argc, char *argv[])
     }
 
     /* Memory allocation */
-    theta             = (double*) malloc(ntheta*sizeof(double));
-    theta_grad        = (double*) malloc(ntheta*sizeof(double));
-    theta_open        = (double*) malloc(ntheta_open*sizeof(double));
-    theta_open_grad   = (double*) malloc(ntheta_open*sizeof(double));
-    classW           = (double*) malloc(nclassW*sizeof(double));
-    classW_grad      = (double*) malloc(nclassW*sizeof(double));
-    classMu          = (double*) malloc(nclasses*sizeof(double));
-    classMu_grad     = (double*) malloc(nclasses*sizeof(double));
+    theta            = new double [ntheta];
+    theta_grad       = new double [ntheta];
+    theta_open       = new double [ntheta_open];
+    theta_open_grad  = new double [ntheta_open];
+    classW           = new double [nclassW];
+    classW_grad      = new double [nclassW];
+    classMu          = new double [nclasses];
+    classMu_grad     = new double [nclasses];
 
 
     if (myid == 0)
     {
-        global_design     = (double*) malloc(ndesign*sizeof(double));
-        global_design0    = (double*) malloc(ndesign*sizeof(double));
-        global_gradient   = (double*) malloc(ndesign*sizeof(double));
-        global_gradient0  = (double*) malloc(ndesign*sizeof(double));
-        descentdir        = (double*) malloc(ndesign*sizeof(double));
+        global_design     = new double [ndesign];
+        global_design0    = new double [ndesign];
+        global_gradient   = new double [ndesign];
+        global_gradient0  = new double [ndesign];
+        descentdir        = new double [ndesign];
     }
 
     /* Read the training and validation data of first processor */
     if (myid == 0)
     {
-        Ytrain = (double*) malloc(ntraining   * nfeatures * sizeof(double));
+        Ytrain = new double [ntraining   * nfeatures];
+        Yval   = new double [nvalidation * nfeatures];
         read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-        Yval   = (double*) malloc(nvalidation * nfeatures * sizeof(double));
         read_data(Yval_file,   Yval,   nvalidation * nfeatures);
     }
     if (myid == size - 1)
     {
-        Ctrain = (double*) malloc(ntraining   * nclasses * sizeof(double));
-        Cval   = (double*) malloc(nvalidation * nclasses * sizeof(double));
+        Ctrain = new double [ntraining   * nclasses];
+        Cval   = new double [nvalidation * nclasses];
         read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
         read_data(Cval_file,   Cval,   nvalidation * nclasses);
     }
@@ -838,32 +838,32 @@ int main (int argc, char *argv[])
     /* Clean up */
     if (myid == 0)
     {
-        free(Ytrain);
-        free(Yval);
+        delete [] Ytrain;
+        delete [] Yval;
     }
     if (myid == size -1)
     {
-        free(Ctrain);
-        free(Cval);
+        delete [] Ctrain;
+        delete [] Cval;
     }
 
     if (myid == 0)
     {
         delete lbfgs;
-        free(global_design);
-        free(global_design0);
-        free(global_gradient);
-        free(global_gradient0);
-        free(descentdir);
+        delete [] global_design;
+        delete [] global_design0;
+        delete [] global_gradient;
+        delete [] global_gradient0;
+        delete [] descentdir;
     }
-    free(theta);
-    free(theta_grad);
-    free(theta_open);
-    free(theta_open_grad);
-    free(classW);
-    free(classW_grad);
-    free(classMu);
-    free(classMu_grad);
+    delete [] theta;
+    delete [] theta_grad;
+    delete [] theta_open;
+    delete [] theta_open_grad;
+    delete [] classW;
+    delete [] classW_grad;
+    delete [] classMu;
+    delete [] classMu_grad;
 
     app->training = 1;
     braid_Destroy(core_train);

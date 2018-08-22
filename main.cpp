@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "lib.hpp"
-#include "l-bfgs.hpp"
+#include "HessianApprox.hpp"
 #include "braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
@@ -17,6 +17,7 @@ int main (int argc, char *argv[])
     braid_Core core_val;         /**< Braid core for validation data */
     my_App     *app;
 
+    HessianApprox  *Hesse;     /**< Chossing the hessian approximation */
     double   objective;        /**< Objective function */
     double   obj_loss;         /**< Loss term of the objective function */
     double   theta_regul;      /**< Theta-Regulariation term of the objective function */
@@ -55,7 +56,6 @@ int main (int argc, char *argv[])
     double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
-    L_BFGS  *lbfgs;          /**< L-BFGS class instant */
     double  *global_design;     /**< All design vars: theta, classW and classMu */
     double  *global_design0;    /**< Old design vector of previous iteration  */
     double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
@@ -314,7 +314,8 @@ int main (int argc, char *argv[])
     /* Initialize BFGS */
     if (myid == 0)
     {
-        lbfgs = new L_BFGS(ndesign, bfgs_stages);
+        // Hesse = new L_BFGS(ndesign, bfgs_stages);
+        Hesse = new BFGS(ndesign);
     }
 
     /* Memory allocation */
@@ -595,6 +596,7 @@ int main (int argc, char *argv[])
         /* Output */
         if (myid == 0)
         {
+   
             printf("%3d  %1.8e  %1.8e  %1.16e  %1.2e  %1.2e  %1.2e  %1.16e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.4e  %1.4e  %1.4e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
             fflush(optimfile);
@@ -628,11 +630,11 @@ int main (int argc, char *argv[])
             /* Update the L-BFGS memory */
             if (iter > 0) 
             {
-                lbfgs->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
+                Hesse->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
             }
 
             /* Compute descent direction using L-BFGS Hessian approximation */
-            lbfgs->compute_step(iter, global_gradient, descentdir);
+            Hesse->compute_step(iter, global_gradient, descentdir);
 
             /* Compute Wolfe condition */
             wolfe = getWolfe(ndesign, global_gradient, descentdir);
@@ -849,7 +851,7 @@ int main (int argc, char *argv[])
 
     if (myid == 0)
     {
-        delete lbfgs;
+        delete Hesse;
         delete [] global_design;
         delete [] global_design0;
         delete [] global_gradient;

@@ -101,23 +101,56 @@ int main (int argc, char *argv[])
     struct rusage r_usage;
     double StartTime, StopTime, UsedTime, myMB, globalMB; 
 
-
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
-    /* --- PROGRAMM SETUP (Default parameters) ---*/
+    /* --- Default Parameters for the config option ---*/
 
-    /* Data files */
+    /* Data file names */
     sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
     sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
     sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
     sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
 
+    ntraining         = 5000;
+    nvalidation       = 200;
+    nfeatures         = 2;
+    nclasses          = 5;
+    nchannels         = 8;
+    nlayers           = 32;
+    T                 = 10.0;
+    ReLu              = 1;
+    openinglayer      = 1;
+    braid_cfactor     = 4;
+    braid_maxlevels   = 10;
+    braid_maxiter     = 3;
+    braid_abstol      = 1e-10;
+    braid_abstoladj   = 1e-06;
+    braid_printlevel  = 1;
+    braid_accesslevel = 0;
+    braid_setskip     = 0;
+    braid_fmg         = 0;
+    braid_nrelax      = 1;
+    gamma_theta_tik   = 1e-07;
+    gamma_theta_ddt   = 1e-07;
+    gamma_class       = 1e-05;
+    stepsize_init     = 1.0;
+    maxoptimiter      = 500;
+    gtol              = 1e-08;
+    ls_maxiter        = 20;
+    ls_factor         = 0.5;
+    theta_open_init   = 0.001;
+    theta_init        = 0.0;
+    class_init        = 0.001;
+    bfgs_stages       = 5;
 
-    /* Parse command line */
+
+    /* --- Read the config file (overwrite default values) --- */
+
+    /* Get config filename from command line argument */
     if (argc != 2)
     {
        if ( myid == MASTER_NODE )

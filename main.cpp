@@ -107,13 +107,15 @@ int main (int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
-    /* --- Default Parameters for the config option ---*/
-
     /* Data file names */
     sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
     sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
     sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
     sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
+    
+
+    /* --- Set DEFAULT parameters for the config option --- */ 
+
 
     ntraining         = 5000;
     nvalidation       = 200;
@@ -161,7 +163,6 @@ int main (int argc, char *argv[])
        MPI_Finalize();
        return (0);
     }
-
     /* Parse the config file */
     config_option_t co;
     if ((co = read_config_file(argv[1])) == NULL) {
@@ -351,35 +352,15 @@ int main (int argc, char *argv[])
         Hesse = new BFGS(ndesign);
     }
 
-    /* Memory allocation */
-    theta            = new double [ntheta];
-    theta_grad       = new double [ntheta];
-    theta_open       = new double [ntheta_open];
-    theta_open_grad  = new double [ntheta_open];
-    classW           = new double [nclassW];
-    classW_grad      = new double [nclassW];
-    classMu          = new double [nclasses];
-    classMu_grad     = new double [nclasses];
-
-    /* Allocate global design and gradient only on first processor. New designs will be broadcasted from here. */
-    if (myid == MASTER_NODE)
-    {
-        global_design     = new double [ndesign];
-        global_design0    = new double [ndesign];
-        global_gradient   = new double [ndesign];
-        global_gradient0  = new double [ndesign];
-        descentdir        = new double [ndesign];
-    }
-
-    /* Read the training and validation data of first processor */
-    if (myid == MASTER_NODE)
+    /* Read the training and validation data  */
+    if (myid == MASTER_NODE)  // Input data only needed on first processor 
     {
         Ytrain = new double [ntraining   * nfeatures];
         Yval   = new double [nvalidation * nfeatures];
         read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
         read_data(Yval_file,   Yval,   nvalidation * nfeatures);
     }
-    if (myid == size - 1)
+    if (myid == size - 1) // Labels only needen on last layer 
     {
         Ctrain = new double [ntraining   * nclasses];
         Cval   = new double [nvalidation * nclasses];
@@ -387,8 +368,9 @@ int main (int argc, char *argv[])
         read_data(Cval_file,   Cval,   nvalidation * nclasses);
     }
 
-
-    /* Initialize opening layer with random values */
+    /* Initialize opening layer parameters and its gradient*/
+    theta_open       = new double [ntheta_open];
+    theta_open_grad  = new double [ntheta_open];
     for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
@@ -402,9 +384,11 @@ int main (int argc, char *argv[])
     theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
     theta_open_grad[idx] = 0.0;
 
-
-
-    /* Initialize classification parameters with random values */
+    /* Initialize classification parameters and its gradient */
+    classW       = new double [nclassW];
+    classW_grad  = new double [nclassW];
+    classMu      = new double [nclasses];
+    classMu_grad = new double [nclasses];
     for (int iclasses = 0; iclasses < nclasses; iclasses++)
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
@@ -417,7 +401,9 @@ int main (int argc, char *argv[])
         classMu_grad[iclasses]  = 0.0;
     }
 
-    /* Initialize theta with zero for all layers */
+    /* Initialize theta and its gradient */
+    theta      = new double [ntheta];
+    theta_grad = new double [ntheta];
     for (int itheta = 0; itheta < ntheta; itheta++)
     {
         // theta_open[idx]      = theta_init * (double) rand() / ((double) RAND_MAX);
@@ -425,9 +411,14 @@ int main (int argc, char *argv[])
         theta_grad[itheta] = 0.0; 
     }
 
-    /* Initialize optimization variables */
+    /* Initialize global design and gradient only on first processor. */
     if (myid == MASTER_NODE)
     {
+        global_design     = new double [ndesign];
+        global_design0    = new double [ndesign];
+        global_gradient   = new double [ndesign];
+        global_gradient0  = new double [ndesign];
+        descentdir        = new double [ndesign];
         for (int idesign = 0; idesign < ndesign; idesign++)
         {
             global_design[idesign]    = 0.0;
@@ -485,7 +476,6 @@ int main (int argc, char *argv[])
     app->training = 0;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
-
 
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
@@ -768,6 +758,7 @@ int main (int argc, char *argv[])
     MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
+    
     /* --- Output --- */
     if (myid == MASTER_NODE)
     {

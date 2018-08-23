@@ -17,7 +17,7 @@ int main (int argc, char *argv[])
     braid_Core core_val;         /**< Braid core for validation data */
     my_App     *app;
 
-    HessianApprox  *Hesse;     /**< Chossing the hessian approximation */
+    HessianApprox  *hessian;   /**< Chossing the hessian approximation */
     double   objective;        /**< Objective function */
     double   obj_loss;         /**< Loss term of the objective function */
     double   theta_regul;      /**< Theta-Regulariation term of the objective function */
@@ -73,7 +73,8 @@ int main (int argc, char *argv[])
     double   ls_factor;         /**< Reduction factor for linesearch */
     double   ls_param;          /**< c-parameter for Armijo line-search test */
     int      ls_iter;           /**< Iterator for linesearch */
-    int      bfgs_stages;       /**< Number of stages of the L-bfgs method */
+    int      hessian_approx;     /**< Hessian approximation (1 = BFGS, 2 = L-BFGS) */
+    int      lbfgs_stages;       /**< Number of stages of the L-bfgs method */
     double   wolfe;             /**< Wolfe conditoin for linesearch */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
     int      braid_printlevel;  /**< print level of xbraid */
@@ -147,7 +148,8 @@ int main (int argc, char *argv[])
     theta_open_init   = 0.001;
     theta_init        = 0.0;
     class_init        = 0.001;
-    bfgs_stages       = 5;
+    hessian_approx    = 2;
+    lbfgs_stages      = 20;
 
 
     /* --- Read the config file (overwrite default values) --- */
@@ -311,9 +313,26 @@ int main (int argc, char *argv[])
         {
            class_init = atof(co->value);
         }
-        else if ( strcmp(co->key, "bfgs_stages") == 0 )
+        else if ( strcmp(co->key, "hessian_approx") == 0 )
         {
-           bfgs_stages = atoi(co->value);
+            if ( strcmp(co->value, "BFGS") == 0 )
+            {
+                hessian_approx = 1;
+            }
+            else if (strcmp(co->value, "L-BFGS") == 0 )
+            {
+                hessian_approx = 2;
+            }
+            else
+            {
+                printf("Invalid Hessian approximation!");
+                MPI_Finalize();
+                return(0);
+            }
+        }
+        else if ( strcmp(co->key, "lbfgs_stages") == 0 )
+        {
+           lbfgs_stages = atoi(co->value);
         }
         if (co->prev != NULL) {
             co = co->prev;
@@ -345,11 +364,17 @@ int main (int argc, char *argv[])
     rnorm_adj   = 0.0;
     stepsize    = stepsize_init;
 
-    /* Initialize BFGS */
+    /* Initialize Hessian approximation */
     if (myid == MASTER_NODE)
     {
-        // Hesse = new L_BFGS(ndesign, bfgs_stages);
-        Hesse = new BFGS(ndesign);
+        if (hessian_approx == 1)
+        {
+            hessian = new BFGS(ndesign);
+        }
+        else 
+        {
+            hessian = new L_BFGS(ndesign, lbfgs_stages);
+        }
     }
 
     /* Read the training and validation data  */
@@ -537,7 +562,8 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                theta_init      %f \n", theta_init);
         fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
         fprintf(optimfile, "#                class_init      %f \n", class_init);
-        fprintf(optimfile, "#                bfgs_stages     %d \n", bfgs_stages);
+        fprintf(optimfile, "#                hessian_approx  %d \n", hessian_approx);
+        fprintf(optimfile, "#                lbfgs_stages    %d \n", lbfgs_stages);
         fprintf(optimfile, "\n");
     }
 
@@ -653,11 +679,11 @@ int main (int argc, char *argv[])
             /* Update the L-BFGS memory */
             if (iter > 0) 
             {
-                Hesse->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
+                hessian->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
             }
 
             /* Compute descent direction using L-BFGS Hessian approximation */
-            Hesse->compute_step(iter, global_gradient, descentdir);
+            hessian->compute_step(iter, global_gradient, descentdir);
 
             /* Compute Wolfe condition */
             wolfe = getWolfe(ndesign, global_gradient, descentdir);
@@ -807,7 +833,7 @@ int main (int argc, char *argv[])
 
     if (myid == MASTER_NODE)
     {
-        delete Hesse;
+        delete hessian;
         delete [] global_design;
         delete [] global_design0;
         delete [] global_gradient;

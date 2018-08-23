@@ -172,7 +172,7 @@ def read_config(filename):
                 case("braid_nrelax") or \
                 case("optim_maxiter") or \
                 case("ls_maxiter") or \
-                case("bfgs_stages") :
+                case("lbfgs_stages") :
                 data_dict[this_param] = int(this_value)
                 break
 
@@ -195,7 +195,7 @@ def read_config(filename):
             # Put all STRING option here
             if case("activation") or \
                case("openinglayer") or \
-               case("outfolder") :
+               case("hessian_approx") :
                data_dict[this_param] = this_value
                break
 

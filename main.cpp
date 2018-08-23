@@ -10,6 +10,8 @@
 #include "parser.h"
 
 #define MASTER_NODE 0
+#define USE_BFGS  1
+#define USE_LBFGS 2
 
 int main (int argc, char *argv[])
 {
@@ -148,7 +150,7 @@ int main (int argc, char *argv[])
     theta_open_init   = 0.001;
     theta_init        = 0.0;
     class_init        = 0.001;
-    hessian_approx    = 2;
+    hessian_approx    = USE_LBFGS;
     lbfgs_stages      = 20;
 
 
@@ -317,11 +319,11 @@ int main (int argc, char *argv[])
         {
             if ( strcmp(co->value, "BFGS") == 0 )
             {
-                hessian_approx = 1;
+                hessian_approx = USE_BFGS;
             }
             else if (strcmp(co->value, "L-BFGS") == 0 )
             {
-                hessian_approx = 2;
+                hessian_approx = USE_LBFGS;
             }
             else
             {
@@ -367,13 +369,19 @@ int main (int argc, char *argv[])
     /* Initialize Hessian approximation */
     if (myid == MASTER_NODE)
     {
-        if (hessian_approx == 1)
+        if (hessian_approx == USE_BFGS )
         {
             hessian = new BFGS(ndesign);
         }
-        else 
+        else if (hessian_approx == USE_LBFGS)
         {
             hessian = new L_BFGS(ndesign, lbfgs_stages);
+        }
+        else
+        {
+            printf("Invalid Hessian. \n");
+            MPI_Finalize();
+            return(0);
         }
     }
 

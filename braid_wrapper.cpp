@@ -35,14 +35,30 @@ my_Step(braid_App        app,
     /* Get the current time index */
     braid_StepStatusGetTIndex(status, &ts);
  
+    int     nchannels =   app->layer->nchannels;
+    double* weights   = &(app->theta[ts*(nchannels * nchannels+1)]);
+    double  bias      =   app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels];
+
+    app->layer->setBias(bias);
+    app->layer->setWeights(weights);
+    app->layer->setDt(deltaT);
+
 
     /* Take one step */
-    take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, app->ReLu, 0);
+    // take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, app->ReLu, 0);
 
- 
+
+    /* apply the layer for all examples */
+   for (int ielem = 0; ielem < nelem; ielem++)
+   {
+       double* data = &(u->Y[ielem * nchannels]);
+       app->layer->applyFWD(data);
+   }
+
+
+
     /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
- 
  
     return 0;
 }   

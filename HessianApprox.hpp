@@ -1,4 +1,3 @@
- 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,8 +5,13 @@
 
 #pragma once
 
+/** 
+ * Abstract Base class for the Hessian approximation from Broyden class. 
+ * All subclasses must implement 
+ *    - update_memory for updating s, y
+ *    - compute_step for computing p = H*grad
+ */
 class HessianApprox {
-/* HessianApprox is an abstract class (due to the =0 behind at least on of the functions). This means, that no instance of this class is created. Because some of the functions (the once with =0) are not implemented for this base class, but only for the derived classes. */
 
    protected:
       int dimN;             /* Dimension of the gradient vector */
@@ -16,15 +20,6 @@ class HessianApprox {
       HessianApprox();
       HessianApprox(int N);
       ~HessianApprox();
-
-      /* Compute the dot-product of two vectors */
-      double vecdot(double* x, 
-                    double* y);                  
-
-      /* Compute matrix vector product */
-      int matvec(double* H, 
-                 double* x,
-                 double* Hx);                  
 
 
       virtual int compute_step(int     k, 

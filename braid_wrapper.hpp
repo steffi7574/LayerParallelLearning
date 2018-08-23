@@ -3,6 +3,7 @@
 
 
 #include "braid.h"
+#include "Layer.hpp"
 
 /* Define the app structure */
 typedef struct _braid_App_struct
@@ -26,6 +27,7 @@ typedef struct _braid_App_struct
     int      nclasses;         /* Number of classes */
     int      nchannels;        /* Width of the network */
     int      nlayers;           /* number of time-steps / layers */
+    Layer    *layer;             /* Layer architecture */
     double   gamma_theta_tik;  /* Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /* Relaxation parameter for theta time-derivative */
     double   gamma_class;      /* Relaxation parameter for the classification weights W and bias mu */

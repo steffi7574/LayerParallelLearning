@@ -1,3 +1,4 @@
+#include "linalg.hpp"
 #include "HessianApprox.hpp"
 
 HessianApprox::HessianApprox(int N)
@@ -12,35 +13,6 @@ HessianApprox::HessianApprox()
 
 HessianApprox::~HessianApprox(){}
 
-double HessianApprox::vecdot(double* x, double* y)
-{
-   double dotprod = 0.0;
-   for (int i = 0; i < dimN; i++)
-   {
-      dotprod += x[i] * y[i];
-   }
-   
-   return dotprod;
-}
-
-int HessianApprox::matvec(double* H, 
-                          double* x,
-                          double* Hx)
-{
-    double sum_j;
-
-    for (int i=0; i<dimN; i++)
-    {
-       sum_j = 0.0;
-       for (int j=0; j<dimN; j++)
-       {
-          sum_j +=  H[i*dimN+j] * x[j];
-       }
-       Hx[i] = sum_j;
-    } 
-
-    return 0;
-}                           
 
 
 L_BFGS::L_BFGS(int N, int stages) : HessianApprox(N)
@@ -112,7 +84,7 @@ int L_BFGS::compute_step(int     k,
    {
       imemory = i % M;
       /* Compute alpha */
-      alpha[imemory] = rho[imemory] * vecdot(s[imemory], step);
+      alpha[imemory] = rho[imemory] * vecdot(dimN, s[imemory], step);
       /* Update the step */
       for (int istep = 0; istep < dimN; istep++)
       {
@@ -131,7 +103,7 @@ int L_BFGS::compute_step(int     k,
   {
     imemory = i % M;
     /* Compute beta */
-    beta = rho[imemory] * vecdot(y[imemory], step);
+    beta = rho[imemory] * vecdot(dimN, y[imemory], step);
     /* Update the step */
     for (int istep = 0; istep < dimN; istep++)
     {
@@ -163,8 +135,8 @@ int L_BFGS::update_memory(int     k,
    }
 
    /* Update rho and H0 */
-   yTs = vecdot(y[imemory], s[imemory]);
-   yTy = vecdot(y[imemory], y[imemory]);
+   yTs = vecdot(dimN, y[imemory], s[imemory]);
+   yTy = vecdot(dimN, y[imemory], y[imemory]);
    if (yTs == 0.0) 
    {
      printf("  Warning: resetting yTs to 1.\n");
@@ -239,19 +211,19 @@ int BFGS::compute_step(int     k,
     double rho;
 
     /* Check curvature conditoin */
-    yTs = vecdot(y, s);
+    yTs = vecdot(dimN, y, s);
     if (yTs < 1e-12) 
     {
       printf("  Warning: Curvature condition not satisfied %1.14e \n", yTs);
       setIdentity();
 
-      matvec(Hessian, currgrad, step);
+      matvec(dimN, Hessian, currgrad, step);
 
       return 0;
     }
    
     /* Scale first Hessian approximation */
-    yTy = vecdot(y, y);
+    yTy = vecdot(dimN, y, y);
     if (k == 1)
     {
       H0  = yTs / yTy;
@@ -310,7 +282,7 @@ int BFGS::compute_step(int     k,
     }
 
     /* Compute the step */
-    matvec(Hessian, currgrad, step);
+    matvec(dimN, Hessian, currgrad, step);
 
     return 0;
 }

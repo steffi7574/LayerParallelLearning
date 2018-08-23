@@ -19,6 +19,15 @@ maximum(myDouble *a,
    return max;
 }
 
+double ReLu_act(double x)
+{
+    return max(0.0, x); 
+}
+
+double tanh_act(double x)
+{
+    return tanh(x);
+}
 
 template <typename myDouble>
 myDouble 
@@ -115,7 +124,6 @@ take_step(myDouble* Y,
           int     ReLu,
           int     parabolic)
 {
-   /* Element Y_id stored in Y[id * nf, ..., ,(id+1)*nf -1] */
    myDouble  sum;
    int       th_idx;
    myDouble* update = new myDouble[nchannels];
@@ -130,7 +138,7 @@ take_step(myDouble* Y,
          sum = 0.0;
          for (int jchannel = 0; jchannel < nchannels; jchannel++)
          {
-            th_idx = ts * ( nchannels * nchannels + 1) + jchannel * nchannels + ichannel;
+            th_idx = ts * ( nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
             sum += theta[th_idx] * Y[ielem * nchannels + jchannel];
          }
          update[ichannel] = sum;
@@ -163,8 +171,8 @@ take_step(myDouble* Y,
      
          int idx = ielem * nchannels + ichannel;
          Y[idx] += dt * sum;
-
       }
+      
    }      
    
    delete [] update;

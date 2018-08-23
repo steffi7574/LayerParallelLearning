@@ -51,6 +51,10 @@ sigma(int ReLu,
       myDouble x);        
 
 
+double ReLu_act(double x);
+
+double tanh_act(double x);
+
 /**
  * Return maximum of a vector of size 'size_t' */
 template <typename myDouble>

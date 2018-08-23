@@ -5,6 +5,7 @@
 
 #include "lib.hpp"
 #include "HessianApprox.hpp"
+#include "Layer.hpp"
 #include "braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
@@ -92,6 +93,7 @@ int main (int argc, char *argv[])
     double   accur_val;         /**< Prediction accuracy on the validation data */
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
     int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
+    Layer    *layer;             /**< Architecture of one Network layer */
 
     int      nreq, idx, igrad; 
     char     Ytrain_file[255];
@@ -463,6 +465,16 @@ int main (int argc, char *argv[])
         concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
     }
 
+    /* Initialize the network layers */
+    if (ReLu == 1)
+    {
+        layer = new Layer(nchannels, ReLu_act);
+    }
+    else
+    {
+        layer = new Layer(nchannels, tanh_act);
+    }
+
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
     app->myid            = myid;
@@ -483,7 +495,8 @@ int main (int argc, char *argv[])
     app->nfeatures       = nfeatures;
     app->nclasses        = nclasses;
     app->nchannels       = nchannels;
-    app->nlayers          = nlayers;
+    app->nlayers         = nlayers;
+    app->layer           = layer;
     app->gamma_theta_tik = gamma_theta_tik;
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
@@ -780,6 +793,16 @@ int main (int argc, char *argv[])
     app->training = 1;
     braid_Drive(core_train);
 
+        /* On Masternode: Get gradient data from app and put it into global_gradient */
+    igrad = 0;
+    MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+    igrad += ntheta_open;
+    MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+    igrad += ntheta;
+    MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+    igrad += nclassW;
+    MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+
     /* Compute gradient norm */
     mygnorm = 0.0;
     if (myid == MASTER_NODE) {
@@ -856,6 +879,8 @@ int main (int argc, char *argv[])
     delete [] classW_grad;
     delete [] classMu;
     delete [] classMu_grad;
+
+    delete layer;
 
     app->training = 1;
     braid_Destroy(core_train);

@@ -120,7 +120,7 @@ int main (int argc, char *argv[])
     /* Parse command line */
     if (argc != 2)
     {
-       if ( myid == 0 )
+       if ( myid == MASTER_NODE )
        {
           printf("\n");
           printf("USAGE: ./main </path/to/configfile> \n");
@@ -312,7 +312,7 @@ int main (int argc, char *argv[])
     stepsize    = stepsize_init;
 
     /* Initialize BFGS */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         // Hesse = new L_BFGS(ndesign, bfgs_stages);
         Hesse = new BFGS(ndesign);
@@ -328,8 +328,8 @@ int main (int argc, char *argv[])
     classMu          = new double [nclasses];
     classMu_grad     = new double [nclasses];
 
-
-    if (myid == 0)
+    /* Allocate global design and gradient only on first processor. New designs will be broadcasted from here. */
+    if (myid == MASTER_NODE)
     {
         global_design     = new double [ndesign];
         global_design0    = new double [ndesign];
@@ -339,7 +339,7 @@ int main (int argc, char *argv[])
     }
 
     /* Read the training and validation data of first processor */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         Ytrain = new double [ntraining   * nfeatures];
         Yval   = new double [nvalidation * nfeatures];
@@ -393,7 +393,7 @@ int main (int argc, char *argv[])
     }
 
     /* Initialize optimization variables */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         for (int idesign = 0; idesign < ndesign; idesign++)
         {
@@ -480,7 +480,7 @@ int main (int argc, char *argv[])
 
 
     /* Open and prepare optimization output file*/
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         sprintf(optimfilename, "%s.dat", "optim");
         optimfile = fopen(optimfilename, "w");
@@ -519,7 +519,7 @@ int main (int argc, char *argv[])
     }
 
     /* Prepare optimization output */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
        /* Screen output */
        printf("\n#    || r ||          || r_adj ||      Objective       Loss      theta_R   class_R   || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
@@ -571,7 +571,7 @@ int main (int argc, char *argv[])
 
         /* Compute gradient norm */
         mygnorm = 0.0;
-        if (myid == 0) {
+        if (myid == MASTER_NODE) {
             mygnorm = vector_normsq(ndesign, global_gradient);
         } 
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -594,7 +594,7 @@ int main (int argc, char *argv[])
 
 
         /* Output */
-        if (myid == 0)
+        if (myid == MASTER_NODE)
         {
    
             printf("%3d  %1.8e  %1.8e  %1.16e  %1.2e  %1.2e  %1.2e  %1.16e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
@@ -613,7 +613,7 @@ int main (int argc, char *argv[])
         /* Check optimization convergence */
         if (  gnorm < gtol )
         {
-            if (myid == 0) 
+            if (myid == MASTER_NODE) 
             {
                 printf("Optimization has converged. \n");
                 printf("Be happy and go home!       \n");
@@ -625,7 +625,7 @@ int main (int argc, char *argv[])
 
 
         /* Compute new design on first processor */
-        if (myid == 0)
+        if (myid == MASTER_NODE)
         {
             /* Update the L-BFGS memory */
             if (iter > 0) 
@@ -670,7 +670,7 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            if (myid == 0) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
+            if (myid == MASTER_NODE) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
 
             /* Test the wolfe condition */
             if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
@@ -683,7 +683,7 @@ int main (int argc, char *argv[])
                 /* Test for line-search failure */
                 if (ls_iter == ls_maxiter - 1)
                 {
-                    if (myid == 0) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
                     break;
                 }
 
@@ -691,7 +691,7 @@ int main (int argc, char *argv[])
                 stepsize = stepsize * ls_factor;
 
                 /* Compute new design on first processor */
-                if (myid == 0)
+                if (myid == MASTER_NODE)
                 {
                     /* Restore the old design */
                     copy_vector(ndesign, global_design0, global_design);
@@ -725,7 +725,7 @@ int main (int argc, char *argv[])
 
     /* Compute gradient norm */
     mygnorm = 0.0;
-    if (myid == 0) {
+    if (myid == MASTER_NODE) {
         mygnorm = vector_normsq(ndesign, global_gradient);
     } 
     MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -736,7 +736,7 @@ int main (int argc, char *argv[])
     MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* --- Output --- */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         printf("\n Loss          %1.14e", obj_loss);
         printf("\n Objective     %1.14e", objective);
@@ -759,7 +759,7 @@ int main (int argc, char *argv[])
     MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         printf("\n");
         printf(" Used Time:        %.2f seconds\n",UsedTime);
@@ -770,7 +770,7 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         delete [] Ytrain;
         delete [] Yval;
@@ -781,7 +781,7 @@ int main (int argc, char *argv[])
         delete [] Cval;
     }
 
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         delete Hesse;
         delete [] global_design;
@@ -807,7 +807,7 @@ int main (int argc, char *argv[])
     free(app);
     MPI_Finalize();
 
-    if (myid == 0)
+    if (myid == MASTER_NODE)
     {
         fclose(optimfile);
         printf("Optimfile: %s\n", optimfilename);

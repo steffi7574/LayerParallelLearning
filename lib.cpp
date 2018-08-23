@@ -24,9 +24,25 @@ double ReLu_act(double x)
     return max(0.0, x); 
 }
 
+double d_ReLu_act(double x)
+{
+    double diff;
+    if (x > 0.0) diff = 1.0;
+    else         diff = 0.0;
+
+    return diff;
+}
+
 double tanh_act(double x)
 {
     return tanh(x);
+}
+
+double d_tanh_act(double x)
+{
+    double diff = 1.0 - pow(tanh(x),2);
+
+    return diff;
 }
 
 template <typename myDouble>

@@ -468,11 +468,11 @@ int main (int argc, char *argv[])
     /* Initialize the network layers */
     if (ReLu == 1)
     {
-        layer = new Layer(nchannels, ReLu_act);
+        layer = new Layer(nchannels, ReLu_act, d_ReLu_act);
     }
     else
     {
-        layer = new Layer(nchannels, tanh_act);
+        layer = new Layer(nchannels, tanh_act, d_tanh_act);
     }
 
     /* Set up the app structure */

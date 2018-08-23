@@ -51,9 +51,17 @@ sigma(int ReLu,
       myDouble x);        
 
 
+/* ReLu activation function */
 double ReLu_act(double x);
 
+/* Derivative of ReLu activation function  */
+double d_ReLu_act(double x);
+
+/* tanh activation function */
 double tanh_act(double x);
+
+/* Derivative of tanh activation function */
+double d_tanh_act(double x);
 
 /**
  * Return maximum of a vector of size 'size_t' */

@@ -35,26 +35,24 @@ my_Step(braid_App        app,
     /* Get the current time index */
     braid_StepStatusGetTIndex(status, &ts);
  
-    int     nchannels =   app->layer->nchannels;
-    double* weights   = &(app->theta[ts*(nchannels * nchannels+1)]);
-    double  bias      =   app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels];
+    /* Set the layer parameters */
+    int nchannels   =   app->layer->nchannels;
+    double* bias    = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    double* weights = &(app->theta[ts*(nchannels * nchannels+1)]);
 
     app->layer->setBias(bias);
     app->layer->setWeights(weights);
     app->layer->setDt(deltaT);
 
-
     /* Take one step */
     // take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, app->ReLu, 0);
 
-
-    /* apply the layer for all examples */
+   /* apply the layer for all examples */
    for (int ielem = 0; ielem < nelem; ielem++)
    {
        double* data = &(u->Y[ielem * nchannels]);
        app->layer->applyFWD(data);
    }
-
 
 
     /* no refinement */
@@ -639,61 +637,93 @@ my_Step_diff(braid_App         app,
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
-    /* Prepare CodiPack Tape */
-    RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
-    codiTape.setActive();
 
-    /* Register input */
-    RealReverse* Ycodi;  /* CodiType for the state */
-    RealReverse* Ynext;  /* CodiType for the state, next time-step */
-    RealReverse* theta; /* CodiType for the theta */
-    Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    theta  = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
-    for (int i = 0; i < nstate; i++)
-    {
-        Ycodi[i] = u->Y[i];
-        codiTape.registerInput(Ycodi[i]);
-        Ynext[i] = Ycodi[i];
-    }
-    /* Register theta as input */
-    for (int i = 0; i < ntheta; i++)
-    {
-        theta[i] = app->theta[i];
-        codiTape.registerInput(theta[i]);
-    }
+    // /* Prepare CodiPack Tape */
+    // RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
+    // codiTape.setActive();
+
+    // /* Register input */
+    // RealReverse* Ycodi;  /* CodiType for the state */
+    // RealReverse* Ynext;  /* CodiType for the state, next time-step */
+    // RealReverse* theta; /* CodiType for the theta */
+    // Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
+    // Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
+    // theta  = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
+    // for (int i = 0; i < nstate; i++)
+    // {
+    //     Ycodi[i] = u->Y[i];
+    //     codiTape.registerInput(Ycodi[i]);
+    //     Ynext[i] = Ycodi[i];
+    // }
+    // /* Register theta as input */
+    // for (int i = 0; i < ntheta; i++)
+    // {
+    //     theta[i] = app->theta[i];
+    //     codiTape.registerInput(theta[i]);
+    // }
     
-    /* Take one forward step */
-    take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, app->ReLu, 0);
+    // /* Take one forward step */
+    // take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, app->ReLu, 0);
 
-    /* Set the adjoint variables */
-    codiTape.setPassive();
-    for (int i = 0; i < nchannels * ntraining; i++)
+    // /* Set the adjoint variables */
+    // codiTape.setPassive();
+    // for (int i = 0; i < nchannels * ntraining; i++)
+    // {
+    //     Ynext[i].setGradient(u_bar->Y[i]);
+    // }
+
+    // /* Evaluate the tape */
+    // codiTape.evaluate();
+
+    // /* Update adjoint variables and gradient */
+    // for (int i = 0; i < nstate; i++)
+    // {
+    //     // u_bar->Y[i] = Ycodi[i].getGradient();
+    // }
+    // // double *tmp = new double[ntheta];
+    // for (int i = 0; i < ntheta; i++)
+    // {
+    //     app->theta_grad[i] += theta[i].getGradient();
+    //     // tmp[i] = app->theta_grad[i] + theta[i].getGradient();
+    // }
+
+    // /* Reset the codi tape */
+    // codiTape.reset();
+
+    // /* Clean up */
+    // free(Ycodi);
+    // free(Ynext);
+    // free(theta);
+
+
+    /* Set the layer parameters */
+    nchannels   =   app->layer->nchannels;
+    double* bias        = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    double* bias_bar    = &(app->theta_grad[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    double* weights     = &(app->theta[ts*(nchannels * nchannels+1)]);
+    double* weights_bar = &(app->theta_grad[ts*(nchannels * nchannels+1)]);
+
+
+    app->layer->setBias(bias);
+    app->layer->setBias_bar(bias_bar);
+    app->layer->setWeights(weights);
+    app->layer->setWeights_bar(weights_bar);
+    app->layer->setDt(deltaT);
+
+
+    /* apply the layer backwards for all examples */
+    for (int ielem = 0; ielem < ntraining; ielem++)
     {
-        Ynext[i].setGradient(u_bar->Y[i]);
+        double* data     = &(u->Y[ielem * nchannels]);
+        double* data_bar = &(u_bar->Y[ielem * nchannels]);
+        app->layer->applyBWD(data, data_bar);
     }
 
-    /* Evaluate the tape */
-    codiTape.evaluate();
+    // int idx = ts*(nchannels*nchannels+1) + nchannels*nchannels;
+    // printf("%d    %1.14e \n", ts, tmp[idx] -  app->theta_grad[idx]);
 
-    /* Update adjoint variables and gradient */
-    for (int i = 0; i < nstate; i++)
-    {
-        u_bar->Y[i] = Ycodi[i].getGradient();
-    }
-    for (int i = 0; i < ntheta; i++)
-    {
-        app->theta_grad[i] += theta[i].getGradient();
+    // delete [] tmp;
 
-    }
-
-    /* Reset the codi tape */
-    codiTape.reset();
-
-    /* Clean up */
-    free(Ycodi);
-    free(Ynext);
-    free(theta);
 
     return 0;
 }

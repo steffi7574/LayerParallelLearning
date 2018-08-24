@@ -93,7 +93,7 @@ int main (int argc, char *argv[])
     double   accur_val;         /**< Prediction accuracy on the validation data */
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
     int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
-    Layer    *layer;             /**< Architecture of one Network layer */
+    Layer    *layer;            /**< Define a network layer */
 
     int      nreq, idx, igrad; 
     char     Ytrain_file[255];
@@ -468,11 +468,11 @@ int main (int argc, char *argv[])
     /* Initialize the network layers */
     if (ReLu == 1)
     {
-        layer = new Layer(nchannels, ReLu_act, d_ReLu_act);
+        layer = new DenseLayer(nchannels, ReLu_act, d_ReLu_act);
     }
     else
     {
-        layer = new Layer(nchannels, tanh_act, d_tanh_act);
+        layer = new DenseLayer(nchannels, tanh_act, d_tanh_act);
     }
 
     /* Set up the app structure */

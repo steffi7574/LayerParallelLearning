@@ -26,7 +26,6 @@ Layer::Layer(int    nChannels,
    update_bar = new double[nchannels];
 }   
 
-
 Layer::~Layer()
 {
    delete [] update;
@@ -60,9 +59,19 @@ void Layer::setDt(double DT)
 }
 
 
-void Layer::applyFWD(double* data)
+DenseLayer::DenseLayer(int    nChannels, 
+                       double (*Activ)(double x),
+                       double (*dActiv)(double x)) : Layer(nChannels, Activ, dActiv)
 {
-   /* Apply layer update for each channel */
+   /* Everything is done in Layer constructor */
+}   
+
+DenseLayer::~DenseLayer() {}
+
+
+void DenseLayer::applyFWD(double* data)
+{
+   /* Compute update for each channel */
    for (int ichannel = 0; ichannel < nchannels; ichannel++)
    {
       /* Apply weights */
@@ -84,8 +93,8 @@ void Layer::applyFWD(double* data)
 }
 
 
-void Layer::applyBWD(double* data, 
-                     double* data_bar)
+void DenseLayer::applyBWD(double* data, 
+                          double* data_bar)
 {
    /* Apply derivative of the update step */
    for (int ichannel = 0; ichannel < nchannels; ichannel++)
@@ -112,4 +121,5 @@ void Layer::applyBWD(double* data,
          weights_bar[ichannel*nchannels + jchannel] += data[jchannel] * update_bar[ichannel];
       }
    }
-}                  
+}
+

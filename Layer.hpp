@@ -3,6 +3,12 @@
 
 #pragma once
 
+/**
+ * Abstract base class for the network layers 
+ * Subclasses implement
+ *    - applyFWD: Forward propagation of data 
+ *    - applyBWD: Backward propagation of data 
+ */
 class Layer 
 {
    protected:
@@ -11,7 +17,7 @@ class Layer
       double* weights_bar;                 /* Pointer to Derivative of the Weight matrix*/
       double* bias;                        /* Pointer to Bias */
       double* bias_bar;                    /* Pointer to Derivative of bias */
-      double  (*activation)(double x);     /* Pointer to 1D activation function */
+      double  (*activation)(double x);     /* Pointer to the activation function */
       double  (*dactivation)(double x);    /* Pointer to derivative of activation function */
       double* update;                      /* Temporary vector for computing linear transformation */
       double* update_bar;                  /* Temporary vector used in backpropagation */
@@ -43,7 +49,7 @@ class Layer
        * Forward propagation of an example 
        * In/Out: vector holding the current example data
        */
-      void applyFWD(double* data);
+      virtual void applyFWD(double* data) = 0;
 
 
       /**
@@ -51,8 +57,24 @@ class Layer
        * In:     data     - current example data
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
        */
+      virtual void applyBWD(double* data, 
+                             double* data_bar) = 0;
+};
+
+/**
+ * Layer consisting of dense weight matrix K \in R^{nxn}
+ * Linear transformation is a matrix multiplication Ky
+ */
+class DenseLayer : public Layer {
+
+  public:
+      DenseLayer(int    nChannels, 
+                 double (*Activ)(double x),
+                 double (*dActiv)(double x));
+      ~DenseLayer();
+
+      void applyFWD(double* data);
+
       void applyBWD(double* data, 
                     double* data_bar);
-
-
 };

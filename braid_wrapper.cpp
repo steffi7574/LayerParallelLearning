@@ -16,7 +16,9 @@ my_Step(braid_App        app,
 {
     int    ts;
     double tstart, tstop;
+    double *bias, *weights;
     double deltaT;
+    int    nchannels = app->layer->nchannels;
 
     int nelem;
     if (app->training)
@@ -36,24 +38,19 @@ my_Step(braid_App        app,
     braid_StepStatusGetTIndex(status, &ts);
  
     /* Set the layer parameters */
-    int nchannels   =   app->layer->nchannels;
-    double* bias    = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
-    double* weights = &(app->theta[ts*(nchannels * nchannels+1)]);
+    bias      = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    weights   = &(app->theta[ts*(nchannels * nchannels+1)]);
 
     app->layer->setBias(bias);
     app->layer->setWeights(weights);
     app->layer->setDt(deltaT);
 
-    /* Take one step */
-    // take_step(u->Y, app->theta, ts, deltaT, nelem, app->nchannels, app->ReLu, 0);
-
-   /* apply the layer for all examples */
-   for (int ielem = 0; ielem < nelem; ielem++)
-   {
-       double* data = &(u->Y[ielem * nchannels]);
-       app->layer->applyFWD(data);
-   }
-
+    /* apply the layer for all examples */
+    for (int ielem = 0; ielem < nelem; ielem++)
+    {
+        double* data = &(u->Y[ielem * nchannels]);
+        app->layer->applyFWD(data);
+    }
 
     /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
@@ -619,12 +616,10 @@ my_Step_diff(braid_App         app,
 {
 
     double  tstop, tstart, deltaT;
+    double *bias, *bias_bar, *weights, *weights_bar;
+    double *data, *data_bar;
     int     ts;
-    int     nchannels = app->nchannels;
-    int     ntraining    = app->ntraining;
-    int     nlayers    = app->nlayers;
-    int     ntheta   = (nchannels * nchannels + 1 ) * nlayers;
-    int     nstate    = nchannels * ntraining;
+    int     nchannels   =   app->layer->nchannels;
 
     if (!app->training)
     {
@@ -638,70 +633,11 @@ my_Step_diff(braid_App         app,
     deltaT = tstop - tstart;
 
 
-    // /* Prepare CodiPack Tape */
-    // RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
-    // codiTape.setActive();
-
-    // /* Register input */
-    // RealReverse* Ycodi;  /* CodiType for the state */
-    // RealReverse* Ynext;  /* CodiType for the state, next time-step */
-    // RealReverse* theta; /* CodiType for the theta */
-    // Ycodi  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    // Ynext  = (RealReverse*) malloc(nstate  * sizeof(RealReverse));
-    // theta  = (RealReverse*) malloc(ntheta * sizeof(RealReverse));
-    // for (int i = 0; i < nstate; i++)
-    // {
-    //     Ycodi[i] = u->Y[i];
-    //     codiTape.registerInput(Ycodi[i]);
-    //     Ynext[i] = Ycodi[i];
-    // }
-    // /* Register theta as input */
-    // for (int i = 0; i < ntheta; i++)
-    // {
-    //     theta[i] = app->theta[i];
-    //     codiTape.registerInput(theta[i]);
-    // }
-    
-    // /* Take one forward step */
-    // take_step(Ynext, theta, ts, deltaT, ntraining, nchannels, app->ReLu, 0);
-
-    // /* Set the adjoint variables */
-    // codiTape.setPassive();
-    // for (int i = 0; i < nchannels * ntraining; i++)
-    // {
-    //     Ynext[i].setGradient(u_bar->Y[i]);
-    // }
-
-    // /* Evaluate the tape */
-    // codiTape.evaluate();
-
-    // /* Update adjoint variables and gradient */
-    // for (int i = 0; i < nstate; i++)
-    // {
-    //     // u_bar->Y[i] = Ycodi[i].getGradient();
-    // }
-    // // double *tmp = new double[ntheta];
-    // for (int i = 0; i < ntheta; i++)
-    // {
-    //     app->theta_grad[i] += theta[i].getGradient();
-    //     // tmp[i] = app->theta_grad[i] + theta[i].getGradient();
-    // }
-
-    // /* Reset the codi tape */
-    // codiTape.reset();
-
-    // /* Clean up */
-    // free(Ycodi);
-    // free(Ynext);
-    // free(theta);
-
-
     /* Set the layer parameters */
-    nchannels   =   app->layer->nchannels;
-    double* bias        = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
-    double* bias_bar    = &(app->theta_grad[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
-    double* weights     = &(app->theta[ts*(nchannels * nchannels+1)]);
-    double* weights_bar = &(app->theta_grad[ts*(nchannels * nchannels+1)]);
+    bias        = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    bias_bar    = &(app->theta_grad[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
+    weights     = &(app->theta[ts*(nchannels * nchannels+1)]);
+    weights_bar = &(app->theta_grad[ts*(nchannels * nchannels+1)]);
 
 
     app->layer->setBias(bias);
@@ -712,18 +648,12 @@ my_Step_diff(braid_App         app,
 
 
     /* apply the layer backwards for all examples */
-    for (int ielem = 0; ielem < ntraining; ielem++)
+    for (int ielem = 0; ielem < app->ntraining; ielem++)
     {
-        double* data     = &(u->Y[ielem * nchannels]);
-        double* data_bar = &(u_bar->Y[ielem * nchannels]);
+        data     = &(u->Y[ielem * nchannels]);
+        data_bar = &(u_bar->Y[ielem * nchannels]);
         app->layer->applyBWD(data, data_bar);
     }
-
-    // int idx = ts*(nchannels*nchannels+1) + nchannels*nchannels;
-    // printf("%d    %1.14e \n", ts, tmp[idx] -  app->theta_grad[idx]);
-
-    // delete [] tmp;
-
 
     return 0;
 }

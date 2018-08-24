@@ -27,29 +27,6 @@ opening_layer(myDouble *Y,
               int       nfeatures,
               int       ReLu);
 
-/** 
- * Forward propagation 
- */
-template <typename myDouble>
-int
-take_step(myDouble *Y,
-          myDouble *K,
-          int          ts,
-          double       dt,
-          int          nelem,
-          int          nchannels,
-          int          ReLu,
-          int          parabolic);
-
-
-/**
- * Activation function 
- */
-template <typename myDouble>
-myDouble 
-sigma(int ReLu,
-      myDouble x);        
-
 
 /* ReLu activation function */
 double ReLu_act(double x);
@@ -110,13 +87,6 @@ ddt_theta_regul(myDouble* theta,
                 int          ntime,
                 int          nchannels);
 
-// /** 
-//  * Set the gradient to zero 
-//  */
-// int
-// gradient_norm(braid_App app,
-//               double   *theta_gnorm_prt,
-//               double   *class_gnorm_prt);
 
 
 /**

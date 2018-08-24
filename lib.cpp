@@ -129,71 +129,6 @@ opening_layer(myDouble *Y,
 }
 
 
-template <typename myDouble>
-int
-take_step(myDouble* Y,
-          myDouble* theta,
-          int     ts,
-          double  dt,
-          int     nelem,
-          int     nchannels, 
-          int     ReLu,
-          int     parabolic)
-{
-   myDouble  sum;
-   int       th_idx;
-   myDouble* update = new myDouble[nchannels];
-
-   /* iterate over all elements */ 
-   for (int ielem = 0; ielem < nelem; ielem++)
-   {
-      /* Iterate over all channels */
-      for (int ichannel = 0; ichannel < nchannels; ichannel++)
-      {
-         /* Apply weights */
-         sum = 0.0;
-         for (int jchannel = 0; jchannel < nchannels; jchannel++)
-         {
-            th_idx = ts * ( nchannels * nchannels + 1) + ichannel * nchannels + jchannel;
-            sum += theta[th_idx] * Y[ielem * nchannels + jchannel];
-         }
-         update[ichannel] = sum;
-
-         /* Apply bias */
-         th_idx = ts * (nchannels * nchannels + 1) + nchannels*nchannels;
-         update[ichannel] += theta[th_idx];
-
-         /* Apply nonlinear activation */
-         update[ichannel] = sigma(ReLu, update[ichannel]);
-      }
-
-      /* Apply transposed weights, if necessary, and update */
-      for (int ichannel = 0; ichannel < nchannels; ichannel++)
-      {
-         sum = 0.0;
-         if (parabolic)
-         {
-            for (int jchannel = 0; jchannel < nchannels; jchannel++)
-            {
-               th_idx = ts * (nchannels * nchannels + 1) + jchannel * nchannels + ichannel;
-               sum += theta[th_idx] * update[jchannel]; 
-            }
-         } 
-         else
-         {
-            sum = update[ichannel];
-         }
-
-     
-         int idx = ielem * nchannels + ichannel;
-         Y[idx] += dt * sum;
-      }
-      
-   }      
-   
-   delete [] update;
-   return 0;
-}
 
 
 template <typename myDouble>
@@ -617,8 +552,6 @@ template RealReverse maximum<RealReverse>(RealReverse* a, int size_t);
 template double sigma<double>(int ReLu, double x);
 template RealReverse sigma<RealReverse>(int ReLu, RealReverse x);
 
-template int take_step<double>(double* Y, double* theta, int ts, double  dt, int nelem, int nchannels, int ReLu, int parabolic);
-template int take_step<RealReverse>(RealReverse* Y, RealReverse* theta, int ts, double  dt, int nelem, int nchannels, int ReLu, int parabolic);
 
 template double loss<double>(double  *Y, double *Target, double  *Ydata, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Ydata, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);

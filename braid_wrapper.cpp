@@ -86,7 +86,7 @@ my_Init(braid_App     app,
     u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
 
  
-    /* Project data to the network layer */
+    /* Project data to the network layer at t=0.0 */
     if (t == 0.0)
     {
         /* apply the layer for all examples */
@@ -98,10 +98,9 @@ my_Init(braid_App     app,
     }
     else
     {
-        /* Initialize with zeros */
+        /* Initialize with zeros  everywhere else */
         for (int ielem = 0; ielem < nelem; ielem++)
         {
-            /* Elementwise for each channel */
             for (int ichannels = 0; ichannels < nchannels; ichannels++)
             {
                 y_id = ielem * nchannels + ichannels;
@@ -123,56 +122,15 @@ my_Init_diff(braid_App     app,
 {
     int nfeatures   = app->nfeatures;
     int nchannels   = app->nchannels;
-    int ntraining   = app->ntraining;
-    int nstate      = ntraining * nchannels;
-    int ntheta_open = nfeatures * nchannels + 1;
-    double *data    = app->Ytrain;
-
-
 
     if (t == 0)
     {
-        /* Set up CoDiPack */       
-        RealReverse::TapeType& codiTape = RealReverse::getGlobalTape();
-        codiTape.setActive();
-
-        /* Register input */
-        RealReverse* theta_open;
-        theta_open = (RealReverse*) malloc(ntheta_open * sizeof(RealReverse));
-        for (int i = 0; i < ntheta_open; i++)
+        /* apply the layer backwards for all examples */
+        for (int iexample = 0; iexample < app->ntraining; iexample++)
         {
-            theta_open[i] = app->theta_open[i];
-            codiTape.registerInput(theta_open[i]);
+            app->openlayer->setInputData(&(app->Ytrain[iexample*nfeatures]));
+            app->openlayer->applyBWD(NULL, &(ubar->Y[iexample * nchannels]));
         }
-
-        /* Set up output */
-        RealReverse* Y;
-        Y = (RealReverse*) malloc(nstate * sizeof(RealReverse));
-
-        /* Tape the opening layer */
-        opening_layer(Y, theta_open, data, ntraining, nchannels, nfeatures, app->ReLu);
-
-
-        /* Set the adjoint variables */
-        for (int i = 0; i < nstate; i++)
-        {
-            Y[i].setGradient(ubar->Y[i]);
-        }
-
-        /* Evaluate the tape */
-        codiTape.evaluate();
-
-        /* Update the gradient */
-        for (int i = 0; i < ntheta_open; i++)
-        {
-            app->theta_open_grad[i] += theta_open[i].getGradient();
-        }
-
-        /* Reset the codi tape */
-        codiTape.reset();
-
-        free(Y);
-        free(theta_open);
     }
 
     return 0;

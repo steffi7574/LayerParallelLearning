@@ -38,8 +38,6 @@ typedef struct _braid_App_struct
     double   class_regul;      /* Classifier-Regularization term of the objective function */
     double   loss;             /* Loss term of the objective function */
     int      training;         /* Flag, if training (1) or not (0) */
-    int      ReLu;             /* Flag for activation function 1: use ReLu, 0: use tanh */
-    int      openinglayer;     /* Flag for applying opening layer (1) or not (0) */
     int      output;           /* Determine, if loss function writes to prediction.dat */
 } my_App;
 

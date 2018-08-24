@@ -413,18 +413,37 @@ int main (int argc, char *argv[])
     /* Initialize opening layer parameters and its gradient*/
     theta_open       = new double [ntheta_open];
     theta_open_grad  = new double [ntheta_open];
-    for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+    if (openinglayer)
     {
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
-            idx = ifeatures * nchannels + ichannels;
-            theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-            theta_open_grad[idx] = 0.0;
+            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+            {
+                idx = ichannels * nfeatures + ifeatures;
+                theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+                theta_open_grad[idx] = 0.0;
+            }
         }
+        idx = nfeatures * nchannels;
+        theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+        theta_open_grad[idx] = 0.0;
     }
-    idx = nfeatures * nchannels;
-    theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-    theta_open_grad[idx] = 0.0;
+    else
+    {
+        for (int ichannels = 0; ichannels < nchannels; ichannels++)
+        {
+            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
+            {
+                idx = ichannels * nfeatures + ifeatures;
+                if (ichannels == ifeatures) theta_open[idx] = 1.0;
+                else                        theta_open[idx] = 0.0;
+                theta_open_grad[idx] = 0.0;
+            }
+        }
+        idx = nfeatures * nchannels;
+        theta_open[idx]      = 0.0;
+        theta_open_grad[idx] = 0.0;
+    }
 
     /* Initialize classification parameters and its gradient */
     classW       = new double [nclassW];
@@ -476,11 +495,18 @@ int main (int argc, char *argv[])
     layer     = new DenseLayer(nchannels, activation, dactivation);
 
     /* Initialize the opening layer */
-    openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
-    openlayer->setWeights(theta_open);
-    openlayer->setWeights_bar(theta_open_grad);
-    openlayer->setBias(&(theta_open[nfeatures*nchannels]));
-    openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
+    if (openinglayer)
+    {
+        openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
+        openlayer->setWeights(theta_open);
+        openlayer->setWeights_bar(theta_open_grad);
+        openlayer->setBias(&(theta_open[nfeatures*nchannels]));
+        openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
+    }
+    else
+    {
+        openlayer = new OpenLayer(nchannels, nfeatures, NULL, NULL);
+    }
         
 
     /* Set up the app structure */
@@ -515,14 +541,12 @@ int main (int argc, char *argv[])
     app->theta_regul     = 0.0;
     app->accuracy        = 0.0;
     app->output          = 0;
-    app->ReLu            = ReLu;
-    app->openinglayer    = openinglayer;
 
     /* Initialize (adjoint) XBraid for training data set */
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    if (app->openinglayer)
+    if (openinglayer)
     {
         braid_SetInit_diff(core_train, my_Init_diff);
     }

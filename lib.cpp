@@ -106,6 +106,7 @@ opening_layer(myDouble *Y,
 
     for (int ielem = 0; ielem < nelem; ielem++)
     {
+
         for (int ichannels = 0; ichannels < nchannels; ichannels++)
         {
             /* Apply K matrix and bias */
@@ -113,9 +114,14 @@ opening_layer(myDouble *Y,
             for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
             {
                 y_id = ielem * nfeatures + ifeatures;
-                k_id = ifeatures * nchannels + ichannels;
+                // k_id = ifeatures * nchannels + ichannels;
+                k_id = ichannels * nfeatures + ifeatures;
                 sum += Ydata[y_id] * theta_open[k_id];
+                // printf("w %1.14e %1.14e", getValue(theta_open[k_id]), Ydata[y_id]);
             }
+            // printf("w %1.14e", getValue(sum);
+            // printf("\n");
+
             bias_id = nfeatures * nchannels;
             sum += theta_open[bias_id];
 
@@ -124,6 +130,7 @@ opening_layer(myDouble *Y,
             Y[y_id] = sigma(ReLu,sum);
         }
     }
+    printf("\n");
 
     return 0;
 }

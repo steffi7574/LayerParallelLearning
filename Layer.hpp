@@ -45,6 +45,9 @@ class Layer
       /* Set time step size */
       void setDt(double DT);
 
+      /* Set pointer to input data */
+      virtual void setInputData(double* inputdata_ptr);
+
       /**
        * Forward propagation of an example 
        * In/Out: vector holding the current example data
@@ -72,6 +75,31 @@ class DenseLayer : public Layer {
                  double (*Activ)(double x),
                  double (*dActiv)(double x));
       ~DenseLayer();
+
+      void applyFWD(double* data);
+
+      void applyBWD(double* data, 
+                    double* data_bar);
+};
+
+
+/**
+ * Opening layer: Maps the input data to the netword width (channels)
+ */
+class OpenLayer : public Layer{
+
+   protected:
+      int      nfeatures;      /* Number of features of the input data examples */
+      double *inputData;      /* Pointer to the input data */
+
+   public:
+      OpenLayer(int nChannels,
+                int nFeatures,
+                double (*Activ)(double x),
+                double (*dActiv)(double x));
+      ~OpenLayer();
+
+      void setInputData(double* inputdata_ptr);
 
       void applyFWD(double* data);
 

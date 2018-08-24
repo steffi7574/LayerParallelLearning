@@ -58,6 +58,8 @@ void Layer::setDt(double DT)
    dt = DT;
 }
 
+void Layer::setInputData(double* inputdata_ptr){}
+
 
 DenseLayer::DenseLayer(int    nChannels, 
                        double (*Activ)(double x),
@@ -123,3 +125,56 @@ void DenseLayer::applyBWD(double* data,
    }
 }
 
+
+
+OpenLayer::OpenLayer(int nChannels,
+                     int nFeatures, 
+                     double (*Activ)(double x),
+                     double (*dActiv)(double x)) : Layer(nChannels, Activ, dActiv)
+{
+   nfeatures = nFeatures;
+}
+
+OpenLayer::~OpenLayer(){}
+
+
+void OpenLayer::setInputData(double* inputdata_ptr)
+{
+   inputData = inputdata_ptr;
+}
+
+void OpenLayer::applyFWD(double* data)
+{
+   /* Compute update for each channel */
+   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   {
+
+      /* Apply weights */
+      update[ichannel] = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
+
+      // for (int j=0; j<nfeatures; j++)
+      // {
+      //    printf("wn %1.14e %1.14e ", weights[ichannel*nfeatures+j], inputData[j]);
+      // }
+      // printf("\n");
+
+      /* Add bias */
+      update[ichannel] += bias[0];
+
+      /* apply activation */
+      update[ichannel] = activation(update[ichannel]);
+   }
+
+   /* Set the output data */
+   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   {
+      data[ichannel] = update[ichannel];
+   }
+}
+
+
+void OpenLayer::applyBWD(double* data, 
+                         double* data_bar)
+{
+   /* TODO */
+}                      

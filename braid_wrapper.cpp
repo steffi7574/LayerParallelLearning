@@ -68,18 +68,17 @@ my_Init(braid_App     app,
     my_Vector *u;
     int nfeatures      = app->nfeatures;
     int nchannels      = app->nchannels;
-    double *theta_open = app->theta_open;
     int nelem, y_id;
-    double *data;
+    double *Yinput;
     if (app->training)
     {
-        nelem = app->ntraining;
-        data  = app->Ytrain;
+        nelem  = app->ntraining;
+        Yinput = app->Ytrain;
     }
     else
     {
-        nelem = app->nvalidation;
-        data  = app->Yval;
+        nelem  = app->nvalidation;
+        Yinput = app->Yval;
     }
  
     /* Allocate the vector */
@@ -90,14 +89,11 @@ my_Init(braid_App     app,
     /* Project data to the network layer */
     if (t == 0.0)
     {
-        if (app->openinglayer)
+        /* apply the layer for all examples */
+        for (int ielem = 0; ielem < nelem; ielem++)
         {
-            /* Apply the opening layer sigma(K*Y + bias) */
-            opening_layer(u->Y, theta_open, data, nelem, nchannels, nfeatures, app->ReLu);
-        }
-        else
-        {
-            opening_expand(u->Y, data, nelem, nchannels, nfeatures);
+            app->openlayer->setInputData(&(Yinput[ielem*nfeatures]));
+            app->openlayer->applyFWD(&(u->Y[ielem * nchannels]));
         }
     }
     else

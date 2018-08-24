@@ -93,7 +93,10 @@ int main (int argc, char *argv[])
     double   accur_val;         /**< Prediction accuracy on the validation data */
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
     int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
-    Layer    *layer;            /**< Define a network layer */
+    Layer    *layer;            /**< A general layer of the network */
+    Layer    *openlayer;        /**< Opening layer: Maps input data to the network width */
+    double  (*activation)(double x);  /**< Pointer to the activation function */
+    double  (*dactivation)(double x); /**< Pointer to derivative of activation function */
 
     int      nreq, idx, igrad; 
     char     Ytrain_file[255];
@@ -205,10 +208,14 @@ int main (int argc, char *argv[])
         {
             if ( strcmp(co->value, "ReLu") == 0 )
             {
+                activation  = ReLu_act;
+                dactivation = d_ReLu_act;
                 ReLu = 1;
             }
             else if (strcmp(co->value, "tanh") == 0 )
             {
+                activation  = tanh_act;
+                dactivation = d_tanh_act;
                 ReLu = 0;
             }
             else
@@ -466,14 +473,15 @@ int main (int argc, char *argv[])
     }
 
     /* Initialize the network layers */
-    if (ReLu == 1)
-    {
-        layer = new DenseLayer(nchannels, ReLu_act, d_ReLu_act);
-    }
-    else
-    {
-        layer = new DenseLayer(nchannels, tanh_act, d_tanh_act);
-    }
+    layer     = new DenseLayer(nchannels, activation, dactivation);
+
+    /* Initialize the opening layer */
+    openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
+    openlayer->setWeights(theta_open);
+    openlayer->setWeights_bar(theta_open_grad);
+    openlayer->setBias(&(theta_open[nfeatures*nchannels]));
+    openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
+        
 
     /* Set up the app structure */
     app = (my_App *) malloc(sizeof(my_App));
@@ -497,6 +505,7 @@ int main (int argc, char *argv[])
     app->nchannels       = nchannels;
     app->nlayers         = nlayers;
     app->layer           = layer;
+    app->openlayer       = openlayer;
     app->gamma_theta_tik = gamma_theta_tik;
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
@@ -881,6 +890,7 @@ int main (int argc, char *argv[])
     delete [] classMu_grad;
 
     delete layer;
+    delete openlayer;
 
     app->training = 1;
     braid_Destroy(core_train);

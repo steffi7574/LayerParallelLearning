@@ -2,7 +2,10 @@
 
 Layer::Layer()
 {
-   nchannels    = 0;
+   dim_In       = 0;
+   dim_Out      = 0;
+   dim_Bias     = 0;
+
    dt           = 0.0;
    weights      = NULL;
    weights_bar  = NULL;
@@ -10,211 +13,158 @@ Layer::Layer()
    bias_bar     = NULL;
    activation   = NULL;
    dactivation  = NULL;
-   update       = NULL;
-   update_bar   = NULL;
 }
 
-
-Layer::Layer(int    nChannels,
+Layer::Layer(int     idx,
+             int     dimI,
+             int     dimO,
+             int     dimB,
              double (*Activ)(double x),
-             double (*dActiv)(double x))
+             double  (*dActiv)(double x))
 {
-   nchannels   = nChannels;
+   index       = idx;
+   dim_In      = dimI;
+   dim_Out     = dimO;
+   dim_Bias    = dimB;
    activation  = Activ;
    dactivation = dActiv;
 
-   update     = new double[nchannels];
-   update_bar = new double[nchannels];
+   weights     = new double [dim_Out * dim_In];
+   weights_bar = new double [dim_Out * dim_In];
+   bias        = new double [dim_Bias];
+   bias_bar    = new double [dim_Bias];
 }   
 
 Layer::~Layer()
 {
-   delete [] update;
-   delete [] update_bar;
+   delete [] weights;
+   delete [] weights_bar;
+   delete [] bias;
+   delete [] bias_bar;
 }
 
-void Layer::setBias(double* bias_ptr)
-{
-   bias = bias_ptr;
-}
-
-void Layer::setBias_bar(double* bias_bar_ptr)
-{
-   bias_bar = bias_bar_ptr;
-}
-
-
-void Layer::setWeights(double* weights_ptr)
-{
-   weights = weights_ptr;
-}
-
-void Layer::setWeights_bar(double* weights_bar_ptr)
-{
-   weights_bar = weights_bar_ptr;
-}
 
 void Layer::setDt(double DT)
 {
    dt = DT;
 }
 
-void Layer::setInputData(double* inputdata_ptr){}
 
-
-DenseLayer::DenseLayer(int    nChannels, 
+DenseLayer::DenseLayer(int     idx,
+                       int     dimI,
+                       int     dimO,
                        double (*Activ)(double x),
-                       double (*dActiv)(double x)) : Layer(nChannels, Activ, dActiv)
+                       double  (*dActiv)(double x)) : Layer(idx, dimI, dimO, 1, Activ, dActiv)
 {
-   /* Everything is done in Layer constructor */
-}   
-
+   if (dimI != dimO)
+   {
+      printf("\nERROR! Check dimensions!\n ");
+      printf("Linear Transformation of a dense layer should use a SQUARE matrix.\n");
+      exit(1);
+   }
+}
+   
 DenseLayer::~DenseLayer() {}
 
 
-void DenseLayer::applyFWD(double* data)
+void DenseLayer::applyFWD(double* data_In,
+                          double* data_Out)
 {
    /* Compute update for each channel */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
-      update[ichannel] = vecdot(nchannels, &(weights[ichannel*nchannels]), data);
+      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
 
       /* Add bias */
-      update[ichannel] += bias[0];
+      data_Out[io] += bias[0];
 
       /* apply activation */
-      update[ichannel] = activation(update[ichannel]);
-   }
+      data_Out[io] = activation(data_Out[io]);
 
-   /* Update */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
-   {
-      data[ichannel] += dt * update[ichannel];
-   }
+      /* Apply step */
+      data_Out[io] = dt * data_Out[io];
 
-}
-
-
-void DenseLayer::applyBWD(double* data, 
-                          double* data_bar)
-{
-   /* Apply derivative of the update step */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
-   {
-      update_bar[ichannel] = dt * data_bar[ichannel];
-   }
-
-   /* Backward propagation for each channel */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
-   {
-      /* Recompute udate[ichannel] */
-      update[ichannel]  = vecdot(nchannels, &(weights[ichannel*nchannels]), data);
-      update[ichannel] += bias[0];
-
-      /* Derivative of activation function */
-      update_bar[ichannel] = dactivation(update[ichannel]) * update_bar[ichannel];
-
-      /* Derivative of bias addition */
-      bias_bar[0] += update_bar[ichannel];
-
-      /* Derivative of weight application */
-      for (int jchannel = 0; jchannel < nchannels; jchannel++)
+      /* If not first layer, add the incoming data. */
+      if (index != 0)
       {
-         data_bar[jchannel] += weights[ichannel*nchannels + jchannel] * update_bar[ichannel];
-         weights_bar[ichannel*nchannels + jchannel] += data[jchannel] * update_bar[ichannel];
+         data_Out[io] = data_In[io];
       }
    }
+
 }
 
 
-OpenLayer::OpenLayer() : Layer() 
+void DenseLayer::applyBWD(double* data_In,
+                          double* data_Out,
+                          double* data_In_bar,
+                          double* data_Out_bar)
 {
-   nfeatures = 0;
-   inputData = NULL;
-}
 
-OpenLayer::OpenLayer(int nChannels,
-                     int nFeatures, 
-                     double (*Activ)(double x),
-                     double (*dActiv)(double x)) : Layer(nChannels, Activ, dActiv)
-{
-   nfeatures = nFeatures;
-}
-
-
-
-OpenLayer::~OpenLayer(){}
-
-
-void OpenLayer::setInputData(double* inputdata_ptr)
-{
-   inputData = inputdata_ptr;
-}
-
-void OpenLayer::applyFWD(double* data)
-{
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
-   {
-      /* Apply weights */
-      data[ichannel] = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
-      /* Add bias */
-      data[ichannel] += bias[0];
-      /* apply activation */
-      data[ichannel] = activation(data[ichannel]);
-   }
-}
-
-
-void OpenLayer::applyBWD(double* data, 
-                         double* data_bar)
-{
    /* Backward propagation for each channel */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   for (int io = 0; io < dim_Out; io++)
    {
-      /* Recompute update[ichannel] */
-      update[ichannel]  = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
-      update[ichannel] += bias[0]; 
+
+      
+      /* Derivative of the update */
+      if (index != 0)
+      {
+         data_In_bar[io] += data_Out_bar[io];
+      }
+      data_Out_bar[io] = dt*data_Out_bar[io];
+
+
+      /* Recompute data_Out */
+      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+      data_Out[io] += bias[0];
 
       /* Derivative of activation function */
-      data_bar[ichannel] = dactivation(update[ichannel]) * data_bar[ichannel];
-      
+      data_Out_bar[io] = dactivation(data_Out[io]) * data_Out_bar[io];
+
       /* Derivative of bias addition */
-      bias_bar[0] += data_bar[ichannel];
-      
+      bias_bar[0] += data_Out_bar[io];
+
       /* Derivative of weight application */
-      for (int jfeatures = 0; jfeatures < nfeatures; jfeatures++)
+      for (int jo = 0; jo < dim_In; jo++)
       {
-         weights_bar[ichannel*nfeatures + jfeatures] += inputData[jfeatures] * data_bar[ichannel];
+         data_In_bar[jo] += weights[io*dim_In + jo] * data_Out_bar[io];
+         weights_bar[io*dim_In + jo] += data_In[jo] * data_Out_bar[io];
       }
-   }
-}                      
 
-OpenLayerZero::OpenLayerZero(int nChannels,
-                             int nFeatures) : OpenLayer()
-{
-   nchannels = nChannels;
-   nfeatures = nFeatures;
+      /* Reset */
+      data_Out_bar[io] = 0.0;
+   }
 }
 
 
+OpenExpandZero::OpenExpandZero(int  dimI,
+                               int  dimO) : Layer(0, dimI, dimO, 1, NULL, NULL){}
 
-OpenLayerZero::~OpenLayerZero(){}
+
+OpenExpandZero::~OpenExpandZero(){}
 
 
-void OpenLayerZero::applyFWD(double* data)
+void OpenExpandZero::applyFWD(double* data_In, 
+                              double* data_Out)
 {
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   for (int ii = 0; ii < dim_In; ii++)
    {
-      if (ichannel < nfeatures) data[ichannel] = inputData[ichannel];
-      else                      data[ichannel] = 0.0;
+      data_Out[ii] = data_In[ii];
    }
-}
+   for (int io = dim_In; io < dim_Out; io++)
+   {
+      data_Out[io] = 0.0;
+   }
+}                           
 
-
-
-void OpenLayerZero::applyBWD(double* data, 
-                           double* data_bar)
+void OpenExpandZero::applyBWD(double* data_In,
+                              double* data_Out,
+                              double* data_In_bar,
+                              double* data_Out_bar)
 {
-   /* Do nothing */
-}                        
+   for (int ii = 0; ii < dim_In; ii++)
+   {
+      data_In_bar[ii] += data_Out_bar[ii];
+      data_Out_bar[ii] = 0.0;
+   }
+}                           

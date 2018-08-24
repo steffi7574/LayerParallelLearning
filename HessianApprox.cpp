@@ -1,22 +1,11 @@
 #include "linalg.hpp"
 #include "HessianApprox.hpp"
 
-HessianApprox::HessianApprox(int N)
+
+
+L_BFGS::L_BFGS(int N, int stages)
 {
-  dimN = N;
-}
-
-HessianApprox::HessianApprox()
-{
-  dimN = 0;
-}
-
-HessianApprox::~HessianApprox(){}
-
-
-
-L_BFGS::L_BFGS(int N, int stages) : HessianApprox(N)
-{
+   dimN = N;
    M    = stages;
    H0   = 1.0;
 
@@ -155,8 +144,10 @@ int L_BFGS::update_memory(int     k,
 
 
 
-BFGS::BFGS(int N) : HessianApprox(N)
+BFGS::BFGS(int N) 
 {
+    dimN = N;
+
     Hessian = new double[N*N];
     setIdentity();
 

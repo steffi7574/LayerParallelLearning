@@ -8,8 +8,8 @@
 /** 
  * Abstract Base class for the Hessian approximation from Broyden class. 
  * All subclasses must implement 
- *    - update_memory for updating s, y
- *    - compute_step for computing p = H*grad
+ *    - update_memory for updating s, y, rho etc.
+ *    - compute_step for computing search direction p = H*grad
  */
 class HessianApprox {
 
@@ -17,15 +17,19 @@ class HessianApprox {
       int dimN;             /* Dimension of the gradient vector */
 
    public:
-      HessianApprox();
-      HessianApprox(int N);
-      ~HessianApprox();
 
-
+      /**
+       * Compute the BFGS descent direction 
+       * -> Needs to be implemented by all subclasses
+       */
       virtual int compute_step(int     k, 
                                double* currgrad, 
                                double* step) = 0;   
 
+      /**
+       * Update the BFGS memory (like s, y, rho, H0...)
+       * -> Needs to be implemented by all subclasses 
+       */
       virtual int update_memory(int     k,
                                 double* xnew,
                                 double* xold,
@@ -50,12 +54,10 @@ class L_BFGS : public HessianApprox {
              int stage);        /* Constructor */
       ~L_BFGS();                /* Destructor */
 
-      /* Compute the BFGS descent direction */
       int compute_step(int     k, 
                        double* currgrad, 
                        double* step);
 
-      /* Update the L-BFGS memory (s, y rho and H0) */
       int update_memory(int     k,
                         double* xnew,
                         double* xold,

@@ -3,7 +3,7 @@
 
 
 #include "braid.h"
-#include "Layer.hpp"
+#include "layer.hpp"
 
 /* Define the app structure */
 typedef struct _braid_App_struct

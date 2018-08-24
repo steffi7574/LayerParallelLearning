@@ -4,8 +4,8 @@
 #include <string.h>
 
 #include "lib.hpp"
-#include "HessianApprox.hpp"
-#include "Layer.hpp"
+#include "hessianApprox.hpp"
+#include "layer.hpp"
 #include "braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
@@ -210,6 +210,7 @@ int main (int argc, char *argv[])
                 activation  = ReLu_act;
                 dactivation = d_ReLu_act;
                 ReLu = 1;
+                // activ = Network::RELU;
             }
             else if (strcmp(co->value, "tanh") == 0 )
             {

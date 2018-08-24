@@ -11,9 +11,9 @@ CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 # set compiler flags
 CPPFLAGS= -g -Wall -pedantic -lm -Wno-write-strings -Wno-delete-non-virtual-dtor
 
-DEPS = lib.hpp braid_wrapper.hpp HessianApprox.hpp parser.h Layer.hpp linalg.hpp
-OBJ-pint   = main.o lib.o braid_wrapper.o HessianApprox.o Layer.o linalg.o
-OBJ-awesome = main-awesome.o lib.o HessianApprox.o Layer.o linalg.o
+DEPS = lib.hpp braid_wrapper.hpp hessianApprox.hpp parser.h layer.hpp linalg.hpp network.hpp
+OBJ-pint   = main.o lib.o braid_wrapper.o hessianApprox.o Layer.o linalg.o
+OBJ-awesome = main-awesome.o lib.o hessianApprox.o layer.o linalg.o network.o
 
 %.o: %.cpp $(DEPS)
 	$(MPICXX) $(CPPFLAGS) -c $< -o $@  $(INC)

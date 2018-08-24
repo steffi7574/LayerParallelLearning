@@ -19,6 +19,7 @@ maximum(myDouble *a,
    return max;
 }
 
+
 double ReLu_act(double x)
 {
     return max(0.0, x); 
@@ -44,98 +45,6 @@ double d_tanh_act(double x)
 
     return diff;
 }
-
-template <typename myDouble>
-myDouble 
-sigma(int ReLu,
-      myDouble x)
-{
-    myDouble sigma;
- 
-    if (ReLu)
-    {
-       /* ReLU activation function */
-       sigma = max(0.0,x);
-    }
-    else
-    {
-       /* tanh activation */
-       sigma = tanh(x);
-    }
- 
-    return sigma;
-}
-
-
-int
-opening_expand(double *Y, 
-               double *data, 
-               int     nelem, 
-               int     nchannels, 
-               int     nfeatures)
-{
-    int idata = 0;
-    for (int ielem = 0; ielem < nelem; ielem++)
-    {
-        Y[ielem*nchannels + 0] = data[idata];
-        idata++;
-        Y[ielem*nchannels + 1] = data[idata];
-        idata++;
-        for (int ichannels = 2; ichannels < nchannels; ichannels++)
-        {
-            Y[ielem*nchannels + ichannels] = 0.0;
-        }
-    }
-
-    return 0;
-}           
-
-
-template <typename myDouble>
-int
-opening_layer(myDouble *Y,
-              myDouble *theta_open, 
-              double   *Ydata, 
-              int nelem, 
-              int nchannels, 
-              int nfeatures,
-              int ReLu)
-{
-    myDouble sum;
-    int      y_id, k_id, bias_id;
-
-    for (int ielem = 0; ielem < nelem; ielem++)
-    {
-
-        for (int ichannels = 0; ichannels < nchannels; ichannels++)
-        {
-            /* Apply K matrix and bias */
-            sum = 0.0;
-            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
-            {
-                y_id = ielem * nfeatures + ifeatures;
-                // k_id = ifeatures * nchannels + ichannels;
-                k_id = ichannels * nfeatures + ifeatures;
-                sum += Ydata[y_id] * theta_open[k_id];
-                // printf("w %1.14e %1.14e", getValue(theta_open[k_id]), Ydata[y_id]);
-            }
-            // printf("w %1.14e", getValue(sum);
-            // printf("\n");
-
-            bias_id = nfeatures * nchannels;
-            sum += theta_open[bias_id];
-
-            /* Apply nonlinear activation */
-            y_id = ielem * nchannels + ichannels;
-            Y[y_id] = sigma(ReLu,sum);
-        }
-    }
-    printf("\n");
-
-    return 0;
-}
-
-
 
 
 template <typename myDouble>
@@ -556,10 +465,6 @@ template int write_data<RealReverse>(char *filename, RealReverse *var, int size)
 template double maximum<double>(double* a, int size_t);
 template RealReverse maximum<RealReverse>(RealReverse* a, int size_t);
 
-template double sigma<double>(int ReLu, double x);
-template RealReverse sigma<RealReverse>(int ReLu, RealReverse x);
-
-
 template double loss<double>(double  *Y, double *Target, double  *Ydata, double *classW, double *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 template RealReverse loss<RealReverse>(RealReverse *Y, double *Target, double *Ydata, RealReverse *classW, RealReverse *classMu, int nelem, int nclasses, int nchannels, int nfeatures, int output, int* success_ptr);
 
@@ -569,6 +474,3 @@ template RealReverse ddt_theta_regul<RealReverse>(RealReverse* theta, int ts, do
 template double tikhonov_regul<double>(double *variable, int size);
 template RealReverse tikhonov_regul<RealReverse>(RealReverse *variable, int size);
 
-
-template int opening_layer<RealReverse>(RealReverse *Y, RealReverse *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures, int ReLu);
-template int opening_layer<double>(double *Y, double *theta_open, double *Ydata, int nelem, int nchannels, int nfeatures, int ReLu);

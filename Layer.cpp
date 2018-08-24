@@ -180,27 +180,28 @@ void OpenLayer::applyBWD(double* data,
 {
    if (activation == NULL)
    {
-      printf("\n\n ERROR: This should not happen!\n\n\n");
-      exit(1);
+      /* Do nothing */
    }
-
-     /* Backward propagation for each channel */
-   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   else
    {
-      /* Recompute update[ichannel] */
-      update[ichannel]  = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
-      update[ichannel] += bias[0];
-
-      /* Derivative of activation function */
-      data_bar[ichannel] = dactivation(update[ichannel]) * data_bar[ichannel];
-
-      /* Derivative of bias addition */
-      bias_bar[0] += data_bar[ichannel];
-
-      /* Derivative of weight application */
-      for (int jfeatures = 0; jfeatures < nfeatures; jfeatures++)
+      /* Backward propagation for each channel */
+      for (int ichannel = 0; ichannel < nchannels; ichannel++)
       {
-         weights_bar[ichannel*nfeatures + jfeatures] += inputData[jfeatures] * data_bar[ichannel];
-      }
-   } 
+         /* Recompute update[ichannel] */
+         update[ichannel]  = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
+         update[ichannel] += bias[0];
+
+         /* Derivative of activation function */
+         data_bar[ichannel] = dactivation(update[ichannel]) * data_bar[ichannel];
+
+         /* Derivative of bias addition */
+         bias_bar[0] += data_bar[ichannel];
+
+         /* Derivative of weight application */
+         for (int jfeatures = 0; jfeatures < nfeatures; jfeatures++)
+         {
+            weights_bar[ichannel*nfeatures + jfeatures] += inputData[jfeatures] * data_bar[ichannel];
+         }
+      } 
+   }
 }                      

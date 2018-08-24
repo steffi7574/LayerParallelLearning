@@ -9,25 +9,6 @@
 using namespace codi;
 
 
-int
-opening_expand(double *Y, 
-               double *data, 
-               int     nelem, 
-               int     nchannels, 
-               int     nfeatures);
-
-
-template <typename myDouble>
-int 
-opening_layer(myDouble *Y,
-              myDouble *theta_open, 
-              double   *Ydata, 
-              int       nelem, 
-              int       nchannels, 
-              int       nfeatures,
-              int       ReLu);
-
-
 /* ReLu activation function */
 double ReLu_act(double x);
 

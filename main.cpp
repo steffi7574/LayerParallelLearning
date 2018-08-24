@@ -92,7 +92,7 @@ int main (int argc, char *argv[])
     double   accur_train;       /**< Prediction accuracy on the training data */
     double   accur_val;         /**< Prediction accuracy on the validation data */
     int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
-    int      openinglayer;      /**< Flag: apply opening layer (1) or just expand data with zero (0) */
+    int      apply_openlayer;   /**< Flag: apply opening layer (1) or just expand data with zero (0) */
     Layer    *layer;            /**< A general layer of the network */
     Layer    *openlayer;        /**< Opening layer: Maps input data to the network width */
     double  (*activation)(double x);  /**< Pointer to the activation function */
@@ -133,7 +133,7 @@ int main (int argc, char *argv[])
     nlayers           = 32;
     T                 = 10.0;
     ReLu              = 1;
-    openinglayer      = 1;
+    apply_openlayer   = 1;
     braid_cfactor     = 4;
     braid_maxlevels   = 10;
     braid_maxiter     = 3;
@@ -225,15 +225,15 @@ int main (int argc, char *argv[])
                 return(0);
             }
         }
-        else if ( strcmp(co->key, "openinglayer") == 0 )
+        else if ( strcmp(co->key, "apply_openlayer") == 0 )
         {
             if ( strcmp(co->value, "YES") == 0 )
             {
-                openinglayer = 1;
+                apply_openlayer = 1;
             }
             else
             {
-                openinglayer = 0;
+                apply_openlayer = 0;
             }
         }
         else if ( strcmp(co->key, "T") == 0 )
@@ -413,37 +413,18 @@ int main (int argc, char *argv[])
     /* Initialize opening layer parameters and its gradient*/
     theta_open       = new double [ntheta_open];
     theta_open_grad  = new double [ntheta_open];
-    if (openinglayer)
+    for (int ichannels = 0; ichannels < nchannels; ichannels++)
     {
-        for (int ichannels = 0; ichannels < nchannels; ichannels++)
+        for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
         {
-            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
-            {
-                idx = ichannels * nfeatures + ifeatures;
-                theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-                theta_open_grad[idx] = 0.0;
-            }
+            idx = ichannels * nfeatures + ifeatures;
+            theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+            theta_open_grad[idx] = 0.0;
         }
-        idx = nfeatures * nchannels;
-        theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-        theta_open_grad[idx] = 0.0;
     }
-    else
-    {
-        for (int ichannels = 0; ichannels < nchannels; ichannels++)
-        {
-            for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
-            {
-                idx = ichannels * nfeatures + ifeatures;
-                if (ichannels == ifeatures) theta_open[idx] = 1.0;
-                else                        theta_open[idx] = 0.0;
-                theta_open_grad[idx] = 0.0;
-            }
-        }
-        idx = nfeatures * nchannels;
-        theta_open[idx]      = 0.0;
-        theta_open_grad[idx] = 0.0;
-    }
+    idx = nfeatures * nchannels;
+    theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+    theta_open_grad[idx] = 0.0;
 
     /* Initialize classification parameters and its gradient */
     classW       = new double [nclassW];
@@ -495,7 +476,7 @@ int main (int argc, char *argv[])
     layer     = new DenseLayer(nchannels, activation, dactivation);
 
     /* Initialize the opening layer */
-    if (openinglayer)
+    if (apply_openlayer)
     {
         openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
         openlayer->setWeights(theta_open);
@@ -546,10 +527,7 @@ int main (int argc, char *argv[])
     app->training = 1;
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    if (openinglayer)
-    {
-        braid_SetInit_diff(core_train, my_Init_diff);
-    }
+    braid_SetInit_diff(core_train, my_Init_diff);
 
     /* Initialize (adjoint) XBraid for validation data set */
     app->training = 0;
@@ -594,7 +572,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                nlayers         %d \n", nlayers);
         fprintf(optimfile, "#                T               %f \n", T);
         fprintf(optimfile, "#                ReLu activ.?    %d \n", ReLu);
-        fprintf(optimfile, "#                opening layer?  %d \n", openinglayer);
+        fprintf(optimfile, "#                apply_openlayer?%d \n", apply_openlayer);
         fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);
         fprintf(optimfile, "#                coasening       %d \n", braid_cfactor);
         fprintf(optimfile, "#                max. braid iter %d \n", braid_maxiter);

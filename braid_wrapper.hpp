@@ -26,6 +26,7 @@ typedef struct _braid_App_struct
     int      nfeatures;        /* Number of features in the training data */
     int      nclasses;         /* Number of classes */
     int      nchannels;        /* Width of the network */
+    int      ntheta_open;      /* Number of weights in opening layer (if zero, just expand the data with zeros) */
     int      nlayers;          /* number of time-steps / layers */
     Layer    *layer;           /* General layer architecture */
     Layer    *openlayer;       /* Opening Layer architecture */

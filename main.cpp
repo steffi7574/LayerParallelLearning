@@ -56,7 +56,6 @@ int main (int argc, char *argv[])
     double   T;                 /**< Final time */
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
-    double   deltaT;            /**< Time step size */
     double   stepsize;          /**< stepsize for theta updates */
     double   stepsize_init;     /**< Initial stepsize for theta updates */
     double  *global_design;     /**< All design vars: theta, classW and classMu */
@@ -98,7 +97,7 @@ int main (int argc, char *argv[])
     double  (*activation)(double x);  /**< Pointer to the activation function */
     double  (*dactivation)(double x); /**< Pointer to derivative of activation function */
 
-    int      nreq, idx, igrad; 
+    int      nreq, igrad; 
     char     Ytrain_file[255];
     char     Ctrain_file[255];
     char     Yval_file[255];
@@ -115,7 +114,7 @@ int main (int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
-    /* Data file names */
+    /* Input data file names */
     sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
     sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
     sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
@@ -355,14 +354,76 @@ int main (int argc, char *argv[])
 
     /*--- INITIALIZATION ---*/
 
-    /* Init problem parameters */
-    deltaT         = T /(double)nlayers; 
-    ntheta_open    = nfeatures * nchannels + 1;
-    ntheta         = (nchannels * nchannels + 1 )* nlayers;
-    nclassW        = nchannels * nclasses;
-    ndesign        = ntheta_open + ntheta + nclassW + nclasses;
+    /* Read the training and validation data  */
+    if (myid == MASTER_NODE)  // Input data is only needed on first processor 
+    {
+        Ytrain = new double [ntraining   * nfeatures];
+        Yval   = new double [nvalidation * nfeatures];
+        read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
+        read_data(Yval_file,   Yval,   nvalidation * nfeatures);
+    }
+    if (myid == size - 1) // Labels are only needed on last layer 
+    {
+        Ctrain = new double [ntraining   * nclasses];
+        Cval   = new double [nvalidation * nclasses];
+        read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
+        read_data(Cval_file,   Cval,   nvalidation * nclasses);
+    }
 
-    /* Init optimization parameters */
+    /* Initialize opening layer */
+    if (apply_openlayer)
+    {
+        ntheta_open      = nchannels * nfeatures + 1;
+        theta_open       = new double [ntheta_open];
+        theta_open_grad  = new double [ntheta_open];
+        for (int i = 0; i < ntheta_open; i++)
+        {
+                theta_open[i]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+                theta_open_grad[i] = 0.0;
+        }
+
+        openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
+        openlayer->setWeights(theta_open);
+        openlayer->setWeights_bar(theta_open_grad);
+        openlayer->setBias(&(theta_open[nfeatures*nchannels]));
+        openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
+    }
+    else
+    {
+        ntheta_open = 0;
+        openlayer = new OpenLayer(nchannels, nfeatures, NULL, NULL);
+    }
+
+    /* Initialize a general network layer and all weights */
+    ntheta     = (nchannels * nchannels + 1 ) * nlayers;
+    theta      = new double [ntheta];
+    theta_grad = new double [ntheta];
+    for (int i = 0; i < ntheta; i++)
+    {
+        theta[i]      = theta_init * (double) rand() / ((double) RAND_MAX); 
+        theta_grad[i] = 0.0; 
+    }
+
+    layer = new DenseLayer(nchannels, activation, dactivation);
+
+    /* Initialize classification parameters and its gradient */
+    nclassW      = nchannels * nclasses;
+    classW       = new double [nclassW];
+    classW_grad  = new double [nclassW];
+    classMu      = new double [nclasses];
+    classMu_grad = new double [nclasses];
+    for (int i = 0; i < nchannels * nclasses; i++)
+    {
+        classW[i]      = class_init * (double) rand() / ((double) RAND_MAX); 
+        classW_grad[i] = 0.0; 
+    }
+    for (int i = 0; i < nclasses; i++)
+    {
+        classMu[i]      = class_init * (double) rand() / ((double) RAND_MAX);
+        classMu_grad[i] = 0.0;
+    }
+
+    /* Initialize optimization parameters */
     ls_iter     = 0;
     ls_param    = 1e-4;
     gnorm       = 0.0;
@@ -374,6 +435,26 @@ int main (int argc, char *argv[])
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
     stepsize    = stepsize_init;
+
+    /* Initialize global design and gradient, on first processor only */
+    ndesign = ntheta_open + ntheta + nclassW + nclasses;
+    if (myid == MASTER_NODE)
+    {
+        global_design     = new double [ndesign];
+        global_design0    = new double [ndesign];
+        global_gradient   = new double [ndesign];
+        global_gradient0  = new double [ndesign];
+        descentdir        = new double [ndesign];
+        for (int idesign = 0; idesign < ndesign; idesign++)
+        {
+            global_design[idesign]    = 0.0;
+            global_design0[idesign]   = 0.0;
+            global_gradient[idesign]  = 0.0;
+            global_gradient0[idesign] = 0.0;
+            descentdir[idesign]       = 0.0; 
+        }
+        concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
+    }
 
     /* Initialize Hessian approximation */
     if (myid == MASTER_NODE)
@@ -394,103 +475,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    /* Read the training and validation data  */
-    if (myid == MASTER_NODE)  // Input data only needed on first processor 
-    {
-        Ytrain = new double [ntraining   * nfeatures];
-        Yval   = new double [nvalidation * nfeatures];
-        read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-        read_data(Yval_file,   Yval,   nvalidation * nfeatures);
-    }
-    if (myid == size - 1) // Labels only needen on last layer 
-    {
-        Ctrain = new double [ntraining   * nclasses];
-        Cval   = new double [nvalidation * nclasses];
-        read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
-        read_data(Cval_file,   Cval,   nvalidation * nclasses);
-    }
-
-    /* Initialize opening layer parameters and its gradient*/
-    theta_open       = new double [ntheta_open];
-    theta_open_grad  = new double [ntheta_open];
-    for (int ichannels = 0; ichannels < nchannels; ichannels++)
-    {
-        for (int ifeatures = 0; ifeatures < nfeatures; ifeatures++)
-        {
-            idx = ichannels * nfeatures + ifeatures;
-            theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-            theta_open_grad[idx] = 0.0;
-        }
-    }
-    idx = nfeatures * nchannels;
-    theta_open[idx]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
-    theta_open_grad[idx] = 0.0;
-
-    /* Initialize classification parameters and its gradient */
-    classW       = new double [nclassW];
-    classW_grad  = new double [nclassW];
-    classMu      = new double [nclasses];
-    classMu_grad = new double [nclasses];
-    for (int iclasses = 0; iclasses < nclasses; iclasses++)
-    {
-        for (int ichannels = 0; ichannels < nchannels; ichannels++)
-        {
-            idx = iclasses * nchannels + ichannels;
-            classW[idx]      = class_init * (double) rand() / ((double) RAND_MAX); 
-            classW_grad[idx] = 0.0; 
-        }
-        classMu[iclasses]       = class_init * (double) rand() / ((double) RAND_MAX);
-        classMu_grad[iclasses]  = 0.0;
-    }
-
-    /* Initialize theta and its gradient */
-    theta      = new double [ntheta];
-    theta_grad = new double [ntheta];
-    for (int itheta = 0; itheta < ntheta; itheta++)
-    {
-        // theta_open[idx]      = theta_init * (double) rand() / ((double) RAND_MAX);
-        theta[itheta]      = theta_init * (double) rand() / ((double) RAND_MAX); 
-        theta_grad[itheta] = 0.0; 
-    }
-
-    /* Initialize global design and gradient only on first processor. */
-    if (myid == MASTER_NODE)
-    {
-        global_design     = new double [ndesign];
-        global_design0    = new double [ndesign];
-        global_gradient   = new double [ndesign];
-        global_gradient0  = new double [ndesign];
-        descentdir        = new double [ndesign];
-        for (int idesign = 0; idesign < ndesign; idesign++)
-        {
-            global_design[idesign]    = 0.0;
-            global_design0[idesign]   = 0.0;
-            global_gradient[idesign]  = 0.0;
-            global_gradient0[idesign] = 0.0;
-            descentdir[idesign]       = 0.0; 
-        }
-        concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
-    }
-
-    /* Initialize the network layers */
-    layer     = new DenseLayer(nchannels, activation, dactivation);
-
-    /* Initialize the opening layer */
-    if (apply_openlayer)
-    {
-        openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
-        openlayer->setWeights(theta_open);
-        openlayer->setWeights_bar(theta_open_grad);
-        openlayer->setBias(&(theta_open[nfeatures*nchannels]));
-        openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
-    }
-    else
-    {
-        openlayer = new OpenLayer(nchannels, nfeatures, NULL, NULL);
-    }
-        
-
-    /* Set up the app structure */
+    /* Initialize xbraid's app structure */
     app = (my_App *) malloc(sizeof(my_App));
     app->myid            = myid;
     app->Ytrain          = Ytrain;
@@ -510,13 +495,14 @@ int main (int argc, char *argv[])
     app->nfeatures       = nfeatures;
     app->nclasses        = nclasses;
     app->nchannels       = nchannels;
+    app->ntheta_open     = ntheta_open;
     app->nlayers         = nlayers;
     app->layer           = layer;
     app->openlayer       = openlayer;
     app->gamma_theta_tik = gamma_theta_tik;
     app->gamma_theta_ddt = gamma_theta_ddt;
     app->gamma_class     = gamma_class;
-    app->deltaT          = deltaT;
+    app->deltaT          = T /(double)nlayers; 
     app->loss            = 0.0;
     app->class_regul     = 0.0;
     app->theta_regul     = 0.0;
@@ -806,7 +792,10 @@ int main (int argc, char *argv[])
 
         /* On Masternode: Get gradient data from app and put it into global_gradient */
     igrad = 0;
-    MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+    if (apply_openlayer)
+    {
+        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+    }
     igrad += ntheta_open;
     MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
     igrad += ntheta;
@@ -884,8 +873,11 @@ int main (int argc, char *argv[])
     }
     delete [] theta;
     delete [] theta_grad;
-    delete [] theta_open;
-    delete [] theta_open_grad;
+    if (apply_openlayer)
+    {
+        delete [] theta_open;
+        delete [] theta_open_grad;
+    }
     delete [] classW;
     delete [] classW_grad;
     delete [] classMu;

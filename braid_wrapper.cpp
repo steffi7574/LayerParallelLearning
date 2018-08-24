@@ -383,7 +383,7 @@ my_ObjectiveT(braid_App              app,
     if (ts == 0)
     {
         /* Compute regularization term for opening layer */
-        obj = app->gamma_theta_tik * tikhonov_regul(app->theta_open, nfeatures * nchannels + 1);
+        obj = app->gamma_theta_tik * tikhonov_regul(app->theta_open, app->ntheta_open);
         app->theta_regul += obj;
     }
     else
@@ -432,8 +432,8 @@ my_ObjectiveT_diff(braid_App            app,
     int nlayers    = app->nlayers;
     int nclasses  = app->nclasses;
     int nfeatures = app->nfeatures;
+    int ntheta_open = app->ntheta_open;
     int ntheta    = (nchannels * nchannels + 1 ) * nlayers;
-    int ntheta_open = nfeatures * nchannels + 1;
     int nstate    = nchannels * ntraining;
     int nclassW   = nchannels*nclasses;
     int nclassmu  = nclasses;
@@ -496,7 +496,7 @@ my_ObjectiveT_diff(braid_App            app,
     if (ts == 0)
     {
         /* Compute regularization term for opening layer */
-        obj = app->gamma_theta_tik * tikhonov_regul(theta_open, nfeatures * nchannels + 1);
+        obj = app->gamma_theta_tik * tikhonov_regul(theta_open, ntheta_open);
     }
     else 
     {

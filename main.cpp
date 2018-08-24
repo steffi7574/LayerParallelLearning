@@ -391,7 +391,7 @@ int main (int argc, char *argv[])
     else
     {
         ntheta_open = 0;
-        openlayer = new OpenLayer(nchannels, nfeatures, NULL, NULL);
+        openlayer = new OpenLayerZero(nchannels, nfeatures);
     }
 
     /* Initialize a general network layer and all weights */

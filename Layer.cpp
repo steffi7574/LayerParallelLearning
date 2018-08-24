@@ -128,6 +128,12 @@ void DenseLayer::applyBWD(double* data,
 }
 
 
+OpenLayer::OpenLayer() : Layer() 
+{
+   nfeatures = 0;
+   inputData = NULL;
+}
+
 OpenLayer::OpenLayer(int nChannels,
                      int nFeatures, 
                      double (*Activ)(double x),
@@ -148,29 +154,14 @@ void OpenLayer::setInputData(double* inputdata_ptr)
 
 void OpenLayer::applyFWD(double* data)
 {
-   /* If activation is not set, just expand the data to the network width using zeros */
-   if (activation == NULL)
+   for (int ichannel = 0; ichannel < nchannels; ichannel++)
    {
-      for (int ichannel = 0; ichannel < nchannels; ichannel++)
-      {
-         if (ichannel < nfeatures) data[ichannel] = inputData[ichannel];
-         else                      data[ichannel] = 0.0;
-      }
-   }
-   else
-   {
-      /* If activation is set, apply sigma(Ky+b) for each channel */
-      for (int ichannel = 0; ichannel < nchannels; ichannel++)
-      {
-         /* Apply weights */
-         data[ichannel] = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
-
-         /* Add bias */
-         data[ichannel] += bias[0];
-
-         /* apply activation */
-         data[ichannel] = activation(data[ichannel]);
-      }
+      /* Apply weights */
+      data[ichannel] = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
+      /* Add bias */
+      data[ichannel] += bias[0];
+      /* apply activation */
+      data[ichannel] = activation(data[ichannel]);
    }
 }
 
@@ -178,30 +169,52 @@ void OpenLayer::applyFWD(double* data)
 void OpenLayer::applyBWD(double* data, 
                          double* data_bar)
 {
-   if (activation == NULL)
+   /* Backward propagation for each channel */
+   for (int ichannel = 0; ichannel < nchannels; ichannel++)
    {
-      /* Do nothing */
-   }
-   else
-   {
-      /* Backward propagation for each channel */
-      for (int ichannel = 0; ichannel < nchannels; ichannel++)
+      /* Recompute update[ichannel] */
+      update[ichannel]  = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
+      update[ichannel] += bias[0]; 
+
+      /* Derivative of activation function */
+      data_bar[ichannel] = dactivation(update[ichannel]) * data_bar[ichannel];
+      
+      /* Derivative of bias addition */
+      bias_bar[0] += data_bar[ichannel];
+      
+      /* Derivative of weight application */
+      for (int jfeatures = 0; jfeatures < nfeatures; jfeatures++)
       {
-         /* Recompute update[ichannel] */
-         update[ichannel]  = vecdot(nfeatures, &(weights[ichannel*nfeatures]), inputData);
-         update[ichannel] += bias[0];
-
-         /* Derivative of activation function */
-         data_bar[ichannel] = dactivation(update[ichannel]) * data_bar[ichannel];
-
-         /* Derivative of bias addition */
-         bias_bar[0] += data_bar[ichannel];
-
-         /* Derivative of weight application */
-         for (int jfeatures = 0; jfeatures < nfeatures; jfeatures++)
-         {
-            weights_bar[ichannel*nfeatures + jfeatures] += inputData[jfeatures] * data_bar[ichannel];
-         }
-      } 
+         weights_bar[ichannel*nfeatures + jfeatures] += inputData[jfeatures] * data_bar[ichannel];
+      }
    }
 }                      
+
+OpenLayerZero::OpenLayerZero(int nChannels,
+                             int nFeatures) : OpenLayer()
+{
+   nchannels = nChannels;
+   nfeatures = nFeatures;
+}
+
+
+
+OpenLayerZero::~OpenLayerZero(){}
+
+
+void OpenLayerZero::applyFWD(double* data)
+{
+   for (int ichannel = 0; ichannel < nchannels; ichannel++)
+   {
+      if (ichannel < nfeatures) data[ichannel] = inputData[ichannel];
+      else                      data[ichannel] = 0.0;
+   }
+}
+
+
+
+void OpenLayerZero::applyBWD(double* data, 
+                           double* data_bar)
+{
+   /* Do nothing */
+}                        

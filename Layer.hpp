@@ -94,6 +94,7 @@ class OpenLayer : public Layer{
       double *inputData;      /* Pointer to the input data */
 
    public:
+      OpenLayer();
       OpenLayer(int nChannels,
                 int nFeatures,
                 double (*Activ)(double x),
@@ -106,4 +107,18 @@ class OpenLayer : public Layer{
 
       void applyBWD(double* data, 
                     double* data_bar);
+};
+
+
+class OpenLayerZero : public OpenLayer 
+{
+      public:
+            OpenLayerZero(int nChannels,
+                          int nFeatures);
+            ~OpenLayerZero();
+
+            void applyFWD(double* data);
+
+            void applyBWD(double* data, 
+                          double* data_bar);
 };

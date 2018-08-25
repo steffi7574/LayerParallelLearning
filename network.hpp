@@ -8,7 +8,7 @@ class Network
 {
    protected:
       int     nlayers;         /* Total number of Layers */
-      int     nexamples;       /* Number of data elements */
+      int     nexamples;       /* Number of input data examples */
 
       Layer*  openlayer;       /* First Layer of the network */
       Layer** layers;          /* Array of intermediat network layers */
@@ -19,14 +19,14 @@ class Network
    public: 
       Network();
       Network(int    nLayers,
-              int    nexamples,
-              int    nchannels, 
-              int    nfeatures,
-              int    nclasses,
-              int    activation,
-              double weight_init,
-              double weight_open_init,
-              double classification_init);
+              int    nExamples,
+              int    nChannels, 
+              int    nFeatures,
+              int    nClasses,
+              int    Activation,
+              double Weight_init,
+              double Weight_open_init,
+              double Classification_init);
       ~Network();
 
       /* ReLu Activation and derivative */

@@ -6,6 +6,7 @@ Layer::Layer()
    dim_Out      = 0;
    dim_Bias     = 0;
 
+   index        = 0;
    dt           = 0.0;
    weights      = NULL;
    weights_bar  = NULL;
@@ -104,8 +105,7 @@ void DenseLayer::applyBWD(double* data_In,
    /* Backward propagation for each channel */
    for (int io = 0; io < dim_Out; io++)
    {
-
-      
+     
       /* Derivative of the update */
       if (index != 0)
       {
@@ -183,7 +183,15 @@ ClassificationLayer::~ClassificationLayer(){}
 void ClassificationLayer::applyFWD(double* data_In, 
                                    double* data_Out)
 {
-   /* TODO */
+    /* Compute update for each channel */
+    for (int io = 0; io < dim_Out; io++)
+    {
+        /* Apply weights */
+        data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+  
+        /* Add bias */
+        data_Out[io] += bias[io];
+    }
 }                           
       
 void ClassificationLayer::applyBWD(double* data_In,
@@ -191,5 +199,20 @@ void ClassificationLayer::applyBWD(double* data_In,
                                    double* data_In_bar,
                                    double* data_Out_bar)
 {
-   /* TODO */
+    /* Backward propagation for each channel */
+    for (int io = 0; io < dim_Out; io++)
+    {
+       /* Derivative of bias addition */
+        bias_bar[io] += data_Out_bar[io];
+  
+        /* Derivative of weight application */
+        for (int ji = 0; ji < dim_In; ji++)
+        {
+           data_In_bar[ji] += weights[io*dim_In + ji] * data_Out_bar[io];
+           weights_bar[io*dim_In + ji] += data_In[ji] * data_Out_bar[io];
+        }
+  
+        /* Reset */
+        data_Out_bar[io] = 0.0;
+    }   
 }           

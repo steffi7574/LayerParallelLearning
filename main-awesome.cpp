@@ -55,7 +55,6 @@ int main (int argc, char *argv[])
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
-    int      apply_openlayer;   /**< Flag: apply opening layer (1) or just expand data with zero (0) */
     int      activation;        /**< Determin the activation function */
     Network *network;           /**< DNN Network architecture */
 
@@ -88,7 +87,6 @@ int main (int argc, char *argv[])
     nlayers           = 32;
     T                 = 10.0;
     activation        = Network::RELU;
-    apply_openlayer   = 1;
     braid_cfactor     = 4;
     braid_maxlevels   = 10;
     braid_maxiter     = 3;
@@ -174,17 +172,6 @@ int main (int argc, char *argv[])
                 printf("Invalid activation function!");
                 MPI_Finalize();
                 return(0);
-            }
-        }
-        else if ( strcmp(co->key, "apply_openlayer") == 0 )
-        {
-            if ( strcmp(co->value, "YES") == 0 )
-            {
-                apply_openlayer = 1;
-            }
-            else
-            {
-                apply_openlayer = 0;
             }
         }
         else if ( strcmp(co->key, "T") == 0 )

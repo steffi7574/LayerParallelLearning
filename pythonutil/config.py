@@ -194,7 +194,6 @@ def read_config(filename):
 
             # Put all STRING option here
             if case("activation") or \
-               case("openinglayer") or \
                case("hessian_approx") :
                data_dict[this_param] = this_value
                break

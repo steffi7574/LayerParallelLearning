@@ -49,10 +49,10 @@ Network::Network(int    nLayers,
    }
 
    /* Create the intermediate layers */
-   layers = new Layer*[nlayers];
+   layers = new Layer*[nlayers-2];
    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
    {
-      layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, activation, dactivation);
+      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, activation, dactivation);
    }
 
    /* Create the end layer */
@@ -61,12 +61,13 @@ Network::Network(int    nLayers,
 
 Network::~Network()
 {
-   /* Delete the layers */
-   delete openlayer;
-   for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
-   {
-      delete layers[ilayer];
-   }
+    /* Delete the layers */
+    delete openlayer;
+    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    {
+       delete layers[ilayer-1];
+    }
+    delete [] layers;
     delete endlayer;
 }
 

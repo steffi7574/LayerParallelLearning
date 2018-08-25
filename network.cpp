@@ -8,7 +8,6 @@ Network::Network()
 }
 
 Network::Network(int    nLayers,
-                 int    nExamples,
                  int    nChannels, 
                  int    nFeatures,
                  int    nClasses,
@@ -18,20 +17,20 @@ Network::Network(int    nLayers,
                  double Classification_init)
 {
    nlayers   = nLayers;
-   nexamples = nExamples;
    
-   double (*activation)(double x);
-   double (*dactivation)(double x);
+   double (*activ_ptr)(double x);
+   double (*dactiv_ptr)(double x);
 
+   /* Set the activation function */
    switch ( Activation )
    {
       case RELU:
-          activation  = &Network::ReLu_act;
-          dactivation = &Network::dReLu_act;
+          activ_ptr  = &Network::ReLu_act;
+          dactiv_ptr = &Network::dReLu_act;
          break;
       case TANH:
-         activation  = &Network::tanh_act;
-         dactivation = &Network::dtanh_act;
+         activ_ptr  = &Network::tanh_act;
+         dactiv_ptr = &Network::dtanh_act;
          break;
       default:
          printf("ERROR: You should specify an activation function!\n");
@@ -45,14 +44,14 @@ Network::Network(int    nLayers,
    }
    else
    {
-      openlayer = new DenseLayer(0, nFeatures, nChannels, activation, dactivation);
+      openlayer = new DenseLayer(0, nFeatures, nChannels, activ_ptr, dactiv_ptr);
    }
 
    /* Create the intermediate layers */
    layers = new Layer*[nlayers-2];
    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
    {
-      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, activation, dactivation);
+      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, activ_ptr, dactiv_ptr);
    }
 
    /* Create the end layer */

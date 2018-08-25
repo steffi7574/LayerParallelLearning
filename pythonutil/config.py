@@ -186,9 +186,9 @@ def read_config(filename):
                case("stepsize") or \
                case("gtol") or \
                case("ls_factor") or \
-               case("theta_open_init") or \
-               case("theta_init") or \
-               case("class_init") :
+               case("weights_open_init") or \
+               case("weights_init") or \
+               case("weights_class_init") :
                data_dict[this_param] = float(this_value)
                break
 

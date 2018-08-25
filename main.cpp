@@ -37,9 +37,9 @@ int main (int argc, char *argv[])
     double  *classW_grad;      /**< Gradient wrt the classification weights */
     double  *classMu;          /**< Bias of the classification problem, applied at last layer */
     double  *classMu_grad;     /**< Gradient wrt the classification bias */
-    double   theta_init;       /**< Factor to scale the initial theta weights and biases */
-    double   theta_open_init;  /**< Factor to scale the initial opening layer weights and biases */
-    double   class_init;       /**< Factor to scale the initial classification weights and biases */
+    double   weights_init;       /**< Factor to scale the initial theta weights and biases */
+    double   weights_open_init;  /**< Factor to scale the initial opening layer weights and biases */
+    double   weights_class_init;       /**< Factor to scale the initial classification weights and biases */
     double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
@@ -151,9 +151,9 @@ int main (int argc, char *argv[])
     gtol              = 1e-08;
     ls_maxiter        = 20;
     ls_factor         = 0.5;
-    theta_open_init   = 0.001;
-    theta_init        = 0.0;
-    class_init        = 0.001;
+    weights_open_init   = 0.001;
+    weights_init        = 0.0;
+    weights_class_init        = 0.001;
     hessian_approx    = USE_LBFGS;
     lbfgs_stages      = 20;
 
@@ -312,17 +312,17 @@ int main (int argc, char *argv[])
         {
            ls_factor = atof(co->value);
         }
-        else if ( strcmp(co->key, "theta_open_init") == 0 )
+        else if ( strcmp(co->key, "weights_open_init") == 0 )
         {
-           theta_open_init = atof(co->value);
+           weights_open_init = atof(co->value);
         }
-        else if ( strcmp(co->key, "theta_init") == 0 )
+        else if ( strcmp(co->key, "weights_init") == 0 )
         {
-           theta_init = atof(co->value);
+           weights_init = atof(co->value);
         }
-        else if ( strcmp(co->key, "class_init") == 0 )
+        else if ( strcmp(co->key, "weights_class_init") == 0 )
         {
-           class_init = atof(co->value);
+           weights_class_init = atof(co->value);
         }
         else if ( strcmp(co->key, "hessian_approx") == 0 )
         {
@@ -379,7 +379,7 @@ int main (int argc, char *argv[])
         theta_open_grad  = new double [ntheta_open];
         for (int i = 0; i < ntheta_open; i++)
         {
-                theta_open[i]      = theta_open_init * (double) rand() / ((double) RAND_MAX);
+                theta_open[i]      = weights_open_init * (double) rand() / ((double) RAND_MAX);
                 theta_open_grad[i] = 0.0;
         }
 
@@ -401,7 +401,7 @@ int main (int argc, char *argv[])
     theta_grad = new double [ntheta];
     for (int i = 0; i < ntheta; i++)
     {
-        theta[i]      = theta_init * (double) rand() / ((double) RAND_MAX); 
+        theta[i]      = weights_init * (double) rand() / ((double) RAND_MAX); 
         theta_grad[i] = 0.0; 
     }
 
@@ -415,12 +415,12 @@ int main (int argc, char *argv[])
     classMu_grad = new double [nclasses];
     for (int i = 0; i < nchannels * nclasses; i++)
     {
-        classW[i]      = class_init * (double) rand() / ((double) RAND_MAX); 
+        classW[i]      = weights_class_init * (double) rand() / ((double) RAND_MAX); 
         classW_grad[i] = 0.0; 
     }
     for (int i = 0; i < nclasses; i++)
     {
-        classMu[i]      = class_init * (double) rand() / ((double) RAND_MAX);
+        classMu[i]      = weights_class_init * (double) rand() / ((double) RAND_MAX);
         classMu_grad[i] = 0.0;
     }
 
@@ -578,9 +578,9 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                gtol            %1.e \n", gtol);
         fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
         fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
-        fprintf(optimfile, "#                theta_init      %f \n", theta_init);
-        fprintf(optimfile, "#                theta_open_init %f \n", theta_open_init);
-        fprintf(optimfile, "#                class_init      %f \n", class_init);
+        fprintf(optimfile, "#                weights_init      %f \n", weights_init);
+        fprintf(optimfile, "#                weights_open_init %f \n", weights_open_init);
+        fprintf(optimfile, "#                weights_class_init      %f \n", weights_class_init);
         fprintf(optimfile, "#                hessian_approx  %d \n", hessian_approx);
         fprintf(optimfile, "#                lbfgs_stages    %d \n", lbfgs_stages);
         fprintf(optimfile, "\n");

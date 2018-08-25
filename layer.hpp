@@ -13,8 +13,8 @@
 class Layer 
 {
    protected:
-      int dim_In;                          /* Dimension of incoming examples */
-      int dim_Out;                         /* Dimension of outgoing examples */
+      int dim_In;                          /* Dimension of incoming data */
+      int dim_Out;                         /* Dimension of outgoing data */
       int dim_Bias;                        /* Dimension of the bias vector */
 
       int     index;                       /* Number of the layer */
@@ -38,6 +38,12 @@ class Layer
 
       /* Set time step size */
       void setDt(double DT);
+
+      /**
+       * Initialize the layer, e.g. set initial weights and bias and gradients
+       * Init random, scaled by a factor (gradient zero)
+       */
+      void initialize(double factor);
 
       /**
        * Forward propagation of an example 

@@ -9,6 +9,7 @@ class Network
 {
    protected:
       int     nlayers;         /* Total number of Layers */
+      int     nchannels;       /* Width of the network */
 
       Layer*  openlayer;       /* First Layer of the network */
       Layer** layers;          /* Array of intermediat network layers */
@@ -26,6 +27,18 @@ class Network
               double Weight_open_init,
               double Classification_init);
       ~Network();
+
+      /**
+       * Forward propagation through the network
+       * In: - number of examples
+       *     - Pointer to input data, is NULL for all but the first processor!
+       *     - Pointer to data labels, is NULL for all but the last processor!
+       *     - time step size 
+       */
+      void applyFWD(int     nexamples,
+                    double **examples,
+                    double **labels,
+                    double  deltat);
 
       /* ReLu Activation and derivative */
       static double ReLu_act(double x);

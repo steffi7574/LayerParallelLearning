@@ -2,9 +2,10 @@
 
 Network::Network()
 {
-   nlayers  = 0;
-   layers   = NULL;
-   endlayer = NULL;
+   nlayers   = 0;
+   nchannels = 0;
+   layers    = NULL;
+   endlayer  = NULL;
 }
 
 Network::Network(int    nLayers,
@@ -17,6 +18,7 @@ Network::Network(int    nLayers,
                  double Classification_init)
 {
    nlayers   = nLayers;
+   nchannels = nChannels;
    
    double (*activ_ptr)(double x);
    double (*dactiv_ptr)(double x);
@@ -37,7 +39,7 @@ Network::Network(int    nLayers,
          printf("GO HOME AND GET SOME SLEEP!");
    }
 
-   /* Create the opening layer */
+   /* Create and initialize the opening layer */
    if (Weight_open_init == 0.0)
    {
       openlayer = new OpenExpandZero(nFeatures, nChannels);
@@ -46,16 +48,19 @@ Network::Network(int    nLayers,
    {
       openlayer = new DenseLayer(0, nFeatures, nChannels, activ_ptr, dactiv_ptr);
    }
+   openlayer->initialize(Weight_open_init);
 
-   /* Create the intermediate layers */
+   /* Create and initialize the intermediate layers */
    layers = new Layer*[nlayers-2];
    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
    {
       layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, activ_ptr, dactiv_ptr);
+      layers[ilayer-1]->initialize(Weight_init);
    }
 
-   /* Create the end layer */
+   /* Create and initialize the end layer */
    endlayer = new ClassificationLayer(nLayers, nChannels, nClasses);
+   endlayer->initialize(Classification_init);
 }              
 
 Network::~Network()
@@ -68,6 +73,29 @@ Network::~Network()
     }
     delete [] layers;
     delete endlayer;
+}
+
+void Network::applyFWD(int      nexamples,
+                       double **examples,
+                       double **labels,
+                       double   deltat)
+{
+    // double* state = new double[nchannels];
+
+    // /* Propagate the example */
+    // for (int iex = 0; iex < nexamples; iex++)
+    // {
+    //     openlayer->applyFWD(examples[iex], state);
+
+    //     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    //     {
+    //         // layers[ilayer-1]->applyFWD(state, state);
+    //     }
+    //     // endlayer->applyFWD()
+
+    // }
+
+    // delete [] state;
 }
 
 double Network::ReLu_act(double x)

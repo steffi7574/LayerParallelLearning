@@ -51,6 +51,21 @@ void Layer::setDt(double DT)
 }
 
 
+void Layer::initialize(double factor)
+{
+    for (int i = 0; i < dim_Out * dim_In; i++)
+    {
+        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        weights_bar[i] = 0.0;
+    }
+    for (int i = 0; i < dim_Bias; i++)
+    {
+        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        bias_bar[i] = 0.0;
+    }
+}
+
+
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
                        int     dimO,

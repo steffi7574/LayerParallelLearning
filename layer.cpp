@@ -56,14 +56,7 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimO,
                        double (*Activ)(double x),
                        double  (*dActiv)(double x)) : Layer(idx, dimI, dimO, 1, Activ, dActiv)
-{
-   if (dimI != dimO)
-   {
-      printf("\nERROR! Check dimensions!\n ");
-      printf("Linear Transformation of a dense layer should use a SQUARE matrix.\n");
-      exit(1);
-   }
-}
+{}
    
 DenseLayer::~DenseLayer() {}
 

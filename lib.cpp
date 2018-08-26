@@ -382,35 +382,39 @@ split_into_4vectors(double *globalvec,
     return 0;
 }
 
-template <typename myDouble> 
-int
-read_data(char *filename, myDouble *var, int size)
+void read_data(char    *filename, 
+               double **var, 
+               int      dimx, 
+               int      dimy)
 {
-
    FILE   *file;
    double  tmp;
-   int     i;
 
-   /* open file */
-   file = fopen(filename, "r");
+   var = new double* [dimx];
+   for (int ix = 0; ix<dimx; ix++)
+   {
+       var[ix] = new double[dimy];
+   }
 
    /* Read data */
+   file = fopen(filename, "r");
    if (file == NULL)
    {
       printf("Can't open %s \n", filename);
       exit(1);
    }
    printf("Reading file %s\n", filename);
-   for ( i = 0; i < size; i++)
+   for (int ix = 0; ix < dimx; ix++)
    {
-      fscanf(file, "%lf", &tmp);
-      var[i] = tmp;
+       for (int iy = 0; iy < dimy; iy++)
+       {
+            fscanf(file, "%lf", &tmp);
+            var[ix][iy] = tmp;
+       }
    }
 
    /* close file */
    fclose(file);
-
-   return 0;
 }
 
 template <typename myDouble>
@@ -456,9 +460,6 @@ getValue(RealReverse value)
 
 
 /* Explicit instantiation of the template functions */
-template int read_data<double>(char *filename, double *var, int size);
-template int read_data<RealReverse>(char *filename, RealReverse *var, int size);
-
 template int write_data<double>(char *filename, double *var, int size);
 template int write_data<RealReverse>(char *filename, RealReverse *var, int size);
 

@@ -19,6 +19,7 @@ Network::Network(int    nLayers,
 {
    nlayers   = nLayers;
    nchannels = nChannels;
+   nclasses  = nClasses;
    
    double (*activ_ptr)(double x);
    double (*dactiv_ptr)(double x);
@@ -80,22 +81,34 @@ void Network::applyFWD(int      nexamples,
                        double **labels,
                        double   deltat)
 {
-    // double* state = new double[nchannels];
+    double* state       = new double[nchannels];
+    double* state_old   = new double[nchannels];
+    double* state_final = new double[nclasses];
 
-    // /* Propagate the example */
-    // for (int iex = 0; iex < nexamples; iex++)
-    // {
-    //     openlayer->applyFWD(examples[iex], state);
+    /* Propagate the example */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Map data onto the network width */
+        openlayer->applyFWD(examples[iex], state);
 
-    //     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
-    //     {
-    //         // layers[ilayer-1]->applyFWD(state, state);
-    //     }
-    //     // endlayer->applyFWD()
+        for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+        {
+            /* Store old state */
+            for (int ichannels = 0; ichannels < nchannels; ichannels++)
+            {
+                state_old[ichannels] = state[ichannels];
+            } 
+            /* Apply the layer */
+            layers[ilayer-1]->applyFWD(state_old, state);
 
-    // }
+        }
+        /* classification */
+        endlayer->applyFWD(state, state_final);
+    }
 
-    // delete [] state;
+    delete [] state;
+    delete [] state_old;
+    delete [] state_final;
 }
 
 double Network::ReLu_act(double x)

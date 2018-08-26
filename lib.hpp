@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "braid_wrapper.hpp"
+//#include "braid_wrapper.hpp"
 #include "codi.hpp"
 using namespace codi;
 
@@ -147,11 +147,10 @@ split_into_4vectors(double *globalvec,
 /**
  * Read data from file 
  */
-template <typename myDouble> 
-int
-read_data(char   *filename, 
-          myDouble *var, 
-          int     size);
+void read_data(char *filename, 
+               double** var, 
+               int dimx, 
+               int dimy);
 
 /**
  * Write data to file

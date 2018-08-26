@@ -10,6 +10,7 @@ class Network
    protected:
       int     nlayers;         /* Total number of Layers */
       int     nchannels;       /* Width of the network */
+      int     nclasses;        /* Number of classes */
 
       Layer*  openlayer;       /* First Layer of the network */
       Layer** layers;          /* Array of intermediat network layers */

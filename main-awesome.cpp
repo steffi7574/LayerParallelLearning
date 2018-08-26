@@ -19,19 +19,20 @@
 
 int main (int argc, char *argv[])
 {
-    double  *Ytrain = NULL;    /**< Traning data set */
-    double  *Ctrain = NULL;    /**< Classes of the training data set */
-    double  *Yval = NULL;      /**< Validation data set */
-    double  *Cval = NULL;      /**< Classes of the validation data set */
-    double   theta_init;       /**< Factor to scale the initial theta weights and biases */
-    double   theta_open_init;  /**< Factor to scale the initial opening layer weights and biases */
-    double   weights_class_init;       /**< Factor to scale the initial classification weights and biases */
+    int      ntraining;               /**< Number of elements in training data */
+    int      nvalidation;             /**< Number of elements in validation data */
+    double **train_examples = NULL;   /**< Traning examples */
+    double **train_labels   = NULL;   /**< Training labels*/
+    double **val_examples   = NULL;   /**< Validation examples */
+    double **val_labels     = NULL;   /**< Validation labels*/
+
+    double   theta_init;         /**< Factor to scale the initial theta weights and biases */
+    double   theta_open_init;    /**< Factor to scale the initial opening layer weights and biases */
+    double   weights_class_init; /**< Factor to scale the initial classification weights and biases */
     double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
     double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
     int      nclasses;          /**< Number of classes / Clabels */
-    int      ntraining;         /**< Number of examples in the training data */
-    int      nvalidation;       /**< Number of examples in the validation data */
     int      nfeatures;         /**< Number of features in the data set */
     int      nlayers;            /**< Number of layers / time steps */
     int      nchannels;         /**< Number of channels of the netword (width) */
@@ -57,12 +58,8 @@ int main (int argc, char *argv[])
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
     int      activation;        /**< Determin the activation function */
     Network *network;           /**< DNN Network architecture */
-
-    char     Ytrain_file[255];
-    char     Ctrain_file[255];
-    char     Yval_file[255];
-    char     Cval_file[255];
     double StartTime;
+
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -71,10 +68,14 @@ int main (int argc, char *argv[])
     StartTime = MPI_Wtime();
 
     /* Input data file names */
-    sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
-    sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
-    sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
-    sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
+    char     train_ex_filename[255];
+    char     train_lab_filename[255];
+    char     val_ex_filename[255];
+    char     val_lab_filename[255];
+    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
+    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
+    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
+    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
     
 
     /* --- Set DEFAULT parameters for the config option --- */ 
@@ -296,34 +297,52 @@ int main (int argc, char *argv[])
     /* Read the training and validation data  */
     if (myid == MASTER_NODE)  // Input data is only needed on first processor 
     {
-        Ytrain = new double [ntraining   * nfeatures];
-        Yval   = new double [nvalidation * nfeatures];
-        read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-        read_data(Yval_file,   Yval,   nvalidation * nfeatures);
+        read_data(train_ex_filename, train_examples, ntraining, nfeatures);
+        read_data(val_ex_filename,   val_examples,   nvalidation, nfeatures);
     }
     if (myid == size - 1) // Labels are only needed on last layer 
     {
-        Ctrain = new double [ntraining   * nclasses];
-        Cval   = new double [nvalidation * nclasses];
-        read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
-        read_data(Cval_file,   Cval,   nvalidation * nclasses);
+        read_data(train_lab_filename, train_labels, ntraining,   nclasses);
+        read_data(val_lab_filename,   val_labels,   nvalidation, nclasses);
     }
 
     /* Create the network */
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, theta_init, theta_open_init, weights_class_init);
+
+    /* Propagate forward */
+    double deltaT = T/nlayers;
+    network->applyFWD(ntraining, train_examples, train_labels, deltaT);
+
+
 
 
     /* Clean up */
     delete network;
     if (myid == MASTER_NODE)
     {
-        delete [] Ytrain;
-        delete [] Yval;
+        for (int i=0; i<ntraining; i++)
+        {
+            delete [] train_examples[i];
+        }
+        delete [] train_examples;
+        for (int i=0; i<nvalidation; i++)
+        {
+            delete [] val_examples[i];
+        }
+        delete [] val_examples;
     }
     if (myid == size -1)
     {
-        delete [] Ctrain;
-        delete [] Cval;
+        for (int i=0; i<ntraining; i++)
+        {
+            delete [] train_labels[i];
+        }
+        delete [] train_labels;
+        for (int i=0; i<nvalidation; i++)
+        {
+            delete [] val_labels[i];
+        }
+        delete [] val_labels;
     }
 
 

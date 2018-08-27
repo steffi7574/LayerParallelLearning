@@ -15,18 +15,17 @@ class Network
    protected:
       int     nlayers;         /* Total number of Layers */
       int     nchannels;       /* Width of the network */
-      int     nclasses;        /* Number of classes */
       double  dt;              /* Time step size */
       double  gamma_tik;       /* Parameter for tikhonov regularization */
       double  gamma_ddt;       /* Parameter for ddt-regularization */
 
-      Layer*  openlayer;       /* First Layer of the network */
-      Layer** layers;          /* Array of intermediat network layers */
-      Layer*  endlayer;        /* Last layer of the network */
       double  loss;            /* Value of the loss function */
       double  accuracy;        /* Accuracy of the network prediction (percentage of successfully predicted classes) */
 
    public: 
+      Layer*  openlayer;       /* First Layer of the network */
+      Layer** layers;          /* Array of intermediat network layers */
+      Layer*  endlayer;        /* Last layer of the network */
       enum activation{ RELU, TANH};  /* Available activation functions */
       Network();
       Network(int    nLayers,
@@ -41,6 +40,9 @@ class Network
               double Weight_open_init,
               double Classification_init);
       ~Network();
+
+      /* Get dimensions */
+      int getnChannels();
 
       /**
        * Forward propagation through the network

@@ -4,7 +4,6 @@ Network::Network()
 {
    nlayers     = 0;
    nchannels   = 0;
-   nclasses    = 0;
    dt          = 0.0;
    gamma_tik   = 0.0;
    gamma_ddt   = 0.0;
@@ -34,7 +33,6 @@ Network::Network(int    nLayers,
 {
    nlayers   = nLayers;
    nchannels = nChannels;
-   nclasses  = nClasses;
    dt        = deltaT;
    gamma_tik = gammaTIK;
    gamma_ddt = gammaDDT;
@@ -86,9 +84,9 @@ Network::Network(int    nLayers,
 
 
    /* Allocate temporary vectors */
-    state_curr  = new double[nchannels];
-    state_old   = new double[nchannels];
-    state_final = new double[nclasses];
+    state_curr  = new double[nChannels];
+    state_old   = new double[nChannels];
+    state_final = new double[nClasses];
 }              
 
 Network::~Network()
@@ -106,6 +104,8 @@ Network::~Network()
     delete [] state_old;
     delete [] state_final;
 }
+
+int Network::getnChannels() { return nchannels; }
 
 void Network::applyFWD(int      nexamples,
                        double **examples,

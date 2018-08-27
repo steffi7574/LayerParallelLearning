@@ -20,6 +20,7 @@ Layer::Layer(int     idx,
              int     dimI,
              int     dimO,
              int     dimB,
+             double  deltaT,
              double (*Activ)(double x),
              double  (*dActiv)(double x))
 {
@@ -27,6 +28,7 @@ Layer::Layer(int     idx,
    dim_In      = dimI;
    dim_Out     = dimO;
    dim_Bias    = dimB;
+   dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
 
@@ -69,8 +71,9 @@ void Layer::initialize(double factor)
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
                        int     dimO,
+                       double  deltaT,
                        double (*Activ)(double x),
-                       double  (*dActiv)(double x)) : Layer(idx, dimI, dimO, 1, Activ, dActiv)
+                       double  (*dActiv)(double x)) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -146,7 +149,8 @@ void DenseLayer::applyBWD(double* data_In,
 
 
 OpenExpandZero::OpenExpandZero(int  dimI,
-                               int  dimO) : Layer(0, dimI, dimO, 1, NULL, NULL){}
+                               int  dimO,
+                               double  deltaT) : Layer(0, dimI, dimO, 1, deltaT, NULL, NULL){}
 
 
 OpenExpandZero::~OpenExpandZero(){}
@@ -183,7 +187,8 @@ void OpenExpandZero::applyBWD(double* data_In,
 
 ClassificationLayer::ClassificationLayer(int idx,
                                          int dimI,
-                                         int dimO) : Layer(idx, dimI, dimO, dimO, NULL, NULL){}
+                                         int dimO,
+                                         double  deltaT) : Layer(idx, dimI, dimO, dimO, deltaT, NULL, NULL){}
 
 ClassificationLayer::~ClassificationLayer(){}
 

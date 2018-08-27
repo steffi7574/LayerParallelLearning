@@ -13,6 +13,7 @@ Network::Network(int    nLayers,
                  int    nFeatures,
                  int    nClasses,
                  int    Activation,
+                 double deltaT,
                  double Weight_init,
                  double Weight_open_init,
                  double Classification_init)
@@ -43,11 +44,11 @@ Network::Network(int    nLayers,
    /* Create and initialize the opening layer */
    if (Weight_open_init == 0.0)
    {
-      openlayer = new OpenExpandZero(nFeatures, nChannels);
+      openlayer = new OpenExpandZero(nFeatures, nChannels, deltaT);
    }
    else
    {
-      openlayer = new DenseLayer(0, nFeatures, nChannels, activ_ptr, dactiv_ptr);
+      openlayer = new DenseLayer(0, nFeatures, nChannels, deltaT, activ_ptr, dactiv_ptr);
    }
    openlayer->initialize(Weight_open_init);
 
@@ -55,12 +56,12 @@ Network::Network(int    nLayers,
    layers = new Layer*[nlayers-2];
    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
    {
-      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, activ_ptr, dactiv_ptr);
+      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
       layers[ilayer-1]->initialize(Weight_init);
    }
 
    /* Create and initialize the end layer */
-   endlayer = new ClassificationLayer(nLayers, nChannels, nClasses);
+   endlayer = new ClassificationLayer(nLayers, nChannels, nClasses, deltaT);
    endlayer->initialize(Classification_init);
 }              
 
@@ -78,8 +79,7 @@ Network::~Network()
 
 void Network::applyFWD(int      nexamples,
                        double **examples,
-                       double **labels,
-                       double   deltat)
+                       double **labels)
 {
     double* state       = new double[nchannels];
     double* state_old   = new double[nchannels];
@@ -89,6 +89,7 @@ void Network::applyFWD(int      nexamples,
     for (int iex = 0; iex < nexamples; iex++)
     {
         /* Map data onto the network width */
+        printf("Openinglayer\n");
         openlayer->applyFWD(examples[iex], state);
 
         for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
@@ -99,10 +100,12 @@ void Network::applyFWD(int      nexamples,
                 state_old[ichannels] = state[ichannels];
             } 
             /* Apply the layer */
+            printf("layer %d\n", ilayer);
             layers[ilayer-1]->applyFWD(state_old, state);
 
         }
         /* classification */
+        printf("endlayer\n");
         endlayer->applyFWD(state, state_final);
     }
 
@@ -113,7 +116,7 @@ void Network::applyFWD(int      nexamples,
 
 double Network::ReLu_act(double x)
 {
-    return std::max(0.0, x); 
+    return std::max(0.0, x);
 }
 
 

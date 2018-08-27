@@ -24,6 +24,7 @@ class Network
               int    nFeatures,
               int    nClasses,
               int    Activation,
+              double deltaT,
               double Weight_init,
               double Weight_open_init,
               double Classification_init);
@@ -38,8 +39,7 @@ class Network
        */
       void applyFWD(int     nexamples,
                     double **examples,
-                    double **labels,
-                    double  deltat);
+                    double **labels);
 
       /* ReLu Activation and derivative */
       static double ReLu_act(double x);

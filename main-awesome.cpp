@@ -320,14 +320,14 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers,weights_init, weights_open_init, weights_class_init);
 
 
 
 
 
     /* Propagate forward */
-    network->applyFWD(ntraining, train_examples, train_labels, T/(double)nlayers);
+    network->applyFWD(ntraining, train_examples, train_labels);
 
 
 

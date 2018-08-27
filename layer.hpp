@@ -32,6 +32,7 @@ class Layer
             int     dimI,
             int     dimO,
             int     dimB,
+            double  deltaT,
             double (*Activ)(double x),
             double (*dActiv)(double x));     
       ~Layer();
@@ -74,8 +75,9 @@ class DenseLayer : public Layer {
       DenseLayer(int     idx,
                  int     dimI,
                  int     dimO,
+                 double  deltaT,
                  double (*Activ)(double x),
-                 double  (*dActiv)(double x));     
+                 double (*dActiv)(double x));     
       ~DenseLayer();
 
       void applyFWD(double* data_In, 
@@ -96,7 +98,8 @@ class OpenExpandZero : public Layer
 {
       public:
             OpenExpandZero(int     dimI,
-                           int     dimO);
+                           int     dimO,
+                           double  deltaT);
             ~OpenExpandZero();
 
             void applyFWD(double* data_In, 
@@ -117,7 +120,8 @@ class ClassificationLayer : public Layer
       public:
             ClassificationLayer(int idx,
                                 int dimI,
-                                int dimO);
+                                int dimO,
+                                double  deltaT);
             ~ClassificationLayer();
 
             void applyFWD(double* data_In, 

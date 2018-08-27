@@ -42,6 +42,8 @@ class Layer
       /* Set time step size */
       void setDt(double DT);
 
+      void print_data(double* data);
+
       /**
        * Initialize the layer, e.g. set initial weights and bias and gradients
        * Init random, scaled by a factor (gradient zero)

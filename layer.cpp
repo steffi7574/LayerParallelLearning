@@ -52,6 +52,16 @@ void Layer::setDt(double DT)
    dt = DT;
 }
 
+void Layer::print_data(double* data)
+{
+    printf("DATA: ");
+    for (int io = 0; io < dim_Out; io++)
+    {
+        printf("%1.14e ", data[io]);
+    }
+    printf("\n");
+}
+
 
 void Layer::initialize(double factor)
 {

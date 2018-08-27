@@ -1,53 +1,25 @@
-#ifndef BRAID_WRAPPER_HPP_INCLUDED
-#define BRAID_WRAPPER_HPP_INCLUDED
-
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "braid.h"
-#include "layer.hpp"
+#include "network.hpp"
+#pragma once
 
 /* Define the app structure */
 typedef struct _braid_App_struct
 {
-    int      myid;             /* Processor rank*/
-    double  *Ytrain;           /* Training data points of matlab's peak() function */
-    double  *Ctrain;           /* Training data: Label vectors (C) */
-    double  *Yval;             /* Validation data points of matlab's peak() function */
-    double  *Cval;             /* Validation data: Label vectors (C) */
-    double  *theta;            /* theta variables */
-    double  *theta_grad;       /* Gradient of objective function wrt theta */
-    double  *theta_open;       /* Weights and bias of the opening layer */
-    double  *theta_open_grad;  /* Gradient of the weights and bias of the opening layer */
-    double  *classW;           /* Weights of the classification problem (W) */
-    double  *classW_grad;      /* Gradient wrt the classification weights */
-    double  *classMu;          /* Bias of the classification problem (mu) */
-    double  *classMu_grad;     /* Gradient wrt the classification bias */
-    int      ntraining;        /* Elements of the training data */
-    int      nvalidation;      /* Elements of the validation data */
-    int      nfeatures;        /* Number of features in the training data */
-    int      nclasses;         /* Number of classes */
-    int      nchannels;        /* Width of the network */
-    int      ntheta_open;      /* Number of weights in opening layer (if zero, just expand the data with zeros) */
-    int      nlayers;          /* number of time-steps / layers */
-    Layer    *layer;           /* General layer architecture */
-    Layer    *openlayer;       /* Opening Layer architecture */
-    double   gamma_theta_tik;  /* Relaxation parameter for theta tikhonov */
-    double   gamma_theta_ddt;  /* Relaxation parameter for theta time-derivative */
-    double   gamma_class;      /* Relaxation parameter for the classification weights W and bias mu */
-    double   deltaT;           /* Time-step size on fine grid */
-    double   accuracy;         /* accur_train of the training data */
-    double   theta_regul;      /* Theta-Regularization term of the objective function */
-    double   class_regul;      /* Classifier-Regularization term of the objective function */
-    double   loss;             /* Loss term of the objective function */
-    int      training;         /* Flag, if training (1) or not (0) */
-    int      output;           /* Determine, if loss function writes to prediction.dat */
+    int      myid;       /* Processor rank*/
+    Network* network;    /* Pointer to the DNN Network */
+    int      nexamples;  /* Number of data examples */
+    double** examples;   /* Data examples */
+    double** labels;     /* Labels forthe data examples */
 } my_App;
 
 
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   double *Y;            /* Network state at one layer */
-
+   double **state;            /* Network state at one layer, dimensions: nexamples * nchannels */
 } my_Vector;
 
 
@@ -143,7 +115,3 @@ my_Step_diff(braid_App         app,
 
 int 
 my_ResetGradient(braid_App app);
-
-
-
-#endif // BRAID_WRAPPER_HPP_INCLUDED

@@ -62,6 +62,7 @@ Network::Network(int    nLayers,
       openlayer = new DenseLayer(0, nFeatures, nChannels, deltaT, activ_ptr, dactiv_ptr);
    }
    openlayer->initialize(Weight_open_init);
+   openlayer->setDt(1.0);
 
    /* Create and initialize the intermediate layers */
    layers = new Layer*[nlayers-2];

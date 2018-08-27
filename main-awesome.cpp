@@ -4,8 +4,9 @@
 #include <string.h>
 #include <mpi.h>
 
-#include "lib.hpp"
+// #include "lib.hpp"
 //#include "hessianApprox.hpp"
+#include "util.hpp"
 #include "layer.hpp"
 //#include "braid.h"
 //#include "braid_wrapper.hpp"
@@ -26,8 +27,8 @@ int main (int argc, char *argv[])
     double **val_examples   = NULL;   /**< Validation examples */
     double **val_labels     = NULL;   /**< Validation labels*/
 
-    double   theta_init;         /**< Factor to scale the initial theta weights and biases */
-    double   theta_open_init;    /**< Factor to scale the initial opening layer weights and biases */
+    double   weights_init;         /**< Factor to scale the initial theta weights and biases */
+    double   weights_open_init;    /**< Factor to scale the initial opening layer weights and biases */
     double   weights_class_init; /**< Factor to scale the initial classification weights and biases */
     double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
     double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
@@ -67,50 +68,41 @@ int main (int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
-    /* Input data file names */
-    char     train_ex_filename[255];
-    char     train_lab_filename[255];
-    char     val_ex_filename[255];
-    char     val_lab_filename[255];
-    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
-    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
-    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
-    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
     
 
     /* --- Set DEFAULT parameters for the config option --- */ 
 
-    ntraining         = 5000;
-    nvalidation       = 200;
-    nfeatures         = 2;
-    nclasses          = 5;
-    nchannels         = 8;
-    nlayers           = 32;
-    T                 = 10.0;
-    activation        = Network::RELU;
-    braid_cfactor     = 4;
-    braid_maxlevels   = 10;
-    braid_maxiter     = 3;
-    braid_abstol      = 1e-10;
-    braid_abstoladj   = 1e-06;
-    braid_printlevel  = 1;
-    braid_accesslevel = 0;
-    braid_setskip     = 0;
-    braid_fmg         = 0;
-    braid_nrelax      = 1;
-    gamma_theta_tik   = 1e-07;
-    gamma_theta_ddt   = 1e-07;
-    gamma_class       = 1e-05;
-    stepsize_init     = 1.0;
-    maxoptimiter      = 500;
-    gtol              = 1e-08;
-    ls_maxiter        = 20;
-    ls_factor         = 0.5;
-    theta_open_init   = 0.001;
-    theta_init        = 0.0;
-    weights_class_init        = 0.001;
-    hessian_approx    = USE_LBFGS;
-    lbfgs_stages      = 20;
+    ntraining          = 5000;
+    nvalidation        = 200;
+    nfeatures          = 2;
+    nclasses           = 5;
+    nchannels          = 8;
+    nlayers            = 32;
+    T                  = 10.0;
+    activation         = Network::RELU;
+    braid_cfactor      = 4;
+    braid_maxlevels    = 10;
+    braid_maxiter      = 3;
+    braid_abstol       = 1e-10;
+    braid_abstoladj    = 1e-06;
+    braid_printlevel   = 1;
+    braid_accesslevel  = 0;
+    braid_setskip      = 0;
+    braid_fmg          = 0;
+    braid_nrelax       = 1;
+    gamma_theta_tik    = 1e-07;
+    gamma_theta_ddt    = 1e-07;
+    gamma_class        = 1e-05;
+    stepsize_init      = 1.0;
+    maxoptimiter       = 500;
+    gtol               = 1e-08;
+    ls_maxiter         = 20;
+    ls_factor          = 0.5;
+    weights_open_init  = 0.001;
+    weights_init       = 0.0;
+    weights_class_init = 0.001;
+    hessian_approx     = USE_LBFGS;
+    lbfgs_stages       = 20;
 
 
     /* --- Read the config file (overwrite default values) --- */
@@ -251,13 +243,13 @@ int main (int argc, char *argv[])
         {
            ls_factor = atof(co->value);
         }
-        else if ( strcmp(co->key, "theta_open_init") == 0 )
+        else if ( strcmp(co->key, "weights_open_init") == 0 )
         {
-           theta_open_init = atof(co->value);
+           weights_open_init = atof(co->value);
         }
-        else if ( strcmp(co->key, "theta_init") == 0 )
+        else if ( strcmp(co->key, "weights_init") == 0 )
         {
-           theta_init = atof(co->value);
+           weights_init = atof(co->value);
         }
         else if ( strcmp(co->key, "weights_class_init") == 0 )
         {
@@ -294,57 +286,69 @@ int main (int argc, char *argv[])
 
     /*--- INITIALIZATION ---*/
 
-    /* Read the training and validation data  */
-    if (myid == MASTER_NODE)  // Input data is only needed on first processor 
+    /* Set the data file names */
+    char train_ex_filename[255];
+    char train_lab_filename[255];
+    char val_ex_filename[255];
+    char val_lab_filename[255];
+    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
+    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
+    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
+    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
+
+    /* Read training data */
+    train_examples = new double* [ntraining];
+    train_labels   = new double* [ntraining];
+    for (int ix = 0; ix<ntraining; ix++)
     {
-        read_data(train_ex_filename, train_examples, ntraining, nfeatures);
-        read_data(val_ex_filename,   val_examples,   nvalidation, nfeatures);
+        if (myid == MASTER_NODE) train_examples[ix] = new double[nfeatures];
+        if (myid == size-1)      train_labels[ix]   = new double[nclasses];
     }
-    if (myid == size - 1) // Labels are only needed on last layer 
+    if (myid == MASTER_NODE) read_data(train_ex_filename,  train_examples, ntraining, nfeatures);
+    if (myid == size-1)      read_data(train_lab_filename, train_labels,   ntraining, nclasses);
+
+    /* Read validation data */
+    val_examples = new double* [nvalidation];
+    val_labels   = new double* [nvalidation];
+    for (int ix = 0; ix<nvalidation; ix++)
     {
-        read_data(train_lab_filename, train_labels, ntraining,   nclasses);
-        read_data(val_lab_filename,   val_labels,   nvalidation, nclasses);
+        if (myid == MASTER_NODE) val_examples[ix] = new double[nfeatures];
+        if (myid == size-1)      val_labels[ix]   = new double[nclasses];
     }
+    if (myid == MASTER_NODE) read_data(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    if (myid == size - 1)    read_data(val_lab_filename, val_labels,   nvalidation, nclasses);
+
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, theta_init, theta_open_init, weights_class_init);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
+
+
+
+
 
     /* Propagate forward */
-    double deltaT = T/nlayers;
-    network->applyFWD(ntraining, train_examples, train_labels, deltaT);
+    network->applyFWD(ntraining, train_examples, train_labels, T/(double)nlayers);
 
 
 
 
     /* Clean up */
     delete network;
-    if (myid == MASTER_NODE)
-    {
-        for (int i=0; i<ntraining; i++)
-        {
-            delete [] train_examples[i];
-        }
-        delete [] train_examples;
-        for (int i=0; i<nvalidation; i++)
-        {
-            delete [] val_examples[i];
-        }
-        delete [] val_examples;
-    }
-    if (myid == size -1)
-    {
-        for (int i=0; i<ntraining; i++)
-        {
-            delete [] train_labels[i];
-        }
-        delete [] train_labels;
-        for (int i=0; i<nvalidation; i++)
-        {
-            delete [] val_labels[i];
-        }
-        delete [] val_labels;
-    }
 
+    for (int ix = 0; ix<ntraining; ix++)
+    {
+        if (myid == MASTER_NODE) delete [] train_examples[ix];
+        if (myid == size-1)      delete [] train_labels[ix];
+    }
+    delete [] train_examples;
+    delete [] train_labels;
+    for (int ix = 0; ix<nvalidation; ix++)
+    {
+        if (myid == MASTER_NODE) delete [] val_examples[ix];
+        if (myid == size-1)      delete [] val_labels[ix];
+    }
+    delete [] val_examples;
+    delete [] val_labels;
 
     return 0;
 }

@@ -1,6 +1,8 @@
 # TODO
 
 ## Program:
+* Use Eigen for data management and linear algebra stuff. 
+* Put activation and dactivation into a class / struct 
 * Convolutional network
 
 ## Run:
@@ -40,5 +42,3 @@
 ## Algorithms
 * **Stochastic approximation**: small batches, use SDG, no hessian approx, minmize the expectation 
 * **Stochastic Average Approximation (SAA)**: big batches, BFGS with line-search
-
-

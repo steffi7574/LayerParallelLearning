@@ -1,10 +1,14 @@
 .vscode/*
 *.code-workspace
+DNNPINT*
 Dropbox*
 *STEP3*
 *STEP2*
-*out.*
+*out*
+*.dat
+*.ref
 *.o
 run_*
 main
+main-awesome
 main-serial

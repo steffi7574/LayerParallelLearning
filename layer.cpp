@@ -47,10 +47,15 @@ Layer::~Layer()
 }
 
 
-void Layer::setDt(double DT)
-{
-   dt = DT;
-}
+void Layer::setDt(double DT) { dt = DT; }
+
+double* Layer::getWeights() { return weights; }
+double* Layer::getBias()    { return bias; }
+
+int Layer::getDimIn()   { return dim_In;   }
+int Layer::getDimOut()  { return dim_Out;  }
+int Layer::getDimBias() { return dim_Bias; }
+
 
 void Layer::print_data(double* data)
 {
@@ -75,6 +80,21 @@ void Layer::initialize(double factor)
         bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
         bias_bar[i] = 0.0;
     }
+}
+
+double Layer::evalTikh()
+{
+    double tik = 0.0;
+    for (int i = 0; i < dim_Out * dim_In; i++)
+    {
+        tik += pow(weights[i],2);
+    }
+    for (int i = 0; i < dim_Bias; i++)
+    {
+        tik += pow(bias[i],2);
+    }
+
+    return tik / 2.0;
 }
 
 
@@ -157,7 +177,7 @@ void DenseLayer::applyBWD(double* data_In,
    }
 }
 
-double DenseLayer::evaluateF(double *data_Out, double *label) { return 0.0; }
+double DenseLayer::evalLoss(double *data_Out, double *label) { return 0.0; }
 int    DenseLayer::prediction(double* data) {return -1;}
 
 
@@ -196,7 +216,7 @@ void OpenExpandZero::applyBWD(double* data_In,
 }                           
 
 
-double OpenExpandZero::evaluateF(double *data_Out, double *label){ return 0.0;}
+double OpenExpandZero::evalLoss(double *data_Out, double *label){ return 0.0;}
 int    OpenExpandZero::prediction(double* data) {return -1;}
 
 
@@ -258,7 +278,7 @@ void ClassificationLayer::normalize(double* data)
 
 }   
 
-double ClassificationLayer::evaluateF(double *data_Out, 
+double ClassificationLayer::evalLoss(double *data_Out, 
                                       double *label) 
 {
    double label_pr, exp_sum;

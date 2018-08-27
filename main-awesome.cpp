@@ -30,9 +30,8 @@ int main (int argc, char *argv[])
     double   weights_init;         /**< Factor to scale the initial theta weights and biases */
     double   weights_open_init;    /**< Factor to scale the initial opening layer weights and biases */
     double   weights_class_init; /**< Factor to scale the initial classification weights and biases */
-    double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
-    double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
-    double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
+    double   gamma_tik;         /**< Relaxation parameter for theta tikhonov */
+    double   gamma_ddt;         /**< Relaxation parameter for theta time-derivative */
     int      nclasses;          /**< Number of classes / Clabels */
     int      nfeatures;         /**< Number of features in the data set */
     int      nlayers;            /**< Number of layers / time steps */
@@ -90,9 +89,8 @@ int main (int argc, char *argv[])
     braid_setskip      = 0;
     braid_fmg          = 0;
     braid_nrelax       = 1;
-    gamma_theta_tik    = 1e-07;
-    gamma_theta_ddt    = 1e-07;
-    gamma_class        = 1e-05;
+    gamma_tik          = 1e-07;
+    gamma_ddt          = 1e-07;
     stepsize_init      = 1.0;
     maxoptimiter       = 500;
     gtol               = 1e-08;
@@ -211,17 +209,13 @@ int main (int argc, char *argv[])
         {
            braid_nrelax = atoi(co->value);
         }
-        else if ( strcmp(co->key, "gamma_theta_tik") == 0 )
+        else if ( strcmp(co->key, "gamma_tik") == 0 )
         {
-            gamma_theta_tik = atof(co->value);
+            gamma_tik = atof(co->value);
         }
-        else if ( strcmp(co->key, "gamma_theta_ddt") == 0 )
+        else if ( strcmp(co->key, "gamma_ddt") == 0 )
         {
-            gamma_theta_ddt = atof(co->value);
-        }
-        else if ( strcmp(co->key, "gamma_class") == 0 )
-        {
-            gamma_class = atof(co->value);
+            gamma_ddt = atof(co->value);
         }
         else if ( strcmp(co->key, "stepsize") == 0 )
         {
@@ -320,7 +314,7 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers,weights_init, weights_open_init, weights_class_init);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, gamma_tik, gamma_ddt, weights_init, weights_open_init, weights_class_init);
 
 
 

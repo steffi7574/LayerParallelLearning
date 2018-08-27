@@ -16,6 +16,9 @@ class Network
       int     nlayers;         /* Total number of Layers */
       int     nchannels;       /* Width of the network */
       int     nclasses;        /* Number of classes */
+      double  dt;              /* Time step size */
+      double  gamma_tik;       /* Parameter for tikhonov regularization */
+      double  gamma_ddt;       /* Parameter for ddt-regularization */
 
       Layer*  openlayer;       /* First Layer of the network */
       Layer** layers;          /* Array of intermediat network layers */
@@ -32,6 +35,8 @@ class Network
               int    nClasses,
               int    Activation,
               double deltaT,
+              double gammaTIK,
+              double gammaDDT,
               double Weight_init,
               double Weight_open_init,
               double Classification_init);
@@ -47,6 +52,12 @@ class Network
       void applyFWD(int     nexamples,
                     double **examples,
                     double **labels);
+
+      /**
+       * Regularization for the time-derivative of the layer weights
+       */
+      double evalRegulDDT(Layer* layer_old, 
+                          Layer* layer_curr);            
 
       /* ReLu Activation and derivative */
       static double ReLu_act(double x);

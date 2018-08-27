@@ -180,9 +180,8 @@ def read_config(filename):
             if case("T") or \
                case("braid_abstol") or \
                case("braid_adjtol") or \
-               case("gamma_theta_tik") or \
-               case("gamma_theta_ddt") or \
-               case("gamma_class") or \
+               case("gamma_tik") or \
+               case("gamma_ddt") or \
                case("stepsize") or \
                case("gtol") or \
                case("ls_factor") or \

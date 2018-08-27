@@ -42,13 +42,29 @@ class Layer
       /* Set time step size */
       void setDt(double DT);
 
-      void print_data(double* data);
+      /* Get a pointer to the weights bias*/
+      double* getWeights();
+      double* getBias();
+
+      /* Get the dimensions */
+      int getDimIn();
+      int getDimOut();
+      int getDimBias();
+
+      /* Prints to screen */
+      void print_data(double* data_Out);
 
       /**
        * Initialize the layer, e.g. set initial weights and bias and gradients
        * Init random, scaled by a factor (gradient zero)
        */
       void initialize(double factor);
+
+      /**
+       * Evaluate Tikhonov Regularization
+       * Returns 1/2 * \|weights||^2 + 1/2 * \|bias\|^2
+       */
+      double evalTikh();
 
       /**
        * Forward propagation of an example 
@@ -71,8 +87,8 @@ class Layer
       /**
        * Evaluates an objective function 
        */
-      virtual double evaluateF(double *data_Out,
-                               double *label) = 0;
+      virtual double evalLoss(double *data_Out,
+                              double *label) = 0;
 
       /**
        * Compute class probabilities and return predicted class id.
@@ -104,8 +120,8 @@ class DenseLayer : public Layer {
                     double* data_In_bar,
                     double* data_Out_bar);
 
-      double evaluateF(double *data_Out,
-                       double *label);
+      double evalLoss(double *data_Out,
+                      double *label);
 
       int prediction(double* data);
 };
@@ -131,8 +147,8 @@ class OpenExpandZero : public Layer
                           double* data_In_bar,
                           double* data_Out_bar);
             
-            double evaluateF(double *data_Out,
-                             double *label);
+            double evalLoss(double *data_Out,
+                            double *label);
 
             int prediction(double* data);
 };
@@ -158,8 +174,8 @@ class ClassificationLayer : public Layer
                           double* data_In_bar,
                           double* data_Out_bar);
 
-            double evaluateF(double *finalstate,
-                             double *label);
+            double evalLoss(double *finalstate,
+                            double *label);
 
             int prediction(double* data);
 

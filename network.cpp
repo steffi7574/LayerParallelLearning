@@ -5,6 +5,9 @@ Network::Network()
    nlayers     = 0;
    nchannels   = 0;
    nclasses    = 0;
+   dt          = 0.0;
+   gamma_tik   = 0.0;
+   gamma_ddt   = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
 
@@ -25,11 +28,16 @@ Network::Network(int    nLayers,
                  double deltaT,
                  double Weight_init,
                  double Weight_open_init,
-                 double Classification_init)
+                 double Classification_init,
+                 double gammaTIK,
+                 double gammaDDT)
 {
    nlayers   = nLayers;
    nchannels = nChannels;
    nclasses  = nClasses;
+   dt        = deltaT;
+   gamma_tik = gammaTIK;
+   gamma_ddt = gammaDDT;
    loss      = 0.0;
    accuracy  = 0.0;
    
@@ -105,29 +113,43 @@ void Network::applyFWD(int      nexamples,
 {
     int class_id = -1;
     int success  = 0;
+    double objective  = 0.0;
+    double regul_tikh = 0.0;
+    double regul_ddt  = 0.0;
+
 
     /* Propagate the example */
+    loss = 0.0;
     for (int iex = 0; iex < nexamples; iex++)
     {
-        /* Map data onto the network width */
+        /* Apply opening layer */
         openlayer->applyFWD(examples[iex], state_curr);
 
+        /* Evaluate regularization term */
+        regul_tikh += openlayer->evalTikh();
+
+        /* Propagate through all intermediate layers */ 
         for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
         {
-            /* Store old state */
             for (int ichannels = 0; ichannels < nchannels; ichannels++)
             {
                 state_old[ichannels] = state_curr[ichannels];
             } 
-            /* Apply the layer */
             layers[ilayer-1]->applyFWD(state_old, state_curr);
 
+            /* Evaluate regularization term */
+            regul_tikh += layers[ilayer-1]->evalTikh();
+            if (ilayer > 1) regul_ddt += evalRegulDDT(layers[ilayer-2], layers[ilayer-1]);
         }
-        /* classification */
+
+        /* Apply classification layer */
         endlayer->applyFWD(state_curr, state_final);
 
-        /* Evaluate loss function */
-        loss += endlayer->evaluateF(state_final, labels[iex]);
+        /* Evaluate regularization term */
+        regul_tikh += endlayer->evalTikh();
+
+        /* Evaluate loss */
+        loss += endlayer->evalLoss(state_final, labels[iex]);
 
         /* Test for successful prediction */
         class_id = endlayer->prediction(state_final);
@@ -136,18 +158,53 @@ void Network::applyFWD(int      nexamples,
             success++;
         }
     }
-    /* Normalize loss function */
-    loss = 1. / nexamples * loss;
+
+    /* Compute objective function */
+    loss       = 1. / nexamples * loss;
+    regul_tikh = 1. / nexamples * regul_tikh;
+    objective  = loss + gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
 
     /* Compute network accuracy */
     accuracy = 100.0 * (double) success / nexamples;
 
 
     /* Output */
-    printf("Loss:      %1.14e\n", loss);
+    printf("Loss:      %1.14e\n",   loss);
+    printf("Objective: %1.14e\n",   objective);
     printf("Accuracy:  %3.4f %%\n", accuracy);
 
 }
+
+
+double Network::evalRegulDDT(Layer* layer_old, 
+                             Layer* layer_curr)
+{
+    double diff;
+    double ddt = 0.0;
+
+    /* Sanity check */
+    if (layer_old->getDimIn()    != nchannels ||
+        layer_old->getDimOut()   != nchannels ||
+        layer_old->getDimBias()  != 1         ||
+        layer_curr->getDimIn()   != nchannels ||
+        layer_curr->getDimOut()  != nchannels ||
+        layer_curr->getDimBias() != 1           )
+        {
+            printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
+            printf("Dimensions don't match. Check and change this routine.\n");
+            exit(1);
+        }
+
+    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    {
+        diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / dt;
+        ddt += pow(diff,2);
+    }
+    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / dt;
+    ddt += pow(diff,2);
+    
+    return ddt/2.0;
+}                
 
 double Network::ReLu_act(double x)
 {

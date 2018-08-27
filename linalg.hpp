@@ -1,3 +1,4 @@
+#include <stdio.h>
 #pragma once
 
 /**
@@ -23,3 +24,9 @@ void matvec(int     dimN,
 double vecdot(int     dimN,
               double* x,
               double* y);
+
+/**
+ * Return the maximum value of a vector 
+ */
+double vecmax(int     dimN,
+              double* x);

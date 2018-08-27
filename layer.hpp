@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 #include "linalg.hpp"
+
 
 #pragma once
 
@@ -63,6 +65,18 @@ class Layer
                             double* data_Out,
                             double* data_In_bar,
                             double* data_Out_bar)=0;
+
+      /**
+       * Evaluates an objective function 
+       */
+      virtual double evaluateF(double *data_Out,
+                               double *label) = 0;
+
+      /**
+       * Compute class probabilities and return predicted class id.
+       */
+      virtual int prediction(double* data_Out) = 0;
+
 };
 
 /**
@@ -87,6 +101,11 @@ class DenseLayer : public Layer {
                     double* data_Out,
                     double* data_In_bar,
                     double* data_Out_bar);
+
+      double evaluateF(double *data_Out,
+                       double *label);
+
+      int prediction(double* data);
 };
 
 
@@ -109,6 +128,11 @@ class OpenExpandZero : public Layer
                           double* data_Out,
                           double* data_In_bar,
                           double* data_Out_bar);
+            
+            double evaluateF(double *data_Out,
+                             double *label);
+
+            int prediction(double* data);
 };
 
 
@@ -131,4 +155,11 @@ class ClassificationLayer : public Layer
                           double* data_Out,
                           double* data_In_bar,
                           double* data_Out_bar);
+
+            double evaluateF(double *finalstate,
+                             double *label);
+
+            int prediction(double* data);
+
+            void normalize(double* data);
 };

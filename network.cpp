@@ -2,10 +2,19 @@
 
 Network::Network()
 {
-   nlayers   = 0;
-   nchannels = 0;
-   layers    = NULL;
-   endlayer  = NULL;
+   nlayers     = 0;
+   nchannels   = 0;
+   nclasses    = 0;
+   loss        = 0.0;
+   accuracy    = 0.0;
+
+   openlayer   = NULL;
+   layers      = NULL;
+   endlayer    = NULL;
+
+   state_curr  = NULL;
+   state_old   = NULL;
+   state_final = NULL;
 }
 
 Network::Network(int    nLayers,
@@ -21,6 +30,8 @@ Network::Network(int    nLayers,
    nlayers   = nLayers;
    nchannels = nChannels;
    nclasses  = nClasses;
+   loss      = 0.0;
+   accuracy  = 0.0;
    
    double (*activ_ptr)(double x);
    double (*dactiv_ptr)(double x);
@@ -63,6 +74,12 @@ Network::Network(int    nLayers,
    /* Create and initialize the end layer */
    endlayer = new ClassificationLayer(nLayers, nChannels, nClasses, deltaT);
    endlayer->initialize(Classification_init);
+
+
+   /* Allocate temporary vectors */
+    state_curr  = new double[nchannels];
+    state_old   = new double[nchannels];
+    state_final = new double[nclasses];
 }              
 
 Network::~Network()
@@ -75,43 +92,60 @@ Network::~Network()
     }
     delete [] layers;
     delete endlayer;
+
+    delete [] state_curr;
+    delete [] state_old;
+    delete [] state_final;
 }
 
 void Network::applyFWD(int      nexamples,
                        double **examples,
                        double **labels)
 {
-    double* state       = new double[nchannels];
-    double* state_old   = new double[nchannels];
-    double* state_final = new double[nclasses];
+    int class_id = -1;
+    int success  = 0;
 
     /* Propagate the example */
     for (int iex = 0; iex < nexamples; iex++)
     {
         /* Map data onto the network width */
-        printf("Openinglayer\n");
-        openlayer->applyFWD(examples[iex], state);
+        openlayer->applyFWD(examples[iex], state_curr);
 
         for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
         {
             /* Store old state */
             for (int ichannels = 0; ichannels < nchannels; ichannels++)
             {
-                state_old[ichannels] = state[ichannels];
+                state_old[ichannels] = state_curr[ichannels];
             } 
             /* Apply the layer */
-            printf("layer %d\n", ilayer);
-            layers[ilayer-1]->applyFWD(state_old, state);
+            layers[ilayer-1]->applyFWD(state_old, state_curr);
 
         }
         /* classification */
-        printf("endlayer\n");
-        endlayer->applyFWD(state, state_final);
-    }
+        endlayer->applyFWD(state_curr, state_final);
 
-    delete [] state;
-    delete [] state_old;
-    delete [] state_final;
+        /* Evaluate loss function */
+        loss += endlayer->evaluateF(state_final, labels[iex]);
+
+        /* Test for successful prediction */
+        class_id = endlayer->prediction(state_final);
+        if ( labels[iex][class_id] > 0.99 )  
+        {
+            success++;
+        }
+    }
+    /* Normalize loss function */
+    loss = 1. / nexamples * loss;
+
+    /* Compute network accuracy */
+    accuracy = 100.0 * (double) success / nexamples;
+
+
+    /* Output */
+    printf("Loss:      %1.14e\n", loss);
+    printf("Accuracy:  %3.4f %%\n", accuracy);
+
 }
 
 double Network::ReLu_act(double x)

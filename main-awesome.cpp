@@ -326,7 +326,7 @@ int main (int argc, char *argv[])
 
 
 
-    /* Propagate forward */
+    /* Propagate training data */
     network->applyFWD(ntraining, train_examples, train_labels);
 
 

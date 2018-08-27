@@ -147,6 +147,9 @@ void DenseLayer::applyBWD(double* data_In,
    }
 }
 
+double DenseLayer::evaluateF(double *data_Out, double *label) { return 0.0; }
+int    DenseLayer::prediction(double* data) {return -1;}
+
 
 OpenExpandZero::OpenExpandZero(int  dimI,
                                int  dimO,
@@ -154,6 +157,7 @@ OpenExpandZero::OpenExpandZero(int  dimI,
 
 
 OpenExpandZero::~OpenExpandZero(){}
+
 
 
 void OpenExpandZero::applyFWD(double* data_In, 
@@ -182,7 +186,8 @@ void OpenExpandZero::applyBWD(double* data_In,
 }                           
 
 
-
+double OpenExpandZero::evaluateF(double *data_Out, double *label){ return 0.0;}
+int    OpenExpandZero::prediction(double* data) {return -1;}
 
 
 ClassificationLayer::ClassificationLayer(int idx,
@@ -228,4 +233,72 @@ void ClassificationLayer::applyBWD(double* data_In,
         /* Reset */
         data_Out_bar[io] = 0.0;
     }   
-}           
+
+}
+
+
+void ClassificationLayer::normalize(double* data)
+{
+
+   double max = vecmax(dim_Out, data);
+   for (int io = 0; io < dim_Out; io++)
+   {
+       data[io] = data[io] - max;
+   }
+
+}   
+
+double ClassificationLayer::evaluateF(double *data_Out, 
+                                      double *label) 
+{
+   double label_pr, exp_sum;
+   double CELoss;
+
+   /* Data normalization y - max(y) */
+   normalize(data_Out);
+
+   /* Label projection */
+   label_pr = vecdot(dim_Out, label, data_Out);
+
+   /* Compute sum_i (exp(x_i)) */
+   exp_sum = 0.0;
+   for (int io = 0; io < dim_Out; io++)
+   {
+      exp_sum += exp(data_Out[io]);
+   }
+
+   /* Cross entropy loss function */
+   CELoss = - label_pr + log(exp_sum);
+
+   return CELoss;
+}
+
+
+int ClassificationLayer::prediction(double* data_Out)
+{
+   double exp_sum, max;
+   int    class_id;
+
+   /* Compute sum_i (exp(x_i)) */
+   max = -1.0;
+   exp_sum = 0.0;
+   for (int io = 0; io < dim_Out; io++)
+   {
+      exp_sum += exp(data_Out[io]);
+   }
+
+   /* Compute class probabilities (Softmax) */
+   for (int io = 0; io < dim_Out; io++)
+   {
+       data_Out[io] = exp(data_Out[io]) / exp_sum;
+
+      /* Predicted class is the one with maximum probability */ 
+      if (data_Out[io] > max)
+      {
+          max      = data_Out[io]; 
+          class_id = io; 
+      }
+   }
+
+   return class_id;
+}

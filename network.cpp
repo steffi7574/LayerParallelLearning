@@ -7,11 +7,9 @@ Network::Network()
    dt          = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
-
+   state_upd   = NULL;
+   state       = NULL;
    layers      = NULL;
-
-   state_curr  = NULL;
-   state_old   = NULL;
 }
 
 Network::Network(int    nLayers,
@@ -72,13 +70,13 @@ Network::Network(int    nLayers,
    }
 
    /* end layer */
-   layers[nlayers-1] = new ClassificationLayer(nLayers, nChannels, nClasses, deltaT);
+   layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, deltaT);
    layers[nlayers-1]->initialize(Classification_init);
 
 
-   /* Allocate temporary vectors */
-    state_curr  = new double[nChannels];
-    state_old   = new double[nChannels];
+   /* Allocate vectors for current state and update of the network */
+    state    = new double[nChannels];
+    state_upd= new double[nChannels];
 
     /* Sanity check */
     if (nFeatures > nChannels ||
@@ -98,8 +96,8 @@ Network::~Network()
     }
     delete [] layers;
 
-    delete [] state_curr;
-    delete [] state_old;
+    delete [] state;
+    delete [] state_upd;
 }
 
 int Network::getnChannels() { return nchannels; }
@@ -115,38 +113,22 @@ void Network::setState(int     dimN,
 {
     if (dimN > nchannels) 
     {
-        printf("ERROR!\n");
+        printf("ERROR! This should not happen...\n");
         exit(1);
     }
 
     for (int is = 0; is < dimN; is++)
     {
-        state_curr[is] = data[is];
+        state[is] = data[is];
     }
     for (int is = dimN; is < nchannels; is++)
     {
-        state_curr[is] = 0.0;
+        state[is] = 0.0;
     }
 }
 
-void Network::setState_Old(int     dimN, 
-                           double* data)
-{
-    if (dimN > nchannels) 
-    {
-        printf("ERROR!\n");
-        exit(1);
-    }
+double* Network::getState() { return state; }
 
-    for (int is = 0; is < dimN; is++)
-    {
-        state_old[is] = data[is];
-    }
-    for (int is = dimN; is < nchannels; is++)
-    {
-        state_old[is] = 0.0;
-    }
-}
 
 void Network::applyFWD(int      nexamples,
                        double **examples,
@@ -162,22 +144,21 @@ void Network::applyFWD(int      nexamples,
         /* Load input data */
         setState(layers[0]->getDimIn(), examples[iex]);
        
-
         /* Propagate through all layers */ 
         for (int ilayer = 0; ilayer < nlayers; ilayer++)
         {
-            /* Shift current state into old state */
-            setState_Old(layers[ilayer]->getDimOut(), state_curr);
-
             /* Apply the next layer */
-            layers[ilayer]->applyFWD(state_old, state_curr);
+            layers[ilayer]->applyFWD(state, state_upd);
+
+            /* Shift state_upd into state */
+            setState(layers[ilayer]->getDimOut(), state_upd);
         }
 
         /* Evaluate loss */
-        loss += layers[nlayers-1]->evalLoss(state_curr, labels[iex]);
+        loss += layers[nlayers-1]->evalLoss(state, labels[iex]);
 
         /* Test for successful prediction */
-        class_id = layers[nlayers-1]->prediction(state_curr);
+        class_id = layers[nlayers-1]->prediction(state_upd);
         if ( labels[iex][class_id] > 0.99 )  
         {
             success++;
@@ -196,7 +177,7 @@ double Network::evalRegularization(double gamma_tik,
     double regul_tikh = 0.0;
     double regul_ddt  = 0.0;
 
-    /* Evaluate regularization term */
+    /* Evaluate regularization terms for each layer */
     for (int ilayer = 0; ilayer < nlayers; ilayer++)
     {
         regul_tikh += layers[ilayer]->evalTikh();

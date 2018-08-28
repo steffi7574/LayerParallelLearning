@@ -8,18 +8,17 @@
 class Network
 {
    protected:
-      int     nlayers;         /* Total number of Layers */
-      int     nchannels;       /* Width of the network */
-      double  dt;              /* Time step size */
-      double  loss;            /* Value of the loss function */
-      double  accuracy;        /* Accuracy of the network prediction (percentage of successfully predicted classes) */
-
-      double* state_old;              /* Auxiliary: holding old state at previous layer */
-      double* state_curr;             /* Auxiliary: holding current state at a layer */
+      int     nlayers;              /* Total number of Layers */
+      int     nchannels;            /* Width of the network */
+      double  dt;                   /* Time step size */
+      double  loss;                 /* Value of the loss function */
+      double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
+      double* state_upd;            /* Auxilliary: holdinging update for the current state */
+      double* state;                /* Current state of the network */
 
    public: 
-      Layer** layers;                 /* Array of network layers */
-      enum activation{ RELU, TANH};   /* Available activation functions */
+      Layer** layers;               /* Array of network layers */
+      enum activation{ RELU, TANH}; /* Available activation functions */
 
       Network();
       Network(int    nLayers,
@@ -48,13 +47,10 @@ class Network
       void setState(int     dimN, 
                     double* data);
 
-     /**
-       * Sets the old state of the network to the given data of dimensions dimN.
-       * Requires dimN <= nchannels! Fills the rest with zeros.
+      /**
+       * Return a pointer to the current state of the network
        */
-      void setState_Old(int     dimN,
-                        double* data);
-
+      double* getState();
 
       /**
        * Forward propagation through the network. Evaluates loss and accuracy at last layer. 

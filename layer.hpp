@@ -88,12 +88,12 @@ class Layer
        * Evaluates an objective function 
        */
       virtual double evalLoss(double *data_Out,
-                              double *label) = 0;
+                              double *label);
 
       /**
        * Compute class probabilities and return predicted class id.
        */
-      virtual int prediction(double* data_Out) = 0;
+      virtual int prediction(double* data_Out);
 
 };
 
@@ -119,11 +119,6 @@ class DenseLayer : public Layer {
                     double* data_Out,
                     double* data_In_bar,
                     double* data_Out_bar);
-
-      double evalLoss(double *data_Out,
-                      double *label);
-
-      int prediction(double* data);
 };
 
 
@@ -146,11 +141,6 @@ class OpenExpandZero : public Layer
                           double* data_Out,
                           double* data_In_bar,
                           double* data_Out_bar);
-            
-            double evalLoss(double *data_Out,
-                            double *label);
-
-            int prediction(double* data);
 };
 
 

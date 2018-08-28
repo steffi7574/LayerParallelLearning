@@ -97,6 +97,9 @@ double Layer::evalTikh()
     return tik / 2.0;
 }
 
+double Layer::evalLoss(double *data_Out, double *label) { return 0.0; }
+int    Layer::prediction(double* data) {return -1;}
+
 
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
@@ -177,9 +180,6 @@ void DenseLayer::applyBWD(double* data_In,
    }
 }
 
-double DenseLayer::evalLoss(double *data_Out, double *label) { return 0.0; }
-int    DenseLayer::prediction(double* data) {return -1;}
-
 
 OpenExpandZero::OpenExpandZero(int  dimI,
                                int  dimO,
@@ -214,10 +214,6 @@ void OpenExpandZero::applyBWD(double* data_In,
       data_Out_bar[ii] = 0.0;
    }
 }                           
-
-
-double OpenExpandZero::evalLoss(double *data_Out, double *label){ return 0.0;}
-int    OpenExpandZero::prediction(double* data) {return -1;}
 
 
 ClassificationLayer::ClassificationLayer(int idx,

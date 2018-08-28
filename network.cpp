@@ -106,6 +106,7 @@ Network::~Network()
 }
 
 int Network::getnChannels() { return nchannels; }
+int Network::getnLayers()   { return nlayers; }
 
 void Network::applyFWD(int      nexamples,
                        double **examples,
@@ -161,7 +162,6 @@ void Network::applyFWD(int      nexamples,
 
     /* Compute objective function */
     loss       = 1. / nexamples * loss;
-    regul_tikh = 1. / nexamples * regul_tikh;
     objective  = loss + gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
 
     /* Compute network accuracy */

@@ -13,6 +13,8 @@ typedef struct _braid_App_struct
     int      nexamples;  /* Number of data examples */
     double** examples;   /* Data examples */
     double** labels;     /* Labels forthe data examples */
+
+    double   accuracy;   /* Accuracy of the network */
 } my_App;
 
 

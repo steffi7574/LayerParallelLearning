@@ -7,11 +7,6 @@
 
 class Network
 {
-   private:
-      double* state_curr;      /* Auxiliary: holding current state at a layer */
-      double* state_old;       /* Auxiliary: holding old state at previous layer */
-      double* state_final;     /* Auxiliary: State after last layer (after classiication) */
-
    protected:
       int     nlayers;         /* Total number of Layers */
       int     nchannels;       /* Width of the network */
@@ -23,6 +18,10 @@ class Network
       double  accuracy;        /* Accuracy of the network prediction (percentage of successfully predicted classes) */
 
    public: 
+      double* state_curr;      /* Auxiliary: holding current state at a layer */
+      double* state_old;       /* Auxiliary: holding old state at previous layer */
+      double* state_final;     /* Auxiliary: State after last layer (after classiication) */
+
       Layer*  openlayer;       /* First Layer of the network */
       Layer** layers;          /* Array of intermediat network layers */
       Layer*  endlayer;        /* Last layer of the network */
@@ -43,6 +42,7 @@ class Network
 
       /* Get dimensions */
       int getnChannels();
+      int getnLayers();
 
       /**
        * Forward propagation through the network

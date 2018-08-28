@@ -65,10 +65,9 @@ my_Init(braid_App     app,
 
 
     /* Allocate the vector */
-    my_Vector *u;
-    u = (my_Vector *) malloc(sizeof(my_Vector));
+    my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
     u->state = new double*[nexamples];
-    for (int iex = 0; iex < nexamples, iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex < nexamples)
     {
         u->state[iex] = new double[nchannels];
     }
@@ -109,10 +108,12 @@ my_Init_diff(braid_App     app,
 
     if (t == 0)
     {
-        /* apply the layer backwards for all examples */
+        /* apply the opening layer backwards for all examples */
         for (int iex = 0; iex < nexamples; iex++)
         {
-            // app->network->openlayer->applyBWD(NULL, NULL, );
+            // pass auxilliary state_curr as placeholder for recomputing the state,
+            // pass NULL because data_in_bar would be derivative of the input data, which is not computed. 
+            app->network->openlayer->applyBWD(app->examples[iex], app->network->state_curr, NULL, ubar->state[iex]);
         }
     }
 
@@ -126,28 +127,24 @@ my_Clone(braid_App     app,
          braid_Vector *v_ptr)
 {
     // my_Vector *v;
-    // int nchannels = app->nchannels;
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // }
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
  
-    // /* Allocate the vector */
-    // v = (my_Vector *) malloc(sizeof(my_Vector));
-    // v->Y = (double*) malloc(nchannels * nelem * sizeof(double));
+    /* Allocate the vector */
+    my_Vector* v = (my_Vector *) malloc(sizeof(my_Vector));
+    v->state = new double*[nexamples];
+    for (int iex = 0; iex < nexamples; iex < nexamples)
+    {
+        v->state[iex] = new double[nchannels];
+    }
 
-    // /* Clone the values */
-    // for (int i = 0; i < nchannels * nelem; i++)
-    // {
-    //     v->Y[i] = u->Y[i];
-    // }
+    /* Clone the values */
+    for (int i = 0; i < nexamples * nchannels; i++)
+    {
+        v->state[i] = u->state[i];
+    }
 
-    // *v_ptr = v;
+    *v_ptr = v;
 
     return 0;
 }
@@ -157,8 +154,14 @@ int
 my_Free(braid_App    app,
         braid_Vector u)
 {
-//    free(u->Y);
-//    free(u);
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+
+    for (int iex = 0; iex < nexamples; iex < nexamples)
+    {
+        delete [] u->state[iex];
+    }
+    delete u->state;
 
    return 0;
 }
@@ -171,21 +174,16 @@ my_Sum(braid_App     app,
        double        beta,
        braid_Vector  y)
 {
-    // int nchannels = app->nchannels;
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // }
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
 
-    // for (int i = 0; i < nchannels * nelem; i++)
-    // {
-    //    (y->Y)[i] = alpha*(x->Y)[i] + beta*(y->Y)[i];
-    // }
+    for (int iex = 0; iex < nexamples; iex < nexamples)
+    {
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+           (y->state)[iex][ic] = alpha*(x->state)[iex][ic] + beta*(y->state)[iex][ic];
+        }
+    }
 
    return 0;
 }
@@ -195,25 +193,15 @@ my_SpatialNorm(braid_App     app,
                braid_Vector  u,
                double       *norm_ptr)
 {
-//     int nchannels = app->nchannels;
-//     double dot;
-//     int nelem;
-//     if (app->training)
-//     {
-//         nelem = app->ntraining;
-//     }
-//     else
-//     {
-//         nelem = app->nvalidation;
-//     }
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
 
-//     dot = 0.0;
-//     for (int i = 0; i < nchannels * nelem; i++)
-//     {
-//        dot += pow( getValue(u->Y[i]), 2 );
-//     }
- 
-//    *norm_ptr = sqrt(dot);
+    double dot = 0.0;
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        dot += vecdot(nchannels, u->state[iex], u->state[iex]);
+    }
+   *norm_ptr = sqrt(dot) / nexamples;
 
    return 0;
 }
@@ -225,16 +213,7 @@ my_Access(braid_App          app,
           braid_Vector       u,
           braid_AccessStatus astatus)
 {
-//     // int   idx;
-// //    char  filename[255];
-
-//     braid_AccessStatusGetTIndex(astatus, &idx);
-
-//     if (idx == app->nlayers)
-//     {
-//         // sprintf(filename, "%s.%02d", "Yout.pint.myid", app->myid);
-//         // write_data(filename, u->Y, app->ntraining * app->nchannels);
-//     }
+    printf("my_Access: To be implemented...\n");
 
     return 0;
 }
@@ -245,19 +224,11 @@ my_BufSize(braid_App           app,
            int                 *size_ptr,
            braid_BufferStatus  bstatus)
 {
-    // int nchannels = app->nchannels;
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // } 
-    
-    // *size_ptr = nchannels*nelem*sizeof(double);
-    // return 0;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+   
+    *size_ptr = nchannels*nexamples*sizeof(double);
+    return 0;
 }
 
 
@@ -268,25 +239,19 @@ my_BufPack(braid_App           app,
            void               *buffer,
            braid_BufferStatus  bstatus)
 {
-    // double *dbuffer   = (double*) buffer;
-    // int          nchannels = app->nchannels;
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // } 
+    double *dbuffer   = (double*) buffer;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
     
-    
-    // for (int i = 0; i < nchannels * nelem; i++)
-    // {
-    //    dbuffer[i] = (u->Y)[i];
-    // }
- 
-    // braid_BufferStatusSetSize( bstatus,  nchannels*nelem*sizeof(double));
+    for (int iex = 0; iex < nexamples; iex < nexamples)
+    {
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+           dbuffer[iex * nchannels + ic] = (u->state)[iex][ic];
+        }
+    }
+
+    braid_BufferStatusSetSize( bstatus,  nchannels*nexamples*sizeof(double));
  
    return 0;
 }
@@ -299,32 +264,30 @@ my_BufUnpack(braid_App           app,
              braid_Vector       *u_ptr,
              braid_BufferStatus  bstatus)
 {
-    // my_Vector   *u         = NULL;
-    // double *dbuffer   = (double*) buffer;
-    // int     nchannels = app->nchannels;
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // } 
-    
- 
-    //  /* Allocate the vector */
-    //  u = (my_Vector *) malloc(sizeof(my_Vector));
-    //  u->Y = (double*) malloc(nchannels * nelem *sizeof(double));
 
-    // /* Unpack the buffer */
-    // for (int i = 0; i < nchannels * nelem; i++)
-    // {
-    //    (u->Y)[i] = dbuffer[i];
-    // }
+    double *dbuffer   = (double*) buffer;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+    
+    //  /* Allocate the vector */
+    my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
+    u->state = new double*[nexamples];
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        u->state[iex] = new double[nchannels];
+    }
+
+    /* Unpack the buffer */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+           u->state[iex][ic] = dbuffer[iex * nchannels + ic];
+        }
+    }
  
-    // *u_ptr = u;
-    // return 0;
+    *u_ptr = u;
+    return 0;
 }
 
 
@@ -334,56 +297,59 @@ my_ObjectiveT(braid_App              app,
               braid_ObjectiveStatus  ostatus,
               double                *objective_ptr)
 {
-    // int    nchannels = app->nchannels;
-    // int    nlayers    = app->nlayers;
-    // int    nclasses  = app->nclasses;
-    // int    nfeatures = app->nfeatures;
-    // double obj = 0.0;
-    // int    ts, itheta, success;
-    // double *Ydata;
-    // double *Cdata;
-    // double regul;
+    int class_id = -1;
+    int success  = 0;
+    double loss       = 0.0;
+    double objective  = 0.0;
+    double regul_tikh = 0.0;
+    double regul_ddt  = 0.0;
 
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    //     Ydata = app->Ytrain;
-    //     Cdata = app->Ctrain;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    //     Ydata = app->Yval;
-    //     Cdata = app->Cval;
-    // } 
+    int nlayers   = app->network->getnLayers();
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
 
+    /* Get the time index*/
+    int ts;
+    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
-    // /* Get the time index*/
-    // braid_ObjectiveStatusGetTIndex(ostatus, &ts);
- 
-    // /* Regularization for theta*/
-    // if (ts == 0)
-    // {
-    //     /* Compute regularization term for opening layer */
-    //     obj = app->gamma_theta_tik * tikhonov_regul(app->theta_open, app->ntheta_open);
-    //     app->theta_regul += obj;
-    // }
-    // else
-    // {
-    //     itheta = (ts - 1 ) * (nchannels * nchannels + 1 ) ;
-    //     obj  = app->gamma_theta_tik * tikhonov_regul(&(app->theta[itheta]), (nchannels * nchannels + 1));
-    //     obj += app->gamma_theta_ddt * ddt_theta_regul(app->theta, ts, app->deltaT, nlayers, nchannels);
+    if (ts == 0) // Only tikhonov on first layer 
+    {
+        regul_tikh += app->network->openlayer->evalTikh();
+    }
+    else if (ts < nlayers) // tikhonov and ddt regularization on intermediate layers 
+    {
+        regul_tikh += app->network->layers[ts-1]->evalTikh();
+        if (ts > 1) regul_ddt += app->network->evalRegulDDT(app->network->layers[ts-2], app->network->layers[ts-1]);
+    }
+    else // tikhonov regularization and loss evaluation on last layer
+    {
+        /* Tikhonov regularization */
+        regul_tikh += app->network->endlayer->evalTikh();
+
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            /* Apply classification layer */
+            app->network->endlayer->applyFWD(u->state[iex], app->network->state_final);
+
+            /* Evaluate loss */
+            loss += app->network->endlayer->evalLoss(app->network->state_final, app->labels[iex]);
         
-    //     app->theta_regul += obj;
-    // }
+            /* Test for successful prediction */
+            class_id = app->network->endlayer->prediction(app->network->state_final);
+            if ( app->labels[iex][class_id] > 0.99 )  
+            {
+                success++;
+            }
+        }
 
-    // /* At last layer: Evaluate Loss and add classification regularization */
-    // if (ts == nlayers)
-    // {
-    //    /* Evaluate loss */
-    //    app->loss = 1./nelem* loss(u->Y, Cdata, Ydata, app->classW, app->classMu, nelem, nclasses, nchannels, nfeatures, app->output, &success);
-    //    obj = app->loss;
+        /* Compute objective function */
+        loss       = 1. / nexamples * loss;
+        // objective  = loss + gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
+    
+        /* Compute network accuracy */
+        // app->accuracy = 100.0 * (double) success / nexamples;
+    }
+
 
     //    /* Add regularization for classifier */
     //    regul  = tikhonov_regul(app->classW, nclasses * nchannels);
@@ -396,7 +362,7 @@ my_ObjectiveT(braid_App              app,
     //    app->accuracy = 100.0 * (double) success / nelem;  
     // }
 
-    // *objective_ptr = getValue(obj);
+    *objective_ptr = objective;
     
     
     return 0;

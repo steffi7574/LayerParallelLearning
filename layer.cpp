@@ -168,7 +168,7 @@ void DenseLayer::applyBWD(double* data_In,
       /* Derivative of weight application */
       for (int jo = 0; jo < dim_In; jo++)
       {
-         data_In_bar[jo] += weights[io*dim_In + jo] * data_Out_bar[io];
+         if (index != 0) data_In_bar[jo] += weights[io*dim_In + jo] * data_Out_bar[io]; // at first layer: data_in is the input data, its derivative is not needed. 
          weights_bar[io*dim_In + jo] += data_In[jo] * data_Out_bar[io];
       }
 

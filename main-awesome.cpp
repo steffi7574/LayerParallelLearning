@@ -408,5 +408,6 @@ int main (int argc, char *argv[])
     delete [] val_examples;
     delete [] val_labels;
 
+    MPI_Finalize();
     return 0;
 }

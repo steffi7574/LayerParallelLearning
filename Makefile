@@ -11,7 +11,7 @@ CPPFLAGS = -g -Wall -pedantic -lm -Wno-write-strings -Wno-delete-non-virtual-dto
 
 DEPS = lib.hpp braid_wrapper.hpp hessianApprox.hpp parser.h layer.hpp linalg.hpp network.hpp util.hpp
 OBJ-pint   = main.o lib.o braid_wrapper.o hessianApprox.o layer.o linalg.o
-OBJ-awesome = main-awesome.o util.o hessianApprox.o layer.o linalg.o network.o
+OBJ-awesome = main-awesome.o util.o hessianApprox.o layer.o linalg.o network.o braid_wrapper.o
 
 %.o: %.cpp $(DEPS)
 	$(CXX) $(CPPFLAGS) -c $< -o $@  $(INC)

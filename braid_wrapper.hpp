@@ -12,9 +12,12 @@ typedef struct _braid_App_struct
     Network* network;    /* Pointer to the DNN Network */
     int      nexamples;  /* Number of data examples */
     double** examples;   /* Data examples */
-    double** labels;     /* Labels forthe data examples */
+    double** labels;     /* Labels for the data examples */
 
     double   accuracy;   /* Accuracy of the network */
+    double   loss;
+    double   gamma_tik;
+    double   gamma_ddt;
 } my_App;
 
 

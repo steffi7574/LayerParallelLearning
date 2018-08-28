@@ -9,7 +9,7 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
-//#include "braid_wrapper.hpp"
+#include "braid_wrapper.hpp"
 #include "parser.h"
 #include "network.hpp"
 

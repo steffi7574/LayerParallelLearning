@@ -10,46 +10,35 @@ my_Step(braid_App        app,
         braid_Vector     u,
         braid_StepStatus status)
 {
-    // int    ts;
-    // double tstart, tstop;
-    // double *bias, *weights;
-    // double deltaT;
-    // int    nchannels = app->layer->nchannels;
+    int    ts;
+    double tstart, tstop;
+    double deltaT;
 
-    // int nelem;
-    // if (app->training)
-    // {
-    //     nelem = app->ntraining;
-    // }
-    // else
-    // {
-    //     nelem = app->nvalidation;
-    // }
-    
-    // /* Get the time-step size */
-    // braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    // deltaT = tstop - tstart;
+    int nexamples = app->nexamples;
+   
+    /* Get the time-step size and current time index*/
+    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    braid_StepStatusGetTIndex(status, &ts);
+    deltaT = tstop - tstart;
  
-    // /* Get the current time index */
-    // braid_StepStatusGetTIndex(status, &ts);
- 
-    // /* Set the layer parameters */
-    // bias      = &(app->theta[ts*(nchannels * nchannels+1) + nchannels*nchannels]);
-    // weights   = &(app->theta[ts*(nchannels * nchannels+1)]);
 
-    // app->layer->setBias(bias);
-    // app->layer->setWeights(weights);
-    // app->layer->setDt(deltaT);
+    /* TODO TS SHOULD NOT BE NLAYER HERE!  */
 
-    // /* apply the layer for all examples */
-    // for (int ielem = 0; ielem < nelem; ielem++)
-    // {
-    //     double* data = &(u->Y[ielem * nchannels]);
-    //     app->layer->applyFWD(data);
-    // }
+    /* apply the layer for all examples */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Set the time step */
+        app->network->layers[ts]->setDt(deltaT);
+
+        /* Set the network state */
+        app->network->setState(app->network->layers[ts]->getDimOut(), u->state[iex]);
+
+        /* Apply the layer */
+        app->network->layers[ts]->applyFWD(app->network->getState(), u->state[iex]);
+    }
 
     // /* no refinement */
-    // braid_StepStatusSetRFactor(status, 1);
+    braid_StepStatusSetRFactor(status, 1);
  
     return 0;
 }   
@@ -67,7 +56,7 @@ my_Init(braid_App     app,
     /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
     u->state = new double*[nexamples];
-    for (int iex = 0; iex < nexamples; iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex++)
     {
         u->state[iex] = new double[nchannels];
     }
@@ -75,10 +64,10 @@ my_Init(braid_App     app,
     /* Project data to the network layer at t=0.0 */
     if (t == 0.0)
     {
-        /* apply the layer for all examples */
+        /* apply the first layer for all examples */
         for (int iex = 0; iex < nexamples; iex++)
         {
-            app->network->openlayer->applyFWD(app->examples[iex], u->state[iex]);
+            app->network->layers[0]->applyFWD(app->examples[iex], u->state[iex]);
         }
     }
     else
@@ -111,9 +100,9 @@ my_Init_diff(braid_App     app,
         /* apply the opening layer backwards for all examples */
         for (int iex = 0; iex < nexamples; iex++)
         {
-            // pass auxilliary state_curr as placeholder for recomputing the state,
-            // pass NULL because data_in_bar would be derivative of the input data, which is not computed. 
-            app->network->openlayer->applyBWD(app->examples[iex], app->network->state_curr, NULL, ubar->state[iex]);
+            // pass auxilliary state_upd as placeholder for recomputing the state,
+            // pass NULL because data_in_bar is not used on first layer since it would be derivative of the input data
+            // app->network->layers[0]->applyBWD(app->examples[iex], app->network->state_upd, NULL, ubar->state[iex]);
         }
     }
 
@@ -133,7 +122,7 @@ my_Clone(braid_App     app,
     /* Allocate the vector */
     my_Vector* v = (my_Vector *) malloc(sizeof(my_Vector));
     v->state = new double*[nexamples];
-    for (int iex = 0; iex < nexamples; iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex++)
     {
         v->state[iex] = new double[nchannels];
     }
@@ -154,10 +143,9 @@ int
 my_Free(braid_App    app,
         braid_Vector u)
 {
-    int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
-    for (int iex = 0; iex < nexamples; iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex++)
     {
         delete [] u->state[iex];
     }
@@ -177,7 +165,7 @@ my_Sum(braid_App     app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
-    for (int iex = 0; iex < nexamples; iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -243,7 +231,7 @@ my_BufPack(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     
-    for (int iex = 0; iex < nexamples; iex < nexamples)
+    for (int iex = 0; iex < nexamples; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -297,73 +285,57 @@ my_ObjectiveT(braid_App              app,
               braid_ObjectiveStatus  ostatus,
               double                *objective_ptr)
 {
-    int class_id = -1;
-    int success  = 0;
-    double loss       = 0.0;
-    double objective  = 0.0;
-    double regul_tikh = 0.0;
-    double regul_ddt  = 0.0;
+    int    class_id;
+    int    success;
+    double loss;
+    double regul_tik, regul_ddt;
 
     int nlayers   = app->network->getnLayers();
-    int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
     /* Get the time index*/
     int ts;
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
  
-    if (ts == 0) // Only tikhonov on first layer 
+    /* Sanity check */
+    if (ts >=nlayers )
     {
-        regul_tikh += app->network->openlayer->evalTikh();
+        printf("\n\n\nWARNING: CHECK NLAYERS FOR BRAID IMPLEMENTATION\n\n\n");
     }
-    else if (ts < nlayers) // tikhonov and ddt regularization on intermediate layers 
-    {
-        regul_tikh += app->network->layers[ts-1]->evalTikh();
-        if (ts > 1) regul_ddt += app->network->evalRegulDDT(app->network->layers[ts-2], app->network->layers[ts-1]);
-    }
-    else // tikhonov regularization and loss evaluation on last layer
-    {
-        /* Tikhonov regularization */
-        regul_tikh += app->network->endlayer->evalTikh();
 
+    /* Tikhonov regularization */
+    regul_tik = app->network->layers[ts]->evalTikh();
+
+    /* ddt-regularization term */
+    if (ts > 1 && ts < nlayers - 1) 
+    {
+        regul_ddt = app->network->evalRegulDDT(app->network->layers[ts-1], app->network->layers[ts]);
+    }
+
+ 
+    /* Evaluate loss and accuracy at last layer */
+    if (ts == nlayers - 1)
+    {
+        success = 0;
+        loss    = 0.0;
         for (int iex = 0; iex < nexamples; iex++)
         {
-            /* Apply classification layer */
-            app->network->endlayer->applyFWD(u->state[iex], app->network->state_final);
+            loss = app->network->layers[nlayers-1]->evalLoss(u->state[iex], app->labels[iex]);
 
-            /* Evaluate loss */
-            loss += app->network->endlayer->evalLoss(app->network->state_final, app->labels[iex]);
-        
             /* Test for successful prediction */
-            class_id = app->network->endlayer->prediction(app->network->state_final);
+            class_id = app->network->layers[nlayers-1]->prediction(u->state[iex]);
             if ( app->labels[iex][class_id] > 0.99 )  
             {
                 success++;
             }
         }
-
-        /* Compute objective function */
-        loss       = 1. / nexamples * loss;
-        // objective  = loss + gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
-    
-        /* Compute network accuracy */
-        // app->accuracy = 100.0 * (double) success / nexamples;
+        app->loss     = 1. / nexamples * loss;
+        app->accuracy = 100.0 * (double) success / nexamples;
     }
 
 
-    //    /* Add regularization for classifier */
-    //    regul  = tikhonov_regul(app->classW, nclasses * nchannels);
-    //    regul += tikhonov_regul(app->classMu, nclasses);
-
-    //    app->class_regul = app->gamma_class * regul;
-    //    obj             += app->gamma_class * regul;
-
-    //    /* Compute accuracy */
-    //    app->accuracy = 100.0 * (double) success / nelem;  
-    // }
-
-    *objective_ptr = objective;
-    
+    /* Compute objective function */
+    *objective_ptr = loss + app->gamma_tik * regul_tik + app->gamma_ddt * regul_ddt;
     
     return 0;
 }

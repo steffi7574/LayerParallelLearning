@@ -53,6 +53,8 @@ int main (int argc, char *argv[])
     int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
     /* --- PinT --- */
+    braid_Core core_train;      /**< Braid core for training data */
+    my_App  *app_train;         /**< Braid app for training data */
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
@@ -323,11 +325,41 @@ int main (int argc, char *argv[])
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init);
 
 
+    /* Initialize xbraid's app structure */
+    app_train = (my_App *) malloc(sizeof(my_App));
+    app_train->myid      = myid;
+    app_train->network   = network;
+    app_train->nexamples  = ntraining;
+    app_train->examples  = train_examples;
+    app_train->labels    = train_labels;
+    app_train->accuracy  = 0.0;
+    app_train->loss      = 0.0;
+    app_train->gamma_tik = gamma_tik;
+    app_train->gamma_ddt = gamma_ddt;
+
+    /* Initializze adjoint XBraid for training data */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
+
+    /* Set Braid parameters */
+    braid_SetMaxLevels(core_train, braid_maxlevels);
+    braid_SetPrintLevel( core_train, braid_printlevel);
+    braid_SetCFactor(core_train, -1, braid_cfactor);
+    braid_SetAccessLevel(core_train, braid_accesslevel);
+    braid_SetMaxIter(core_train, braid_maxiter);
+    braid_SetSkip(core_train, braid_setskip);
+    if (braid_fmg){
+        braid_SetFMG(core_train);
+    }
+    braid_SetNRelax(core_train, -1, braid_nrelax);
+    braid_SetAbsTol(core_train, braid_abstol);
+    braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
 
 
 
     /* Propagate training data */
     network->applyFWD(ntraining, train_examples, train_labels);
+
 
     /* Evaluate objective function */
     regul = network->evalRegularization(gamma_tik, gamma_ddt);
@@ -344,9 +376,22 @@ int main (int argc, char *argv[])
 
 
 
+    /* Propagate  through braid */
+    braid_SetObjectiveOnly(core_train, 1);
+    braid_SetPrintLevel(core_train, 1);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    /* Output */
+    printf("Loss:      %1.14e\n",   app_train->loss);
+    printf("Objective: %1.14e\n",   objective);
+    printf("Accuracy:  %3.4f %%\n", app_train->accuracy);
+
+
 
     /* Clean up */
     delete network;
+    braid_Destroy(core_train);
+    free(app_train);
 
     for (int ix = 0; ix<ntraining; ix++)
     {

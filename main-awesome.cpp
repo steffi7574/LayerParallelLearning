@@ -9,7 +9,7 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
-#include "braid_wrapper.hpp"
+//#include "braid_wrapper.hpp"
 #include "parser.h"
 #include "network.hpp"
 
@@ -20,32 +20,41 @@
 
 int main (int argc, char *argv[])
 {
+    /* --- Data set --- */
     int      ntraining;               /**< Number of elements in training data */
     int      nvalidation;             /**< Number of elements in validation data */
+    int      nfeatures;               /**< Number of features in the data set */
+    int      nclasses;                /**< Number of classes / Clabels */
     double **train_examples = NULL;   /**< Traning examples */
     double **train_labels   = NULL;   /**< Training labels*/
     double **val_examples   = NULL;   /**< Validation examples */
     double **val_labels     = NULL;   /**< Validation labels*/
-
-    double   weights_init;         /**< Factor to scale the initial theta weights and biases */
-    double   weights_open_init;    /**< Factor to scale the initial opening layer weights and biases */
-    double   weights_class_init; /**< Factor to scale the initial classification weights and biases */
-    double   gamma_tik;         /**< Relaxation parameter for theta tikhonov */
-    double   gamma_ddt;         /**< Relaxation parameter for theta time-derivative */
-    int      nclasses;          /**< Number of classes / Clabels */
-    int      nfeatures;         /**< Number of features in the data set */
-    int      nlayers;            /**< Number of layers / time steps */
-    int      nchannels;         /**< Number of channels of the netword (width) */
-    double   T;                 /**< Final time */
+    /* --- Network --- */
+    int      nlayers;                  /**< Number of layers / time steps */
+    int      nchannels;               /**< Number of channels of the netword (width) */
+    double   T;                       /**< Final time */
+    int      activation;              /**< Enumerator for the activation function */
+    Network *network;                 /**< DNN Network architecture */
+    double   loss;
+    double   accuracy;
+    /* --- Optimization --- */
+    double   objective;           /**< Optimization objective */
+    double   regul;               /**< Value of the regularization term */
+    double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
+    double   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
+    double   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
+    double   weights_init;        /**< Factor for scaling initial weights and bias of intermediate layers*/
+    double   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
+    double   stepsize_init;       /**< Initial stepsize for design updates */
+    int      maxoptimiter;        /**< Maximum number of optimization iterations */
+    double   gtol;                /**< Stopping Tolerance on norm of gradient */
+    int      ls_maxiter;          /**< Max. number of linesearch iterations */
+    double   ls_factor;           /**< Reduction factor for linesearch */
+    int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
+    int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
+    /* --- PinT --- */
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
-    double   stepsize_init;     /**< Initial stepsize for theta updates */
-    int      maxoptimiter;      /**< Maximum number of optimization iterations */
-    double   gtol;              /**< Stopping Tolerance on norm of gradient */
-    int      ls_maxiter;        /**< Max. number of linesearch iterations */
-    double   ls_factor;         /**< Reduction factor for linesearch */
-    int      hessian_approx;     /**< Hessian approximation (USE_BFGS or L-BFGS) */
-    int      lbfgs_stages;       /**< Number of stages of the L-bfgs method */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
     int      braid_printlevel;  /**< print level of xbraid */
     int      braid_cfactor;     /**< temporal coarsening factor */
@@ -56,20 +65,17 @@ int main (int argc, char *argv[])
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
-    int      activation;        /**< Determin the activation function */
-    Network *network;           /**< DNN Network architecture */
-    double StartTime;
 
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    StartTime = MPI_Wtime();
+    double StartTime = MPI_Wtime();
 
     
 
-    /* --- Set DEFAULT parameters for the config option --- */ 
+    /* --- Set DEFAULT parameters of the config file options --- */ 
 
     ntraining          = 5000;
     nvalidation        = 200;
@@ -314,7 +320,7 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, gamma_tik, gamma_ddt, weights_init, weights_open_init, weights_class_init);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init);
 
 
 
@@ -322,6 +328,19 @@ int main (int argc, char *argv[])
 
     /* Propagate training data */
     network->applyFWD(ntraining, train_examples, train_labels);
+
+    /* Evaluate objective function */
+    regul = network->evalRegularization(gamma_tik, gamma_ddt);
+    loss  = network->getLoss();
+    objective = loss + regul;
+
+    /* Get accuracy */
+    accuracy = network->getAccuracy();
+
+    /* Output */
+    printf("Loss:      %1.14e\n",   loss);
+    printf("Objective: %1.14e\n",   objective);
+    printf("Accuracy:  %3.4f %%\n", accuracy);
 
 
 

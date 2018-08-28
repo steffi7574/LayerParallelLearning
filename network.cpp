@@ -5,18 +5,13 @@ Network::Network()
    nlayers     = 0;
    nchannels   = 0;
    dt          = 0.0;
-   gamma_tik   = 0.0;
-   gamma_ddt   = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
 
-   openlayer   = NULL;
    layers      = NULL;
-   endlayer    = NULL;
 
    state_curr  = NULL;
    state_old   = NULL;
-   state_final = NULL;
 }
 
 Network::Network(int    nLayers,
@@ -27,15 +22,11 @@ Network::Network(int    nLayers,
                  double deltaT,
                  double Weight_init,
                  double Weight_open_init,
-                 double Classification_init,
-                 double gammaTIK,
-                 double gammaDDT)
+                 double Classification_init)
 {
    nlayers   = nLayers;
    nchannels = nChannels;
    dt        = deltaT;
-   gamma_tik = gammaTIK;
-   gamma_ddt = gammaDDT;
    loss      = 0.0;
    accuracy  = 0.0;
    
@@ -58,121 +49,161 @@ Network::Network(int    nLayers,
          printf("GO HOME AND GET SOME SLEEP!");
    }
 
-   /* Create and initialize the opening layer */
+   /* --- Create and initialize the layers --- */
+   layers = new Layer*[nlayers];
+
+   /* opening layer */
    if (Weight_open_init == 0.0)
    {
-      openlayer = new OpenExpandZero(nFeatures, nChannels, deltaT);
+      layers[0]  = new OpenExpandZero(nFeatures, nChannels, deltaT);
    }
    else
    {
-      openlayer = new DenseLayer(0, nFeatures, nChannels, deltaT, activ_ptr, dactiv_ptr);
+      layers[0] = new DenseLayer(0, nFeatures, nChannels, deltaT, activ_ptr, dactiv_ptr);
    }
-   openlayer->initialize(Weight_open_init);
-   openlayer->setDt(1.0);
+   layers[0]->initialize(Weight_open_init);
+   layers[0]->setDt(1.0);
 
-   /* Create and initialize the intermediate layers */
-   layers = new Layer*[nlayers-2];
+   /* intermediate layers */
    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
    {
-      layers[ilayer-1] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
-      layers[ilayer-1]->initialize(Weight_init);
+      layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
+      layers[ilayer]->initialize(Weight_init);
    }
 
-   /* Create and initialize the end layer */
-   endlayer = new ClassificationLayer(nLayers, nChannels, nClasses, deltaT);
-   endlayer->initialize(Classification_init);
+   /* end layer */
+   layers[nlayers-1] = new ClassificationLayer(nLayers, nChannels, nClasses, deltaT);
+   layers[nlayers-1]->initialize(Classification_init);
 
 
    /* Allocate temporary vectors */
     state_curr  = new double[nChannels];
     state_old   = new double[nChannels];
-    state_final = new double[nClasses];
+
+    /* Sanity check */
+    if (nFeatures > nChannels ||
+        nClasses  > nChannels)
+    {
+        printf("ERROR! Choose a wider netword!\n");
+        exit(1);
+    }
 }              
 
 Network::~Network()
 {
     /* Delete the layers */
-    delete openlayer;
-    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    for (int ilayer = 0; ilayer < nlayers; ilayer++)
     {
-       delete layers[ilayer-1];
+       delete layers[ilayer];
     }
     delete [] layers;
-    delete endlayer;
 
     delete [] state_curr;
     delete [] state_old;
-    delete [] state_final;
 }
 
 int Network::getnChannels() { return nchannels; }
-int Network::getnLayers()   { return nlayers; }
+
+int Network::getnLayers() { return nlayers; }
+
+double Network::getLoss() { return loss; }
+
+double Network::getAccuracy() { return accuracy; }
+
+void Network::setState(int     dimN, 
+                       double* data)
+{
+    if (dimN > nchannels) 
+    {
+        printf("ERROR!\n");
+        exit(1);
+    }
+
+    for (int is = 0; is < dimN; is++)
+    {
+        state_curr[is] = data[is];
+    }
+    for (int is = dimN; is < nchannels; is++)
+    {
+        state_curr[is] = 0.0;
+    }
+}
+
+void Network::setState_Old(int     dimN, 
+                           double* data)
+{
+    if (dimN > nchannels) 
+    {
+        printf("ERROR!\n");
+        exit(1);
+    }
+
+    for (int is = 0; is < dimN; is++)
+    {
+        state_old[is] = data[is];
+    }
+    for (int is = dimN; is < nchannels; is++)
+    {
+        state_old[is] = 0.0;
+    }
+}
 
 void Network::applyFWD(int      nexamples,
                        double **examples,
                        double **labels)
 {
-    int class_id = -1;
-    int success  = 0;
-    double objective  = 0.0;
-    double regul_tikh = 0.0;
-    double regul_ddt  = 0.0;
+    int class_id, success;
 
-
-    /* Propagate the example */
-    loss = 0.0;
+    /* Propagate the examples */
+    loss    = 0.0;
+    success = 0;
     for (int iex = 0; iex < nexamples; iex++)
-    {
-        /* Apply opening layer */
-        openlayer->applyFWD(examples[iex], state_curr);
+    { 
+        /* Load input data */
+        setState(layers[0]->getDimIn(), examples[iex]);
+       
 
-        /* Evaluate regularization term */
-        regul_tikh += openlayer->evalTikh();
-
-        /* Propagate through all intermediate layers */ 
-        for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+        /* Propagate through all layers */ 
+        for (int ilayer = 0; ilayer < nlayers; ilayer++)
         {
-            for (int ichannels = 0; ichannels < nchannels; ichannels++)
-            {
-                state_old[ichannels] = state_curr[ichannels];
-            } 
-            layers[ilayer-1]->applyFWD(state_old, state_curr);
+            /* Shift current state into old state */
+            setState_Old(layers[ilayer]->getDimOut(), state_curr);
 
-            /* Evaluate regularization term */
-            regul_tikh += layers[ilayer-1]->evalTikh();
-            if (ilayer > 1) regul_ddt += evalRegulDDT(layers[ilayer-2], layers[ilayer-1]);
+            /* Apply the next layer */
+            layers[ilayer]->applyFWD(state_old, state_curr);
         }
 
-        /* Apply classification layer */
-        endlayer->applyFWD(state_curr, state_final);
-
-        /* Evaluate regularization term */
-        regul_tikh += endlayer->evalTikh();
-
         /* Evaluate loss */
-        loss += endlayer->evalLoss(state_final, labels[iex]);
+        loss += layers[nlayers-1]->evalLoss(state_curr, labels[iex]);
 
         /* Test for successful prediction */
-        class_id = endlayer->prediction(state_final);
+        class_id = layers[nlayers-1]->prediction(state_curr);
         if ( labels[iex][class_id] > 0.99 )  
         {
             success++;
         }
     }
-
-    /* Compute objective function */
-    loss       = 1. / nexamples * loss;
-    objective  = loss + gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
-
-    /* Compute network accuracy */
+        
+    /* Set loss and accuracy */
+    loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
+}
 
 
-    /* Output */
-    printf("Loss:      %1.14e\n",   loss);
-    printf("Objective: %1.14e\n",   objective);
-    printf("Accuracy:  %3.4f %%\n", accuracy);
+double Network::evalRegularization(double gamma_tik,
+                                   double gamma_ddt)
+{
+    double regul_tikh = 0.0;
+    double regul_ddt  = 0.0;
 
+    /* Evaluate regularization term */
+    for (int ilayer = 0; ilayer < nlayers; ilayer++)
+    {
+        regul_tikh += layers[ilayer]->evalTikh();
+        if (ilayer > 1 && ilayer < nlayers - 1) regul_ddt += evalRegulDDT(layers[ilayer-1], layers[ilayer]);
+    }
+
+    return gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
 }
 
 

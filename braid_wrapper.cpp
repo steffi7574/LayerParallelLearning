@@ -21,31 +21,22 @@ my_Step(braid_App        app,
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
-
-    // printf("fwd %d\n", ts);
- 
-
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
-        /* apply the first layer for all examples */
         if (ts == 0)
         {
             app->network->layers[0]->setDt(1.0);
-            app->network->layers[0]->applyFWD(app->examples[iex], u->state[iex]);
+            app->network->setState(app->network->layers[0]->getDimIn(), app->examples[iex]);
         }
         else
         {
-            /* Set the time step */
             app->network->layers[ts]->setDt(deltaT);
-
-            /* Set the network state */
-            app->network->setState(app->network->layers[ts-1]->getDimOut(), u->state[iex]);
-
-            /* Apply the layer */
-            app->network->layers[ts]->applyFWD(app->network->getState(), u->state[iex]);
+            app->network->setState(app->network->layers[ts]->getDimIn(), u->state[iex]);
         }
 
+        /* Apply the layer */
+        app->network->layers[ts]->applyFWD(app->network->getState(), u->state[iex]);
     }
 
     // /* no refinement */
@@ -80,28 +71,6 @@ my_Init(braid_App     app,
 
     return 0;
 }
-
-
-int
-my_Init_diff(braid_App     app,
-             double        t,
-             braid_Vector  ubar)
-{
-    int nexamples = app->nexamples;
-
-    if (t == 0)
-    {
-        /* apply the opening layer backwards for all examples */
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            // pass auxilliary state_upd as placeholder for recomputing the state,
-            // pass NULL because data_in_bar is not used on first layer since it would be derivative of the input data
-            // app->network->layers[0]->applyBWD(app->examples[iex], app->network->state_upd, NULL, ubar->state[iex]);
-        }
-    }
-
-    return 0;
-}         
 
 
 int
@@ -361,19 +330,50 @@ my_Step_diff(braid_App         app,
              braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
              braid_StepStatus  status)
 {
-    // int    ts;
-    // double tstart, tstop;
-    // double deltaT;
+    int    ts;
+    double tstart, tstop;
+    double deltaT;
 
-    // int nexamples = app->nexamples;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
    
-    // /* Get the time-step size and current time index*/
-    // braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    // braid_StepStatusGetTIndex(status, &ts);
-    // deltaT = tstop - tstart;
+    /* Get the time-step size and current time index*/
+    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    braid_StepStatusGetTIndex(status, &ts);
+    deltaT = tstop - tstart;
+
+
+    /* apply the layer backwards for all examples */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+
+        if (ts == 0)
+        {
+            app->network->layers[0]->setDt(1.0);
+            app->network->setState(app->network->layers[0]->getDimIn(), app->examples[iex]);
+        }
+        else
+        {
+            app->network->layers[ts]->setDt(deltaT);
+            app->network->setState(app->network->layers[ts]->getDimIn(), u->state[iex]);
+        }
+
+        /* Set adjoint state to zero */
+        app->network->setState_bar(0.0);
+
+        /* Apply the layer backwards */
+        app->network->layers[ts]->applyBWD(app->network->getState(), app->network->getState_bar(), u->state[iex], u_bar->state[iex]);
+
+        /* Store the adjoint state */
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+            u_bar->state[iex][ic] += app->network->getState_bar()[ic]; 
+        }
+    }
 
     return 0;
 }
+
 
 int 
 my_ResetGradient(braid_App app)

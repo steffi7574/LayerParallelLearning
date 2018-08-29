@@ -46,6 +46,10 @@ class Layer
       double* getWeights();
       double* getBias();
 
+      /* Get a pointer to the weights bias bar */
+      double* getWeightsBar();
+      double* getBiasBar();
+
       /* Get the dimensions */
       int getDimIn();
       int getDimOut();
@@ -73,6 +77,11 @@ class Layer
       double evalTikh();
 
       /**
+       * Derivative of Tikhonov Regularization
+       */
+      void evalTikh_diff(double regul_bar);
+
+      /**
        * Forward propagation of an example 
        * In/Out: vector holding the current example data
        */
@@ -91,10 +100,23 @@ class Layer
                             double* data_Out_bar)=0;
 
       /**
-       * Evaluates an objective function 
+       * Evaluates the loss function 
        */
       virtual double evalLoss(double *data_Out,
                               double *label);
+
+
+      /** 
+       * Derivative of evaluating the loss function 
+       * In: data_Out, can be used to recompute intermediate states
+       *     label for the current example 
+       *     loss_bar: value holding the outer derivative
+       * Out: data_Out_bar holding the derivative of loss wrt data_Out
+       */
+      virtual void evalLoss_diff(double *data_Out, 
+                                 double *data_Out_bar,
+                                 double *label,
+                                 double  loss_bar);
 
       /**
        * Compute class probabilities and return predicted class id.
@@ -178,6 +200,14 @@ class ClassificationLayer : public Layer
              */
             double evalLoss(double *finalstate,
                             double *label);
+
+            /** 
+             * Algorithmic derivative of evaluating loss
+             */
+            void evalLoss_diff(double *data_Out, 
+                               double *data_Out_bar,
+                               double *label,
+                               double  loss_bar);
 
             /**
              * Compute the class probabilities

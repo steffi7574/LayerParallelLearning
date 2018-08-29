@@ -52,6 +52,9 @@ void Layer::setDt(double DT) { dt = DT; }
 double* Layer::getWeights() { return weights; }
 double* Layer::getBias()    { return bias; }
 
+double* Layer::getWeightsBar() { return weights_bar; }
+double* Layer::getBiasBar()    { return bias_bar; }
+
 int Layer::getDimIn()   { return dim_In;   }
 int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
@@ -110,8 +113,30 @@ double Layer::evalTikh()
     return tik / 2.0;
 }
 
-double Layer::evalLoss(double *data_Out, double *label) { return 0.0; }
-int    Layer::prediction(double* data) {return -1;}
+void Layer::evalTikh_diff(double regul_bar)
+{
+    /* Derivative bias term */
+    for (int i = 0; i < dim_Bias; i++)
+    {
+        bias_bar[i] += bias[i] * regul_bar;
+    }
+    for (int i = 0; i < dim_Out * dim_In; i++)
+    {
+        weights_bar[i] += weights_bar[i] * regul_bar;
+    }
+}
+
+
+double Layer::evalLoss(double *data_Out, 
+                       double *label) { return 0.0; }
+
+
+void Layer::evalLoss_diff(double *data_Out, 
+                          double *data_Out_bar,
+                          double *label,
+                          double  loss_bar) {}
+
+int Layer::prediction(double* data) {return -1;}
 
 
 DenseLayer::DenseLayer(int     idx,
@@ -327,7 +352,6 @@ double ClassificationLayer::evalLoss(double *data_Out,
    double label_pr, exp_sum;
    double CELoss;
 
-
    /* Label projection */
    label_pr = vecdot(dim_Out, label, data_Out);
 
@@ -343,6 +367,36 @@ double ClassificationLayer::evalLoss(double *data_Out,
 
    return CELoss;
 }
+      
+      
+void ClassificationLayer::evalLoss_diff(double *data_Out, 
+                                        double *data_Out_bar,
+                                        double *label,
+                                        double  loss_bar)
+{
+    double exp_sum, exp_sum_bar;
+    double label_pr_bar = - loss_bar;
+
+    /* Recompute exp_sum */
+    exp_sum = 0.0;
+    for (int io = 0; io < dim_Out; io++)
+    {
+       exp_sum += exp(data_Out[io]);
+    }
+
+    /* derivative of log(exp_sum) */
+    exp_sum_bar  = 1./exp_sum * loss_bar;
+    for (int io = 0; io < dim_Out; io++)
+    {
+        data_Out_bar[io] += exp(data_Out[io]) * exp_sum_bar;
+    }
+
+    /* Derivative of vecdot */
+    for (int io = 0; io < dim_Out; io++)
+    {
+        data_Out_bar[io] +=  label[io] * label_pr_bar;
+    }
+}                              
 
 
 int ClassificationLayer::prediction(double* data_Out)

@@ -231,6 +231,26 @@ double Network::evalRegulDDT(Layer* layer_old,
     return ddt/2.0;
 }                
 
+void Network::evalRegulDDT_diff(Layer* layer_old, 
+                                Layer* layer_curr,
+                                double regul_bar)
+{
+    double diff;
+
+    /* Derivative of the bias-term */
+    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / pow(dt,2);
+    layer_curr->getBiasBar()[0] += diff * regul_bar;
+    layer_old->getBiasBar()[0]  -= diff * regul_bar;
+
+    /* Derivative of the weights term */
+    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    {
+        diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / pow(dt,2);
+        layer_curr->getWeightsBar()[iw] += diff * regul_bar;
+        layer_old->getWeightsBar()[iw]  -= diff * regul_bar;
+    }
+} 
+
 double Network::ReLu_act(double x)
 {
     return std::max(0.0, x);

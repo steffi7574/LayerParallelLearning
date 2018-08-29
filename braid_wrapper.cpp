@@ -317,9 +317,45 @@ my_ObjectiveT_diff(braid_App            app,
                   braid_Real            f_bar,
                   braid_ObjectiveStatus ostatus)
 {
-    /* TODO */
+    double loss_bar, regul_tik_bar, regul_ddt_bar;
+    int nlayers   = app->network->getnLayers();
+    int nexamples = app->nexamples;
 
-   return 0;
+    /* Get the time index*/
+    int ts;
+    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
+    int ilayer = ts - 1;
+    if (ilayer < 0) 
+    {
+        return 0;
+    }
+
+    /* Derivative of objective function */
+    loss_bar      = f_bar;
+    regul_tik_bar = f_bar * app->gamma_tik;
+    regul_ddt_bar = f_bar * app->gamma_ddt;
+
+    /* Derivative of loss function evaluation */
+    if (ilayer == nlayers - 1)
+    {
+        loss_bar = 1./nexamples * loss_bar;
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            app->network->layers[nlayers-1]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
+        }
+    }
+
+    /* Derivative of ddt-regularization term */
+    if (ilayer > 1 && ilayer < nlayers - 1) 
+    {
+        app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
+    }
+
+    /* Derivative of the tikhonov regularization term */
+    app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
+
+    
+    return 0;
 }
 
 int

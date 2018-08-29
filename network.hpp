@@ -79,13 +79,21 @@ class Network
        * Returns the regularization term 
        */
       double evalRegularization(double gamma_tik,
-                                         double gamma_ddt);
+                                double gamma_ddt);
       
       /**
        * Regularization for the time-derivative of the layer weights
        */
       double evalRegulDDT(Layer* layer_old, 
                           Layer* layer_curr);            
+
+      /**
+       * Derivative of ddt-regularization term 
+       */
+      void evalRegulDDT_diff(Layer* layer_old, 
+                             Layer* layer_curr,
+                             double regul_bar);
+
 
       /* ReLu Activation and derivative */
       static double ReLu_act(double x);

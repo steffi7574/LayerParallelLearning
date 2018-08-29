@@ -219,9 +219,16 @@ void OpenExpandZero::applyBWD(double* data_In,
 ClassificationLayer::ClassificationLayer(int idx,
                                          int dimI,
                                          int dimO,
-                                         double  deltaT) : Layer(idx, dimI, dimO, dimO, deltaT, NULL, NULL){}
+                                         double  deltaT) : Layer(idx, dimI, dimO, dimO, deltaT, NULL, NULL)
+{
+    /* Allocate the probability vector */
+    probability = new double[dimO];
+}
 
-ClassificationLayer::~ClassificationLayer(){}
+ClassificationLayer::~ClassificationLayer()
+{
+    delete [] probability;
+}
 
 
 void ClassificationLayer::applyFWD(double* data_In, 
@@ -237,6 +244,9 @@ void ClassificationLayer::applyFWD(double* data_In,
         data_Out[io] += bias[io];
     }
 
+    /* Data normalization y - max(y) (needed for stable softmax evaluation */
+    normalize(data_Out);
+
     /* Reset the remaining values */    
     for (int ii = dim_Out; ii < dim_In; ii++)
     {
@@ -249,6 +259,9 @@ void ClassificationLayer::applyBWD(double* data_In,
                                    double* data_In_bar,
                                    double* data_Out_bar)
 {
+    /* TODO: Derivative of the normalization ! */
+
+
     /* Backward propagation for each channel */
     for (int io = 0; io < dim_Out; io++)
     {
@@ -286,8 +299,6 @@ double ClassificationLayer::evalLoss(double *data_Out,
    double label_pr, exp_sum;
    double CELoss;
 
-   /* Data normalization y - max(y) */
-   normalize(data_Out);
 
    /* Label projection */
    label_pr = vecdot(dim_Out, label, data_Out);
@@ -322,12 +333,12 @@ int ClassificationLayer::prediction(double* data_Out)
    /* Compute class probabilities (Softmax) */
    for (int io = 0; io < dim_Out; io++)
    {
-       data_Out[io] = exp(data_Out[io]) / exp_sum;
+       probability[io] = exp(data_Out[io]) / exp_sum;
 
       /* Predicted class is the one with maximum probability */ 
-      if (data_Out[io] > max)
+      if (probability[io] > max)
       {
-          max      = data_Out[io]; 
+          max      = probability[io]; 
           class_id = io; 
       }
    }

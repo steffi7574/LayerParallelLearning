@@ -149,6 +149,9 @@ class OpenExpandZero : public Layer
  */
 class ClassificationLayer : public Layer
 {
+      protected: 
+            double* probability;          /* vector of pedicted class probabilities */
+      
       public:
             ClassificationLayer(int idx,
                                 int dimI,

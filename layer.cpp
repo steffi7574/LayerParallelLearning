@@ -141,8 +141,8 @@ void DenseLayer::applyFWD(double* data_In,
 
 
 void DenseLayer::applyBWD(double* data_In,
-                          double* data_Out,
                           double* data_In_bar,
+                          double* data_Out,
                           double* data_Out_bar)
 {
 
@@ -204,8 +204,8 @@ void OpenExpandZero::applyFWD(double* data_In,
 }                           
 
 void OpenExpandZero::applyBWD(double* data_In,
-                              double* data_Out,
                               double* data_In_bar,
+                              double* data_Out,
                               double* data_Out_bar)
 {
    for (int ii = 0; ii < dim_In; ii++)
@@ -255,12 +255,12 @@ void ClassificationLayer::applyFWD(double* data_In,
 }                           
       
 void ClassificationLayer::applyBWD(double* data_In,
-                                   double* data_Out,
                                    double* data_In_bar,
+                                   double* data_Out,
                                    double* data_Out_bar)
 {
-    /* TODO: Derivative of the normalization ! */
-
+    /* Derivative of the normalization */
+    normalize_diff(data_Out, data_Out_bar);
 
     /* Backward propagation for each channel */
     for (int io = 0; io < dim_Out; io++)
@@ -285,13 +285,28 @@ void ClassificationLayer::applyBWD(double* data_In,
 void ClassificationLayer::normalize(double* data)
 {
 
+   /* Find maximum value */
    double max = vecmax(dim_Out, data);
+   /* Shift the data vector */
    for (int io = 0; io < dim_Out; io++)
    {
        data[io] = data[io] - max;
    }
-
 }   
+
+void ClassificationLayer::normalize_diff(double* data, 
+                                         double* data_bar)
+{
+    double max_b = 0.0;
+    /* Derivative of the shift */
+    for (int io = 0; io < dim_Out; io++)
+    {
+        max_b -= data_bar[io];
+    }
+    /* Derivative of the vecmax */
+    int i_max = argvecmax(dim_Out, data);
+    data_bar[i_max] += max_b;
+}                                     
 
 double ClassificationLayer::evalLoss(double *data_Out, 
                                       double *label) 

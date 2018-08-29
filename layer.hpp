@@ -80,8 +80,8 @@ class Layer
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
        */
       virtual void applyBWD(double* data_In,
-                            double* data_Out,
                             double* data_In_bar,
+                            double* data_Out,
                             double* data_Out_bar)=0;
 
       /**
@@ -116,8 +116,8 @@ class DenseLayer : public Layer {
                     double* data_Out);
 
       void applyBWD(double* data_In,
-                    double* data_Out,
                     double* data_In_bar,
+                    double* data_Out,
                     double* data_Out_bar);
 };
 
@@ -138,8 +138,8 @@ class OpenExpandZero : public Layer
                           double* data_Out);
       
             void applyBWD(double* data_In,
-                          double* data_Out,
                           double* data_In_bar,
+                          double* data_Out,
                           double* data_Out_bar);
 };
 
@@ -163,14 +163,31 @@ class ClassificationLayer : public Layer
                           double* data_Out);
       
             void applyBWD(double* data_In,
-                          double* data_Out,
                           double* data_In_bar,
+                          double* data_Out,
                           double* data_Out_bar);
 
+            /**
+             * Evaluate the loss function 
+             */
             double evalLoss(double *finalstate,
                             double *label);
 
+            /**
+             * Compute the class probabilities
+             * Returns index of predicted class (is index with  max probability)
+             */
             int prediction(double* data);
 
+            /**
+             * Translate the data: 
+             * Substracts the maximum value from all entries
+             */
             void normalize(double* data);
+
+            /**
+             * Algorithmic derivative of the normalize funciton 
+             */ 
+            void normalize_diff(double* data, 
+                                double* data_bar);
 };

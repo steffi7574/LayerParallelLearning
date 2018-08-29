@@ -30,3 +30,10 @@ double vecdot(int     dimN,
  */
 double vecmax(int     dimN,
               double* x);
+
+
+/**
+ * Return the index of the maximum entry of the vector 
+ */
+int argvecmax(int     dimN,
+              double* x);

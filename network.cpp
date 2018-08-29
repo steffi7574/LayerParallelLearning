@@ -9,6 +9,7 @@ Network::Network()
    accuracy    = 0.0;
    state_upd   = NULL;
    state       = NULL;
+   state_bar   = NULL;
    layers      = NULL;
 }
 
@@ -74,9 +75,10 @@ Network::Network(int    nLayers,
    layers[nlayers-1]->initialize(Classification_init);
 
 
-   /* Allocate vectors for current state and update of the network */
-    state    = new double[nChannels];
-    state_upd= new double[nChannels];
+   /* Allocate vectors for current primal and adjoint state and update of the network */
+    state     = new double[nChannels];
+    state_bar = new double[nChannels];
+    state_upd = new double[nChannels];
 
     /* Sanity check */
     if (nFeatures > nChannels ||
@@ -97,6 +99,7 @@ Network::~Network()
     delete [] layers;
 
     delete [] state;
+    delete [] state_bar;
     delete [] state_upd;
 }
 
@@ -113,7 +116,7 @@ void Network::setState(int     dimN,
 {
     if (dimN > nchannels) 
     {
-        printf("ERROR! This should not happen...\n");
+        printf("ERROR! This should never be the case...\n");
         exit(1);
     }
 
@@ -128,6 +131,16 @@ void Network::setState(int     dimN,
 }
 
 double* Network::getState() { return state; }
+
+void Network::setState_bar(double value)
+{
+    for (int is = 0; is < nchannels; is++)
+    {
+        state_bar[is] = value;
+    }
+}
+
+double* Network::getState_bar() { return state_bar; }
 
 
 void Network::applyFWD(int      nexamples,

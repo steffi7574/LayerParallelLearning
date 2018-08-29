@@ -15,6 +15,7 @@ class Network
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
       double* state_upd;            /* Auxilliary: holdinging update for the current state */
       double* state;                /* Current state of the network */
+      double* state_bar;            /* Current adjoint state of the network */
 
    public: 
       Layer** layers;               /* Array of network layers */
@@ -51,6 +52,17 @@ class Network
        * Return a pointer to the current state of the network
        */
       double* getState();
+
+      /**
+       * Sets the adjoint state vector to constant value 
+       */
+      void setState_bar(double value);
+
+      /**
+       * Return a pointer to the current adjoint state of the network
+       */
+      double* getState_bar();
+
 
       /**
        * Forward propagation through the network. Evaluates loss and accuracy at last layer. 

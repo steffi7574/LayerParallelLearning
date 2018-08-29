@@ -236,6 +236,12 @@ void ClassificationLayer::applyFWD(double* data_In,
         /* Add bias */
         data_Out[io] += bias[io];
     }
+
+    /* Reset the remaining values */    
+    for (int ii = dim_Out; ii < dim_In; ii++)
+    {
+        data_Out[ii] = 0.0;
+    }
 }                           
       
 void ClassificationLayer::applyBWD(double* data_In,

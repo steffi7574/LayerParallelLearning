@@ -31,7 +31,7 @@ my_Step(braid_App        app,
         /* apply the first layer for all examples */
         if (ts == 0)
         {
-            app->network->layers[ts]->setDt(1.0);
+            app->network->layers[0]->setDt(1.0);
             app->network->layers[0]->applyFWD(app->examples[iex], u->state[iex]);
         }
         else
@@ -326,16 +326,16 @@ my_ObjectiveT(braid_App              app,
         }
         loss     = 1. / nexamples * loss;
         accuracy  = 100.0 * (double) success / nexamples;
+
+        /* Report to app */
+        app->loss     = loss;
+        app->accuracy = accuracy;
     }
 
-    // printf("obj %d %1.14f %1.14f %1.14f\n", ilayer, regul_tik, regul_ddt, loss);
 
     /* Compute objective function */
     *objective_ptr = loss + app->gamma_tik * regul_tik + app->gamma_ddt * regul_ddt;
 
-    /* Report to app */
-    app->loss     = loss;
-    app->accuracy = accuracy;
     
     return 0;
 }

@@ -55,10 +55,16 @@ class Layer
       void print_data(double* data_Out);
 
       /**
-       * Initialize the layer, e.g. set initial weights and bias and gradients
-       * Init random, scaled by a factor (gradient zero)
+       * Initialize the layer:
+       * sets initial weights and bias randomly, scaled by a factor 
+       * sets the bar variables to zero
        */
       void initialize(double factor);
+
+      /**
+       * Sets the bar variables to zero 
+       */
+      void resetBar();
 
       /**
        * Evaluate Tikhonov Regularization

@@ -82,6 +82,19 @@ void Layer::initialize(double factor)
     }
 }
 
+void Layer::resetBar()
+{
+    for (int i = 0; i < dim_Out * dim_In; i++)
+    {
+        weights_bar[i] = 0.0;
+    }
+    for (int i = 0; i < dim_Bias; i++)
+    {
+        bias_bar[i] = 0.0;
+    }
+}
+
+
 double Layer::evalTikh()
 {
     double tik = 0.0;

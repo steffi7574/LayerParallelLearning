@@ -378,7 +378,13 @@ my_Step_diff(braid_App         app,
 int 
 my_ResetGradient(braid_App app)
 {
-    /* TODO */
+    int nlayers = app->network->getnLayers();
+
+    /* Reset bar variables of weights and bias at all layers */
+    for (int ilayer = 0; ilayer < nlayers; ilayer++)
+    {
+        app->network->layers[ilayer]->resetBar();
+    }
 
     return 0;
 }

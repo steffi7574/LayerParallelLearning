@@ -38,6 +38,9 @@ int main (int argc, char *argv[])
     double   loss;
     double   accuracy;
     /* --- Optimization --- */
+    int      ndesign;             /**< Number of design variables */
+    double  *design;              /**< Pointer to global design vector */
+    double  *gradient;            /**< Pointer to global gradient vector */
     double   objective;           /**< Optimization objective */
     double   regul;               /**< Value of the regularization term */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -324,6 +327,11 @@ int main (int argc, char *argv[])
     /* Create the network */
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init);
 
+    /* Get pointer to gradient and design */
+    ndesign  = network->getnDesign();
+    design   = network->getDesign();
+    gradient = network->getGradient();
+
 
     /* Initialize xbraid's app structure */
     app_train = (my_App *) malloc(sizeof(my_App));
@@ -360,31 +368,41 @@ int main (int argc, char *argv[])
     /* Propagate training data */
     network->applyFWD(ntraining, train_examples, train_labels);
 
+    /* Evaluate objective function */
+    loss      = network->getLoss();
+    regul     = network->evalRegularization(gamma_tik, gamma_ddt);
+    objective = loss + regul;
+    printf("Objective0: %1.16e %1.16e %1.16e\n",   objective, loss, regul);
+    
+    /* Pertub the design */
+    double EPS = 1e-6;
+    design[43] += EPS;
 
     /* Evaluate objective function */
-    regul = network->evalRegularization(gamma_tik, gamma_ddt);
-    loss  = network->getLoss();
-    objective = loss + regul;
+    network->applyFWD(ntraining, train_examples, train_labels);
+    loss      = network->getLoss();
+    regul     = network->evalRegularization(gamma_tik, gamma_ddt);
+    double objective1 = loss + regul;
 
-    /* Get accuracy */
-    accuracy = network->getAccuracy();
+    printf("Objective1: %1.16e %1.16e %1.16e\n",   objective1, loss, regul);
 
-    /* Output */
-    printf("Loss:      %1.14e\n",   loss);
-    printf("Objective: %1.14e\n",   objective);
-    printf("Accuracy:  %3.4f %%\n", accuracy);
+    double diff = (objective1 - objective);
+    double fd   = diff / EPS;
+    printf("\nDiff: %1.14e\n", diff);
+    printf("\nFD:   %1.14e\n",   fd);
 
+//    /* Propagate through braid */
+//     // braid_SetObjectiveOnly(core_train, 1);
+//     braid_Drive(core_train);
+//     braid_GetObjective(core_train, &objective);
 
+//     /* TODO: MPIAllreduce loss and accuracy! or not. */
+//     /* TODO: Reduce gradient data (in place on master_node) */
 
-    /* Propagate  through braid */
-    braid_SetObjectiveOnly(core_train, 1);
-    braid_SetPrintLevel(core_train, 1);
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    /* Output */
-    printf("Loss:      %1.14e\n",   app_train->loss);
-    printf("Objective: %1.14e\n",   objective);
-    printf("Accuracy:  %3.4f %%\n", app_train->accuracy);
+//     write_data("gradient.dat", gradient, ndesign);
+
+//     /* Output */
+//     printf("Objective1: %1.16e %1.16e \n",   objective, app_train->loss);
 
 
 
@@ -407,6 +425,8 @@ int main (int argc, char *argv[])
     }
     delete [] val_examples;
     delete [] val_labels;
+
+
 
     MPI_Finalize();
     return 0;

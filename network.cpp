@@ -69,16 +69,16 @@ Network::Network(int    nLayers,
     {
        layers[0] = new DenseLayer(0, nFeatures, nChannels, 1.0, activ_ptr, dactiv_ptr);
     }
-    ndesign += layers[0]->getDimIn() * layers[0]->getDimOut() + layers[0]->getDimBias();
+    ndesign += layers[0]->getnDesign();
     /* intermediate layers */
     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
     {
        layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
-       ndesign += layers[ilayer]->getDimIn() * layers[ilayer]->getDimOut() + layers[ilayer]->getDimBias();
+       ndesign += layers[ilayer]->getnDesign();
     }
     /* end layer */
     layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, deltaT);
-    ndesign += layers[nlayers-1]->getDimIn() * layers[nlayers-1]->getDimOut() + layers[nlayers-1]->getDimBias();                           // biases
+    ndesign += layers[nlayers-1]->getnDesign();
  
     /* Allocate memory for network design and gradient variables */
     design   = new double[ndesign];
@@ -87,12 +87,12 @@ Network::Network(int    nLayers,
     /* Initialize  the layer weights and bias */
     int istart = 0;
     layers[0]->initialize(&(design[istart]), &(gradient[istart]), Weight_open_init);
+    istart += layers[0]->getnDesign();
     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
     {
-        istart += layers[ilayer-1]->getnDesign();
         layers[ilayer]->initialize(&(design[istart]), &(gradient[istart]), Weight_init);
+        istart += layers[ilayer]->getnDesign();
     }
-    istart += layers[nlayers-2]->getnDesign();
     layers[nlayers-1]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
 
     /* Allocate vectors for current primal and adjoint state and update of the network */
@@ -127,6 +127,10 @@ double Network::getLoss() { return loss; }
 double Network::getAccuracy() { return accuracy; }
 
 int Network::getnDesign() { return ndesign; }
+
+double* Network::getDesign() { return design; }
+       
+double* Network::getGradient() { return gradient; }
 
 void Network::setState(int     dimN, 
                        double* data)

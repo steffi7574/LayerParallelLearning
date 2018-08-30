@@ -8,13 +8,15 @@ void read_data(char    *filename,
    FILE   *file;
    double  tmp;
 
-   /* Read data */
+   /* Open file */
    file = fopen(filename, "r");
    if (file == NULL)
    {
       printf("Can't open %s \n", filename);
       exit(1);
    }
+
+   /* Read data */
    printf("Reading file %s\n", filename);
    for (int ix = 0; ix < dimx; ix++)
    {
@@ -22,20 +24,36 @@ void read_data(char    *filename,
        {
             fscanf(file, "%lf", &tmp);
             var[ix][iy] = tmp;
-            // printf("%1.14e ", var[ix][iy]);
        }
-      //  printf("\n");
    }
 
-   /* close file */
    fclose(file);
 }
 
 
 void write_data(char   *filename,
-               double** var, 
-               int      dimx, 
-               int      dimy)
+                double * var, 
+                int      dimN)
 {
-   printf("To be implemented ... \n");
+   FILE *file;
+   int i;
+
+   /* open file */
+   file = fopen(filename, "w");
+   if (file == NULL)
+   {
+      printf("Can't open %s \n", filename);
+      exit(1);
+   }
+
+   /* Write data */
+   printf("Writing file %s\n", filename);
+   for ( i = 0; i < dimN; i++)
+   {
+      fprintf(file, "%1.14e\n", var[i]);
+   }
+
+   /* close file */
+   fclose(file);
+
 }            

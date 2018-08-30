@@ -14,6 +14,5 @@ void read_data(char*    filename,
  * Write data to file
  */
 void write_data(char   *filename,
-               double** var, 
-               int      dimx, 
-               int      dimy);
+               double  *var, 
+               int      dimN);

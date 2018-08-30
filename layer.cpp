@@ -5,6 +5,7 @@ Layer::Layer()
    dim_In       = 0;
    dim_Out      = 0;
    dim_Bias     = 0;
+   ndesign      = 0;
 
    index        = 0;
    dt           = 0.0;
@@ -28,6 +29,7 @@ Layer::Layer(int     idx,
    dim_In      = dimI;
    dim_Out     = dimO;
    dim_Bias    = dimB;
+   ndesign     = dimI * dimO + dimB;
    dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
@@ -47,8 +49,7 @@ double* Layer::getBiasBar()    { return bias_bar; }
 int Layer::getDimIn()   { return dim_In;   }
 int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
-
-int Layer::getnDesign() { return dim_Out * dim_In + dim_Bias; }
+int Layer::getnDesign() { return ndesign; }
 
 void Layer::print_data(double* data)
 {
@@ -74,7 +75,7 @@ void Layer::initialize(double* design_ptr,
     bias_bar     = gradient_ptr + nweights;
 
     /* Initialize */
-    for (int i = 0; i < dim_Out * dim_In; i++)
+    for (int i = 0; i < ndesign - dim_Bias; i++)
     {
         weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
         weights_bar[i] = 0.0;
@@ -88,11 +89,11 @@ void Layer::initialize(double* design_ptr,
 
 void Layer::resetBar()
 {
-    for (int i = 0; i < dim_Out * dim_In; i++)
+    for (int i = 0; i < ndesign - dim_Bias; i++)
     {
         weights_bar[i] = 0.0;
     }
-    for (int i = 0; i < dim_Bias; i++)
+    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
     {
         bias_bar[i] = 0.0;
     }
@@ -102,11 +103,11 @@ void Layer::resetBar()
 double Layer::evalTikh()
 {
     double tik = 0.0;
-    for (int i = 0; i < dim_Out * dim_In; i++)
+    for (int i = 0; i < ndesign - dim_Bias; i++)
     {
         tik += pow(weights[i],2);
     }
-    for (int i = 0; i < dim_Bias; i++)
+    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
     {
         tik += pow(bias[i],2);
     }
@@ -117,13 +118,13 @@ double Layer::evalTikh()
 void Layer::evalTikh_diff(double regul_bar)
 {
     /* Derivative bias term */
-    for (int i = 0; i < dim_Bias; i++)
+    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
     {
         bias_bar[i] += bias[i] * regul_bar;
     }
-    for (int i = 0; i < dim_Out * dim_In; i++)
+    for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        weights_bar[i] += weights_bar[i] * regul_bar;
+        weights_bar[i] += weights[i] * regul_bar;
     }
 }
 
@@ -220,13 +221,16 @@ void DenseLayer::applyBWD(double* data_In,
 }
 
 
-OpenExpandZero::OpenExpandZero(int  dimI,
-                               int  dimO,
-                               double  deltaT) : Layer(0, dimI, dimO, 1, deltaT, NULL, NULL){}
+OpenExpandZero::OpenExpandZero(int    dimI,
+                               int    dimO,
+                               double deltaT) : Layer(0, dimI, dimO, 1, deltaT, NULL, NULL)
+{
+    /* this layer doesn't have any design variables. */ 
+    ndesign = 0;
+}
 
 
 OpenExpandZero::~OpenExpandZero(){}
-
 
 
 void OpenExpandZero::applyFWD(double* data_In, 

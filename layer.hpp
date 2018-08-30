@@ -18,6 +18,7 @@ class Layer
       int dim_In;                          /* Dimension of incoming data */
       int dim_Out;                         /* Dimension of outgoing data */
       int dim_Bias;                        /* Dimension of the bias vector */
+      int ndesign;                         /* Total number of design variables */
 
       int     index;                       /* Number of the layer */
       double  dt;                          /* Step size for Layer update */
@@ -54,13 +55,9 @@ class Layer
       int getDimIn();
       int getDimOut();
       int getDimBias();
-
-      /**
-       * Return total number of design vars (dimIn * dimOut + bias)
-       */
       int getnDesign();
 
-      /* Prints to screen */
+        /* Prints to screen */
       void print_data(double* data_Out);
 
       /**
@@ -169,13 +166,14 @@ class OpenExpandZero : public Layer
                            double  deltaT);
             ~OpenExpandZero();
 
-            void applyFWD(double* data_In, 
+           void applyFWD(double* data_In, 
                           double* data_Out);
       
             void applyBWD(double* data_In,
                           double* data_In_bar,
                           double* data_Out,
                           double* data_Out_bar);
+
 };
 
 

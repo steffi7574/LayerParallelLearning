@@ -40,10 +40,18 @@ class Network
       int getnChannels();
       int getnLayers();
 
-      /* Other get functions */
+      /* Return value of the loss function */
       double getLoss();
+
+      /* Return accuracy value */
       double getAccuracy();
+ 
+      /* Return a pointer to the design vector */
+      double* getDesign();
        
+      /* Return a pointer to the gradient vector */
+      double* getGradient();
+
       /**
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();

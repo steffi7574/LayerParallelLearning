@@ -171,7 +171,7 @@ void DenseLayer::applyFWD(double* data_In,
       /* If not first layer, add the incoming data. */
       if (index != 0)
       {
-         data_Out[io] = data_In[io];
+         data_Out[io] += data_In[io];
       }
    }
 
@@ -207,10 +207,10 @@ void DenseLayer::applyBWD(double* data_In,
       bias_bar[0] += data_Out_bar[io];
 
       /* Derivative of weight application */
-      for (int jo = 0; jo < dim_In; jo++)
+      for (int ii = 0; ii < dim_In; ii++)
       {
-         if (index != 0) data_In_bar[jo] += weights[io*dim_In + jo] * data_Out_bar[io]; // at first layer: data_in is the input data, its derivative is not needed. 
-         weights_bar[io*dim_In + jo] += data_In[jo] * data_Out_bar[io];
+         weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
+         if (index != 0) data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; // at first layer: data_in is the input data, its derivative is not needed. 
       }
 
       /* Reset */
@@ -307,10 +307,10 @@ void ClassificationLayer::applyBWD(double* data_In,
         bias_bar[io] += data_Out_bar[io];
   
         /* Derivative of weight application */
-        for (int ji = 0; ji < dim_In; ji++)
+        for (int ii = 0; ii < dim_In; ii++)
         {
-           data_In_bar[ji] += weights[io*dim_In + ji] * data_Out_bar[io];
-           weights_bar[io*dim_In + ji] += data_In[ji] * data_Out_bar[io];
+           data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io];
+           weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
         }
   
         /* Reset */

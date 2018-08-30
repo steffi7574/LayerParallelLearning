@@ -37,7 +37,7 @@ class Layer
             double  deltaT,
             double (*Activ)(double x),
             double (*dActiv)(double x));     
-      ~Layer();
+      virtual ~Layer();
 
       /* Set time step size */
       void setDt(double DT);
@@ -55,15 +55,22 @@ class Layer
       int getDimOut();
       int getDimBias();
 
+      /**
+       * Return total number of design vars (dimIn * dimOut + bias)
+       */
+      int getnDesign();
+
       /* Prints to screen */
       void print_data(double* data_Out);
 
       /**
-       * Initialize the layer:
-       * sets initial weights and bias randomly, scaled by a factor 
-       * sets the bar variables to zero
+       * Initialize the layer primal and adjoint weights and biases
+       * In: pointer to the global design and gradient vector memory 
+       *     factor for scaling random initialization of primal variables
        */
-      void initialize(double factor);
+      void initialize(double* design_ptr,
+                      double* gradient_ptr,
+                      double  factor);
 
       /**
        * Sets the bar variables to zero 

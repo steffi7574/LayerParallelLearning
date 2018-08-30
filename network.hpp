@@ -13,9 +13,12 @@ class Network
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
-      double* state_upd;            /* Auxilliary: holdinging update for the current state */
       double* state;                /* Current state of the network */
       double* state_bar;            /* Current adjoint state of the network */
+
+      int     ndesign;              /* Number of design variables */
+      double* design;               /* Vector of all design variables (weights & biases at all layers) */
+      double* gradient;             /* Gradient */
 
    public: 
       Layer** layers;               /* Array of network layers */
@@ -40,6 +43,10 @@ class Network
       /* Other get functions */
       double getLoss();
       double getAccuracy();
+       
+      /**
+       *  Returns the total number of design variables (weights and biases at all layers) */
+      int getnDesign();
 
       /**
        * Sets the state of the network to the given data of dimensions dimN.

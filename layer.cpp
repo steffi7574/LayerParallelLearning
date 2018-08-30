@@ -31,20 +31,9 @@ Layer::Layer(int     idx,
    dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
-
-   weights     = new double [dim_Out * dim_In];
-   weights_bar = new double [dim_Out * dim_In];
-   bias        = new double [dim_Bias];
-   bias_bar    = new double [dim_Bias];
 }   
 
-Layer::~Layer()
-{
-   delete [] weights;
-   delete [] weights_bar;
-   delete [] bias;
-   delete [] bias_bar;
-}
+Layer::~Layer(){}
 
 
 void Layer::setDt(double DT) { dt = DT; }
@@ -59,6 +48,7 @@ int Layer::getDimIn()   { return dim_In;   }
 int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
 
+int Layer::getnDesign() { return dim_Out * dim_In + dim_Bias; }
 
 void Layer::print_data(double* data)
 {
@@ -70,9 +60,20 @@ void Layer::print_data(double* data)
     printf("\n");
 }
 
-
-void Layer::initialize(double factor)
+void Layer::initialize(double* design_ptr,
+                       double* gradient_ptr,
+                       double  factor)
 {
+    /* Set primal and adjoint weights memory locations */
+    weights     = design_ptr;
+    weights_bar = gradient_ptr;
+    
+    /* Set primal and adjoint bias memory locations */
+    int nweights = dim_Out * dim_In;
+    bias         = design_ptr + nweights;    
+    bias_bar     = gradient_ptr + nweights;
+
+    /* Initialize */
     for (int i = 0; i < dim_Out * dim_In; i++)
     {
         weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
@@ -83,7 +84,7 @@ void Layer::initialize(double factor)
         bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
         bias_bar[i] = 0.0;
     }
-}
+}                   
 
 void Layer::resetBar()
 {

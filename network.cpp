@@ -7,7 +7,6 @@ Network::Network()
    dt          = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
-   state_upd   = NULL;
    state       = NULL;
    state_bar   = NULL;
    layers      = NULL;
@@ -23,62 +22,8 @@ Network::Network(int    nLayers,
                  double Weight_open_init,
                  double Classification_init)
 {
-   nlayers   = nLayers;
-   nchannels = nChannels;
-   dt        = deltaT;
-   loss      = 0.0;
-   accuracy  = 0.0;
-   
-   double (*activ_ptr)(double x);
-   double (*dactiv_ptr)(double x);
-
-   /* Set the activation function */
-   switch ( Activation )
-   {
-      case RELU:
-          activ_ptr  = &Network::ReLu_act;
-          dactiv_ptr = &Network::dReLu_act;
-         break;
-      case TANH:
-         activ_ptr  = &Network::tanh_act;
-         dactiv_ptr = &Network::dtanh_act;
-         break;
-      default:
-         printf("ERROR: You should specify an activation function!\n");
-         printf("GO HOME AND GET SOME SLEEP!");
-   }
-
-   /* --- Create and initialize the layers --- */
-   layers = new Layer*[nlayers];
-
-   /* opening layer */
-   if (Weight_open_init == 0.0)
-   {
-      layers[0]  = new OpenExpandZero(nFeatures, nChannels, deltaT);
-   }
-   else
-   {
-      layers[0] = new DenseLayer(0, nFeatures, nChannels, deltaT, activ_ptr, dactiv_ptr);
-   }
-   layers[0]->initialize(Weight_open_init);
-   layers[0]->setDt(1.0);
-
-   /* intermediate layers */
-   for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
-   {
-      layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
-      layers[ilayer]->initialize(Weight_init);
-   }
-
-   /* end layer */
-   layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, deltaT);
-   layers[nlayers-1]->initialize(Classification_init);
-
-
-   /* Allocate vectors for current primal and adjoint state and update of the network */
-    state     = new double[nChannels];
-    state_bar = new double[nChannels];
-    state_upd = new double[nChannels];
+    double (*activ_ptr)(double x);
+    double (*dactiv_ptr)(double x);
 
     /* Sanity check */
     if (nFeatures > nChannels ||
@@ -87,7 +32,75 @@ Network::Network(int    nLayers,
         printf("ERROR! Choose a wider netword!\n");
         exit(1);
     }
-}              
+
+    /* Initilizize */
+    nlayers   = nLayers;
+    nchannels = nChannels;
+    dt        = deltaT;
+    loss      = 0.0;
+    accuracy  = 0.0;
+
+
+    /* Set the activation function */
+    switch ( Activation )
+    {
+       case RELU:
+           activ_ptr  = &Network::ReLu_act;
+           dactiv_ptr = &Network::dReLu_act;
+          break;
+       case TANH:
+          activ_ptr  = &Network::tanh_act;
+          dactiv_ptr = &Network::dtanh_act;
+          break;
+       default:
+          printf("ERROR: You should specify an activation function!\n");
+          printf("GO HOME AND GET SOME SLEEP!");
+    }
+
+    /* --- Create the layers --- */
+    layers  = new Layer*[nlayers];
+    ndesign = 0;
+    /* opening layer */
+    if (Weight_open_init == 0.0)
+    {
+       layers[0]  = new OpenExpandZero(nFeatures, nChannels, 1.0);
+    }
+    else
+    {
+       layers[0] = new DenseLayer(0, nFeatures, nChannels, 1.0, activ_ptr, dactiv_ptr);
+    }
+    ndesign += layers[0]->getDimIn() * layers[0]->getDimOut() + layers[0]->getDimBias();
+    /* intermediate layers */
+    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    {
+       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
+       ndesign += layers[ilayer]->getDimIn() * layers[ilayer]->getDimOut() + layers[ilayer]->getDimBias();
+    }
+    /* end layer */
+    layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, deltaT);
+    ndesign += layers[nlayers-1]->getDimIn() * layers[nlayers-1]->getDimOut() + layers[nlayers-1]->getDimBias();                           // biases
+ 
+    /* Allocate memory for network design and gradient variables */
+    design   = new double[ndesign];
+    gradient = new double[ndesign];
+
+    /* Initialize  the layer weights and bias */
+    int istart = 0;
+    layers[0]->initialize(&(design[istart]), &(gradient[istart]), Weight_open_init);
+    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    {
+        istart += layers[ilayer-1]->getnDesign();
+        layers[ilayer]->initialize(&(design[istart]), &(gradient[istart]), Weight_init);
+    }
+    istart += layers[nlayers-2]->getnDesign();
+    layers[nlayers-1]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
+
+    /* Allocate vectors for current primal and adjoint state and update of the network */
+    state     = new double[nChannels];
+    state_bar = new double[nChannels];
+}             
+
+  
 
 Network::~Network()
 {
@@ -100,7 +113,9 @@ Network::~Network()
 
     delete [] state;
     delete [] state_bar;
-    delete [] state_upd;
+
+    delete [] design;
+    delete [] gradient;
 }
 
 int Network::getnChannels() { return nchannels; }
@@ -110,6 +125,8 @@ int Network::getnLayers() { return nlayers; }
 double Network::getLoss() { return loss; }
 
 double Network::getAccuracy() { return accuracy; }
+
+int Network::getnDesign() { return ndesign; }
 
 void Network::setState(int     dimN, 
                        double* data)
@@ -148,6 +165,7 @@ void Network::applyFWD(int      nexamples,
                        double **labels)
 {
     int class_id, success;
+    double* state_upd = new double[nchannels];
 
     /* Propagate the examples */
     loss    = 0.0;
@@ -181,6 +199,8 @@ void Network::applyFWD(int      nexamples,
     /* Set loss and accuracy */
     loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
+
+    delete [] state_upd;
 }
 
 

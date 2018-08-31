@@ -182,56 +182,45 @@ void DenseLayer::applyFWD(double* state)
 }
 
 
-void DenseLayer::applyBWD(double* data_In,
-                          double* data_In_bar,
-                          double* data_Out,
-                          double* data_Out_bar)
+void DenseLayer::applyBWD(double* state,
+                          double* state_bar)
 {
+   double tmp;
 
-   /* Backward propagation for each channel */
+   /* Derivative of the update */
    for (int io = 0; io < dim_Out; io++)
    {
-     
-      /* Derivative of the update */
-      if (index != 0)
-      {
-         data_In_bar[io] += data_Out_bar[io];
-      }
-      data_Out_bar[io] = dt*data_Out_bar[io];
+        update[io] = dt * state_bar[io];
+   }
 
-
-      /* Recompute data_Out */
-      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
-      data_Out[io] += bias[0];
+   for (int io = 0; io < dim_Out; io++)
+   {
+      /* Recompute intermediate state at actiation evaluation point */
+      tmp  = vecdot(dim_In, &(weights[io*dim_In]), state);
+      tmp += bias[0];
 
       /* Derivative of activation function */
-      data_Out_bar[io] = dactivation(data_Out[io]) * data_Out_bar[io];
+      update[io] = dactivation(tmp) * update[io];
 
       /* Derivative of bias addition */
-      bias_bar[0] += data_Out_bar[io];
+      bias_bar[0] += update[io];
 
       /* Derivative of weight application */
-    //   printf("dense applybwd");
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
-         data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; 
-        //   printf("%1.14e ", weights_bar[io*dim_In +ii]);
+         weights_bar[io*dim_In + ii] += state[ii] * update[io];
+         state_bar[ii] += weights[io*dim_In + ii] * update[io]; 
       }
-    //   printf("\n");
-
-      /* Reset */
-      data_Out_bar[io] = 0.0;
    }
 }
 
 
 OpenDenseLayer::OpenDenseLayer(int     idx,
-                         int     dimI,
-                         int     dimO,
-                         double  deltaT,
-                         double (*Activ)(double x),
-                         double (*dActiv)(double x)) : DenseLayer(idx,     dimI, dimO, deltaT, Activ, dActiv) 
+                               int     dimI,
+                               int     dimO,
+                               double  deltaT,
+                               double (*Activ)(double x),
+                               double (*dActiv)(double x)) : DenseLayer(idx,     dimI, dimO, deltaT, Activ, dActiv) 
 {
     example = NULL;
 }
@@ -259,45 +248,32 @@ void OpenDenseLayer::applyFWD(double* state)
    }
 }
 
-void OpenDenseLayer::applyBWD(double* data_In,
-                    double* data_In_bar,
-                    double* data_Out,
-                    double* data_Out_bar)
+void OpenDenseLayer::applyBWD(double* state,
+                              double* state_bar)
 {
-       /* Backward propagation for each channel */
+    double tmp;
+
+   /* Backward propagation for each channel */
    for (int io = 0; io < dim_Out; io++)
    {
-     
-      /* Derivative of the update */
-      if (index != 0)
-      {
-         data_In_bar[io] += data_Out_bar[io];
-      }
-      data_Out_bar[io] = dt*data_Out_bar[io];
-
-
       /* Recompute data_Out */
-      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
-      data_Out[io] += bias[0];
+      tmp  = vecdot(dim_In, &(weights[io*dim_In]), state);
+      tmp += bias[0];
 
       /* Derivative of activation function */
-      data_Out_bar[io] = dactivation(data_Out[io]) * data_Out_bar[io];
+      state_bar[io] = dactivation(tmp) * state_bar[io];
 
       /* Derivative of bias addition */
-      bias_bar[0] += data_Out_bar[io];
+      bias_bar[0] += state_bar[io];
 
       /* Derivative of weight application */
-    //   printf("dense applybwd");
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
-         data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; 
-        //   printf("%1.14e ", weights_bar[io*dim_In +ii]);
+         weights_bar[io*dim_In + ii] += example[ii] * state_bar[io];
       }
-    //   printf("\n");
 
       /* Reset */
-      data_Out_bar[io] = 0.0;
+      state_bar[io] = 0.0;
    }
 }                
 
@@ -332,15 +308,12 @@ void OpenExpandZero::applyFWD(double* state)
    }
 }                           
 
-void OpenExpandZero::applyBWD(double* data_In,
-                              double* data_In_bar,
-                              double* data_Out,
-                              double* data_Out_bar)
+void OpenExpandZero::applyBWD(double* state,
+                              double* state_bar)
 {
-   for (int ii = 0; ii < dim_In; ii++)
+   for (int ii = 0; ii < dim_Out; ii++)
    {
-      data_In_bar[ii] += data_Out_bar[ii];
-      data_Out_bar[ii] = 0.0;
+      state_bar[ii] = 0.0;
    }
 }                           
 
@@ -391,45 +364,46 @@ void ClassificationLayer::applyFWD(double* state)
     }
 }                           
       
-void ClassificationLayer::applyBWD(double* data_In,
-                                   double* data_In_bar,
-                                   double* data_Out,
-                                   double* data_Out_bar)
+void ClassificationLayer::applyBWD(double* state,
+                                   double* state_bar)
 {
+    double* tmpbar = new double[dim_Out];
+
     for (int ii = dim_Out; ii < dim_In; ii++)
     {
-        data_Out[ii] = 0.0;
-        data_Out_bar[ii] = 0.0;
+        state_bar[ii] = 0.0;
+    }
+    for (int io = 0; io < dim_Out; io++)
+    {
+        tmpbar[io]    = state_bar[io];
+        state_bar[io] = 0.0;
     }
     
     /* Recompute data_out */
     for (int io = 0; io < dim_Out; io++)
     {
-        data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
-        data_Out[io] += bias[io];
+        update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
+        update[io] += bias[io];
     }        
 
  
     /* Derivative of the normalization */
-    normalize_diff(data_Out, data_Out_bar);
+    normalize_diff(update, tmpbar);
 
     /* Backward propagation for each channel */
     for (int io = 0; io < dim_Out; io++)
     {
        /* Derivative of bias addition */
-        bias_bar[io] += data_Out_bar[io];
+        bias_bar[io] += tmpbar[io];
   
         /* Derivative of weight application */
         for (int ii = 0; ii < dim_In; ii++)
         {
-           data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io];
-           weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
+           weights_bar[io*dim_In + ii] += state[ii] * tmpbar[io];
+           state_bar[ii] += weights[io*dim_In + ii] * tmpbar[io];
         }
-  
-        /* Reset */
-        data_Out_bar[io] = 0.0;
     }   
-
+    delete tmpbar;
 }
 
 

@@ -396,16 +396,7 @@ my_Step_diff(braid_App         app,
         }
 
         /* Apply the layer backwards */
-        // app->network->layers[ts]->applyBWD(app->network->getState(), app->network->getState_bar(), u->state[iex], u_bar->state[iex]);
-
-        /* Store the adjoint state */
-        for (int ic = 0; ic < nchannels; ic++)
-        {
-            // u_bar->state[iex][ic] += app->network->getState_bar()[ic]; 
-        }
-
-        /* Set adjoint state to zero */
-        // app->network->setState_bar(0.0);
+        app->network->layers[ts]->applyBWD(u->state[iex], u_bar->state[iex]);
     }
 
     return 0;

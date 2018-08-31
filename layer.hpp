@@ -105,10 +105,8 @@ class Layer
        * In:     data     - current example data
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
        */
-      virtual void applyBWD(double* data_In,
-                            double* data_In_bar,
-                            double* data_Out,
-                            double* data_Out_bar)=0;
+      virtual void applyBWD(double* state,
+                            double* state_bar) = 0;
 
       /**
        * Evaluates the loss function 
@@ -154,10 +152,8 @@ class DenseLayer : public Layer {
 
       void applyFWD(double* state);
 
-      void applyBWD(double* data_In,
-                    double* data_In_bar,
-                    double* data_Out,
-                    double* data_Out_bar);
+      void applyBWD(double* state,
+                    double* state_bar);
 };
 
 
@@ -183,10 +179,8 @@ class OpenDenseLayer : public DenseLayer {
 
       void applyFWD(double* state);
 
-      void applyBWD(double* data_In,
-                    double* data_In_bar,
-                    double* data_Out,
-                    double* data_Out_bar);
+      void applyBWD(double* state,
+                    double* state_bar);
 };
 
 
@@ -208,11 +202,8 @@ class OpenExpandZero : public Layer
            
             void applyFWD(double* state);
       
-            void applyBWD(double* data_In,
-                          double* data_In_bar,
-                          double* data_Out,
-                          double* data_Out_bar);
-
+            void applyBWD(double* state,
+                          double* state_bar);
 };
 
 
@@ -233,10 +224,8 @@ class ClassificationLayer : public Layer
 
             void applyFWD(double* state);
       
-            void applyBWD(double* data_In,
-                          double* data_In_bar,
-                          double* data_Out,
-                          double* data_Out_bar);
+            void applyBWD(double* state,
+                          double* state_bar);
 
             /**
              * Evaluate the loss function 

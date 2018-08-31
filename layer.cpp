@@ -80,7 +80,7 @@ void Layer::initialize(double* design_ptr,
         weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
         weights_bar[i] = 0.0;
     }
-    for (int i = 0; i < dim_Bias; i++)
+    for (int i = 0; i < ndesign - nweights; i++)
     {
         bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
         bias_bar[i] = 0.0;
@@ -209,11 +209,14 @@ void DenseLayer::applyBWD(double* data_In,
       bias_bar[0] += data_Out_bar[io];
 
       /* Derivative of weight application */
+    //   printf("dense applybwd");
       for (int ii = 0; ii < dim_In; ii++)
       {
          weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
-         if (index != 0) data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; // at first layer: data_in is the input data, its derivative is not needed. 
+         data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; 
+        //   printf("%1.14e ", weights_bar[io*dim_In +ii]);
       }
+    //   printf("\n");
 
       /* Reset */
       data_Out_bar[io] = 0.0;
@@ -302,6 +305,20 @@ void ClassificationLayer::applyBWD(double* data_In,
                                    double* data_Out,
                                    double* data_Out_bar)
 {
+    for (int ii = dim_Out; ii < dim_In; ii++)
+    {
+        data_Out[ii] = 0.0;
+        data_Out_bar[ii] = 0.0;
+    }
+    
+    /* Recompute data_out */
+    for (int io = 0; io < dim_Out; io++)
+    {
+        data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+        data_Out[io] += bias[io];
+    }        
+
+ 
     /* Derivative of the normalization */
     normalize_diff(data_Out, data_Out_bar);
 
@@ -393,7 +410,7 @@ void ClassificationLayer::evalLoss_diff(double *data_Out,
     exp_sum_bar  = 1./exp_sum * loss_bar;
     for (int io = 0; io < dim_Out; io++)
     {
-        data_Out_bar[io] += exp(data_Out[io]) * exp_sum_bar;
+        data_Out_bar[io] = exp(data_Out[io]) * exp_sum_bar;
     }
 
     /* Derivative of vecdot */

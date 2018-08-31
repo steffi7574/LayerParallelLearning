@@ -320,9 +320,9 @@ my_ObjectiveT_diff(braid_App            app,
 {
     double loss_bar, regul_tik_bar, regul_ddt_bar;
     int nlayers   = app->network->getnLayers();
+    int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
-    printf("obj_diff \n" );
     /* Get the time index*/
     int ts;
     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
@@ -346,6 +346,16 @@ my_ObjectiveT_diff(braid_App            app,
             app->network->layers[nlayers-1]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
         }
     }
+    else /* dfdu = 0.0 */
+    {
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            for (int ic = 0; ic < nchannels; ic++)
+            {
+                u_bar->state[iex][ic] = 0.0;
+            }
+        }            
+    }
 
     /* Derivative of ddt-regularization term */
     // if (ilayer > 1 && ilayer < nlayers - 1) 
@@ -356,7 +366,6 @@ my_ObjectiveT_diff(braid_App            app,
     // /* Derivative of the tikhonov regularization term */
     // app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
 
-    
     return 0;
 }
 

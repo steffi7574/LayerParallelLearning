@@ -7,8 +7,8 @@ Network::Network()
    dt          = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
-   state       = NULL;
-   state_bar   = NULL;
+   gradient    = NULL;
+   design      = NULL;
    layers      = NULL;
 }
 
@@ -95,9 +95,6 @@ Network::Network(int    nLayers,
     }
     layers[nlayers-1]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
 
-    /* Allocate vectors for current primal and adjoint state and update of the network */
-    state     = new double[nChannels];
-    state_bar = new double[nChannels];
 }             
 
   
@@ -110,9 +107,6 @@ Network::~Network()
        delete layers[ilayer];
     }
     delete [] layers;
-
-    delete [] state;
-    delete [] state_bar;
 
     delete [] design;
     delete [] gradient;
@@ -132,44 +126,12 @@ double* Network::getDesign() { return design; }
        
 double* Network::getGradient() { return gradient; }
 
-void Network::setState(int     dimN, 
-                       double* data)
-{
-    if (dimN > nchannels) 
-    {
-        printf("ERROR! This should never be the case...\n");
-        exit(1);
-    }
-
-    for (int is = 0; is < dimN; is++)
-    {
-        state[is] = data[is];
-    }
-    for (int is = dimN; is < nchannels; is++)
-    {
-        state[is] = 0.0;
-    }
-}
-
-double* Network::getState() { return state; }
-
-void Network::setState_bar(double value)
-{
-    for (int is = 0; is < nchannels; is++)
-    {
-        state_bar[is] = value;
-    }
-}
-
-double* Network::getState_bar() { return state_bar; }
-
-
 void Network::applyFWD(int      nexamples,
                        double **examples,
                        double **labels)
 {
     int class_id, success;
-    double* state_upd = new double[nchannels];
+    double* state = new double[nchannels];
 
     /* Propagate the examples */
     loss    = 0.0;
@@ -182,18 +144,19 @@ void Network::applyFWD(int      nexamples,
         /* Propagate through all layers */ 
         for (int ilayer = 0; ilayer < nlayers; ilayer++)
         {
-            /* Apply the next layer */
-            layers[ilayer]->applyFWD(state, state_upd);
 
-            /* Shift state_upd into state */
-            setState(layers[ilayer]->getDimOut(), state_upd);
+            // layers[ilayer]->print_data(state);
+            /* Apply the next layer */
+            layers[ilayer]->applyFWD(state);
+            // layers[ilayer]->print_data(state_upd);
+ 
         }
 
         /* Evaluate loss */
         loss += layers[nlayers-1]->evalLoss(state, labels[iex]);
 
         /* Test for successful prediction */
-        class_id = layers[nlayers-1]->prediction(state_upd);
+        class_id = layers[nlayers-1]->prediction(state);
         if ( labels[iex][class_id] > 0.99 )  
         {
             success++;
@@ -204,7 +167,7 @@ void Network::applyFWD(int      nexamples,
     loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
 
-    delete [] state_upd;
+    delete [] state;
 }
 
 

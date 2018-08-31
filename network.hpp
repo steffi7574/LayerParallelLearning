@@ -13,8 +13,6 @@ class Network
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
-      double* state;                /* Current state of the network */
-      double* state_bar;            /* Current adjoint state of the network */
 
       int     ndesign;              /* Number of design variables */
       double* design;               /* Vector of all design variables (weights & biases at all layers) */
@@ -55,28 +53,6 @@ class Network
       /**
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();
-
-      /**
-       * Sets the state of the network to the given data of dimensions dimN.
-       * Requires dimN <= nchannels! Fills the rest with zeros.
-       */
-      void setState(int     dimN, 
-                    double* data);
-
-      /**
-       * Return a pointer to the current state of the network
-       */
-      double* getState();
-
-      /**
-       * Sets the adjoint state vector to constant value 
-       */
-      void setState_bar(double value);
-
-      /**
-       * Return a pointer to the current adjoint state of the network
-       */
-      double* getState_bar();
 
 
       /**

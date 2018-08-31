@@ -15,6 +15,7 @@ Layer::Layer()
    bias_bar     = NULL;
    activation   = NULL;
    dactivation  = NULL;
+   update       = NULL;
 }
 
 Layer::Layer(int     idx,
@@ -33,9 +34,14 @@ Layer::Layer(int     idx,
    dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
+   
+   update = new double[dimO];
 }   
 
-Layer::~Layer(){}
+Layer::~Layer()
+{
+    delete update;
+}
 
 
 void Layer::setDt(double DT) { dt = DT; }
@@ -153,31 +159,26 @@ DenseLayer::DenseLayer(int     idx,
 DenseLayer::~DenseLayer() {}
 
 
-void DenseLayer::applyFWD(double* data_In,
-                          double* data_Out)
+void DenseLayer::applyFWD(double* state)
 {
    /* Compute update for each channel */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
-      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+      update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
 
       /* Add bias */
-      data_Out[io] += bias[0];
+      update[io] += bias[0];
 
       /* apply activation */
-      data_Out[io] = activation(data_Out[io]);
-
-      /* Apply step */
-      data_Out[io] = dt * data_Out[io];
-
-      /* If not first layer, add the incoming data. */
-      if (index != 0)
-      {
-         data_Out[io] += data_In[io];
-      }
+      update[io] = activation(update[io]);
    }
 
+      /* Apply step */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      state[io] = state[io] + dt * update[io];
+   }
 }
 
 
@@ -226,11 +227,11 @@ void DenseLayer::applyBWD(double* data_In,
 
 
 OpenDenseLayer::OpenDenseLayer(int     idx,
-                     int     dimI,
-                     int     dimO,
-                     double  deltaT,
-                     double (*Activ)(double x),
-                     double (*dActiv)(double x)) : DenseLayer(idx, dimI, dimO, deltaT, Activ, dActiv) 
+                         int     dimI,
+                         int     dimO,
+                         double  deltaT,
+                         double (*Activ)(double x),
+                         double (*dActiv)(double x)) : DenseLayer(idx,     dimI, dimO, deltaT, Activ, dActiv) 
 {
     example = NULL;
 }
@@ -242,23 +243,19 @@ void OpenDenseLayer::setExample(double* example_ptr)
     example = example_ptr;
 }
 
-void OpenDenseLayer::applyFWD(double* data_In, 
-                              double* data_Out)
+void OpenDenseLayer::applyFWD(double* state) 
 {
        /* Compute update for each channel */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
-      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), example);
+      state[io] = vecdot(dim_In, &(weights[io*dim_In]), example);
 
       /* Add bias */
-      data_Out[io] += bias[0];
+      state[io] += bias[0];
 
       /* apply activation */
-      data_Out[io] = activation(data_Out[io]);
-
-      /* Apply step */
-      data_Out[io] = data_Out[io];
+      state[io] = activation(state[io]);
    }
 }
 
@@ -317,16 +314,21 @@ OpenExpandZero::OpenExpandZero(int    dimI,
 OpenExpandZero::~OpenExpandZero(){}
 
 
-void OpenExpandZero::applyFWD(double* data_In, 
-                              double* data_Out)
+void OpenExpandZero::setExample(double* example_ptr)
+{
+    example = example_ptr;
+}
+
+
+void OpenExpandZero::applyFWD(double* state)
 {
    for (int ii = 0; ii < dim_In; ii++)
    {
-      data_Out[ii] = data_In[ii];
+      state[ii] = example[ii];
    }
    for (int io = dim_In; io < dim_Out; io++)
    {
-      data_Out[io] = 0.0;
+      state[io] = 0.0;
    }
 }                           
 
@@ -358,26 +360,34 @@ ClassificationLayer::~ClassificationLayer()
 }
 
 
-void ClassificationLayer::applyFWD(double* data_In, 
-                                   double* data_Out)
+void ClassificationLayer::applyFWD(double* state)
 {
     /* Compute update for each channel */
     for (int io = 0; io < dim_Out; io++)
     {
         /* Apply weights */
-        data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+        update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
   
         /* Add bias */
-        data_Out[io] += bias[io];
+        update[io] += bias[io];
     }
 
     /* Data normalization y - max(y) (needed for stable softmax evaluation */
-    normalize(data_Out);
+    normalize(update);
 
-    /* Reset the remaining values */    
+    if (dim_In < dim_Out)
+    {
+        printf("Error: dimI < dimO on classification layer. Change implementation here. \n");
+        exit(1);
+    }
+    for (int io = 0; io < dim_Out; io++)
+    {
+        state[io] = update[io];
+    }
+    /* Set remaining to zero */
     for (int ii = dim_Out; ii < dim_In; ii++)
     {
-        data_Out[ii] = 0.0;
+        state[ii] = 0.0;
     }
 }                           
       

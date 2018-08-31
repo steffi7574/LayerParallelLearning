@@ -29,6 +29,8 @@ class Layer
       double  (*activation)(double x);     /* the activation function */
       double  (*dactivation)(double x);    /* derivative of activation function */
 
+      double *update;                      /* Auxilliary for computing fwd update */
+
    public:
       Layer();
       Layer(int     idx,
@@ -74,6 +76,7 @@ class Layer
        */
       void resetBar();
 
+
       /**
        * Evaluate Tikhonov Regularization
        * Returns 1/2 * \|weights||^2 + 1/2 * \|bias\|^2
@@ -92,10 +95,9 @@ class Layer
 
       /**
        * Forward propagation of an example 
-       * In/Out: vector holding the current example data
+       * In/Out: vector holding the current propagated example 
        */
-      virtual void applyFWD(double* data_In, 
-                            double* data_Out) = 0;
+      virtual void applyFWD(double* state) = 0;
 
 
       /**
@@ -150,8 +152,7 @@ class DenseLayer : public Layer {
                  double (*dActiv)(double x));     
       ~DenseLayer();
 
-      void applyFWD(double* data_In, 
-                    double* data_Out);
+      void applyFWD(double* state);
 
       void applyBWD(double* data_In,
                     double* data_In_bar,
@@ -180,8 +181,7 @@ class OpenDenseLayer : public DenseLayer {
 
       void setExample(double* example_ptr);
 
-      void applyFWD(double* data_In, 
-                    double* data_Out);
+      void applyFWD(double* state);
 
       void applyBWD(double* data_In,
                     double* data_In_bar,
@@ -196,14 +196,17 @@ class OpenDenseLayer : public DenseLayer {
  */
 class OpenExpandZero : public Layer 
 {
+      protected: 
+            double* example;    /* Pointer to the current example data */
       public:
             OpenExpandZero(int     dimI,
                            int     dimO,
                            double  deltaT);
             ~OpenExpandZero();
 
-           void applyFWD(double* data_In, 
-                          double* data_Out);
+            void setExample(double* example_ptr);
+           
+            void applyFWD(double* state);
       
             void applyBWD(double* data_In,
                           double* data_In_bar,
@@ -228,8 +231,7 @@ class ClassificationLayer : public Layer
                                 double  deltaT);
             ~ClassificationLayer();
 
-            void applyFWD(double* data_In, 
-                          double* data_Out);
+            void applyFWD(double* state);
       
             void applyBWD(double* data_In,
                           double* data_In_bar,

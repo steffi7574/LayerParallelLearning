@@ -378,7 +378,6 @@ my_Step_diff(braid_App         app,
     double tstart, tstop;
     double deltaT;
 
-    int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
     /* Get the time-step size and current time index*/

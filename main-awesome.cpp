@@ -71,6 +71,9 @@ int main (int argc, char *argv[])
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
 
+    char  optimfilename[255];
+    FILE *optimfile;   
+    char* activname;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -164,10 +167,12 @@ int main (int argc, char *argv[])
             if ( strcmp(co->value, "ReLu") == 0 )
             {
                 activation = Network::RELU;
+                activname  = "ReLu";
             }
             else if (strcmp(co->value, "tanh") == 0 )
             {
                 activation = Network::TANH;
+                activname  = "tanh";
             }
             else
             {
@@ -364,6 +369,44 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
 
 
+    /* Open and prepare optimization output file*/
+    if (myid == MASTER_NODE)
+    {
+        sprintf(optimfilename, "%s.dat", "optim");
+        optimfile = fopen(optimfilename, "w");
+        fprintf(optimfile, "# Problem setup: ntraining           %d \n", ntraining);
+        fprintf(optimfile, "#                nvalidation         %d \n", nvalidation);
+        fprintf(optimfile, "#                nfeatures           %d \n", nfeatures);
+        fprintf(optimfile, "#                nclasses            %d \n", nclasses);
+        fprintf(optimfile, "#                nchannels           %d \n", nchannels);
+        fprintf(optimfile, "#                nlayers             %d \n", nlayers);
+        fprintf(optimfile, "#                T                   %f \n", T);
+        fprintf(optimfile, "#                Activation          %s \n", activname);
+        fprintf(optimfile, "# XBraid setup:  max levels          %d \n", braid_maxlevels);
+        fprintf(optimfile, "#                coasening           %d \n", braid_cfactor);
+        fprintf(optimfile, "#                max. braid iter     %d \n", braid_maxiter);
+        fprintf(optimfile, "#                abs. tol            %1.e \n", braid_abstol);
+        fprintf(optimfile, "#                abs. toladj         %1.e \n", braid_abstoladj);
+        fprintf(optimfile, "#                print level         %d \n", braid_printlevel);
+        fprintf(optimfile, "#                access level        %d \n", braid_accesslevel);
+        fprintf(optimfile, "#                skip?               %d \n", braid_setskip);
+        fprintf(optimfile, "#                fmg?                %d \n", braid_fmg);
+        fprintf(optimfile, "#                nrelax              %d \n", braid_nrelax);
+        fprintf(optimfile, "# Optimization:  gamma_tik           %1.e \n", gamma_tik);
+        fprintf(optimfile, "#                gamma_ddt           %1.e \n", gamma_ddt);
+        fprintf(optimfile, "#                stepsize            %f \n", stepsize_init);
+        fprintf(optimfile, "#                max. optim iter     %d \n", maxoptimiter);
+        fprintf(optimfile, "#                gtol                %1.e \n", gtol);
+        fprintf(optimfile, "#                max. ls iter        %d \n", ls_maxiter);
+        fprintf(optimfile, "#                ls factor           %f \n", ls_factor);
+        fprintf(optimfile, "#                weights_init        %f \n", weights_init);
+        fprintf(optimfile, "#                weights_open_init   %f \n", weights_open_init);
+        fprintf(optimfile, "#                weights_class_init  %f \n", weights_class_init) ;
+        fprintf(optimfile, "#                hessian_approx      %d \n", hessian_approx);
+        fprintf(optimfile, "#                lbfgs_stages        %d \n", lbfgs_stages);
+        fprintf(optimfile, "\n");
+    }
+
     /* Solve forward propagation with braid */
     braid_Drive(core_train);
     braid_GetObjective(core_train, &objective);
@@ -373,50 +416,50 @@ int main (int argc, char *argv[])
     printf(" Accuracy:   %3.4f %%\n", app_train->accuracy);
   
 
-    write_data("gradient.dat", gradient, ndesign);
+    if (myid == MASTER_NODE) write_data("gradient.dat", gradient, ndesign);
 
 
-/** ==================================================================================
- * Adjoint dot test xbarTxdot = ybarTydot
- * where xbar = (dfdx)T ybar
- *       ydot = (dfdx)  xdot
- * choosing xdot to be a vector of all ones, ybar = 1.0;
- * ==================================================================================*/
- printf("\n\n ============================ \n");
- printf(" Adjoint dot test: \n\n");
+// /** ==================================================================================
+//  * Adjoint dot test xbarTxdot = ybarTydot
+//  * where xbar = (dfdx)T ybar
+//  *       ydot = (dfdx)  xdot
+//  * choosing xdot to be a vector of all ones, ybar = 1.0;
+//  * ==================================================================================*/
+//  printf("\n\n ============================ \n");
+//  printf(" Adjoint dot test: \n\n");
      
-    /* Propagate through braid */
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    // write_data("gradient.dat", gradient, ndesign);
-    double obj0 = objective;
+//     /* Propagate through braid */
+//     braid_Drive(core_train);
+//     braid_GetObjective(core_train, &objective);
+//     // write_data("gradient.dat", gradient, ndesign);
+//     double obj0 = objective;
 
-    /* Sum up xtx */
-    double xtx = 0.0;
-    for (int i = 0; i < ndesign; i++)
-    {
-        xtx += gradient[i];
-    }
+//     /* Sum up xtx */
+//     double xtx = 0.0;
+//     for (int i = 0; i < ndesign; i++)
+//     {
+//         xtx += gradient[i];
+//     }
 
-    /* perturb into direction "only ones" */
-    double EPS = 1e-7;
-    for (int i = 0; i < ndesign; i++)
-    {
-        design[i] += EPS;
-    }
+//     /* perturb into direction "only ones" */
+//     double EPS = 1e-7;
+//     for (int i = 0; i < ndesign; i++)
+//     {
+//         design[i] += EPS;
+//     }
 
-    /* New objective function evaluation */
-    braid_SetObjectiveOnly(core_train, 1);
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    double obj1 = objective;
+//     /* New objective function evaluation */
+//     braid_SetObjectiveOnly(core_train, 1);
+//     braid_Drive(core_train);
+//     braid_GetObjective(core_train, &objective);
+//     double obj1 = objective;
 
-    /* Finite differences */
-    double yty = (obj1 - obj0)/EPS;
+//     /* Finite differences */
+//     double yty = (obj1 - obj0)/EPS;
 
 
-    /* Print adjoint dot test result */
-    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+//     /* Print adjoint dot test result */
+//     printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
 
 
 
@@ -440,7 +483,11 @@ int main (int argc, char *argv[])
     delete [] val_examples;
     delete [] val_labels;
 
-
+    if (myid == MASTER_NODE)
+    {
+        fclose(optimfile);
+        printf("Optimfile: %s\n", optimfilename);
+    }
 
     MPI_Finalize();
     return 0;

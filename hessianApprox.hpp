@@ -5,12 +5,6 @@
 
 #pragma once
 
-/** 
- * Abstract Base class for the Hessian approximation from Broyden class. 
- * All subclasses must implement 
- *    - update_memory for updating s, y, rho etc.
- *    - compute_step for computing search direction p = H*grad
- */
 class HessianApprox {
 
    protected:
@@ -20,7 +14,6 @@ class HessianApprox {
 
       /**
        * Compute the BFGS descent direction 
-       * -> Needs to be implemented by all subclasses
        */
       virtual int compute_step(int     k, 
                                double* currgrad, 
@@ -28,7 +21,6 @@ class HessianApprox {
 
       /**
        * Update the BFGS memory (like s, y, rho, H0...)
-       * -> Needs to be implemented by all subclasses 
        */
       virtual int update_memory(int     k,
                                 double* xnew,

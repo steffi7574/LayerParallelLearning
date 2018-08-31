@@ -78,3 +78,15 @@ double vec_normsq(int    dimN,
 
     return norm;
 }
+
+int vec_copy(int N, 
+             double* u, 
+             double* u_copy)
+{
+    for (int i=0; i<N; i++)
+    {
+        u_copy[i] = u[i];
+    }
+
+    return 0;
+}

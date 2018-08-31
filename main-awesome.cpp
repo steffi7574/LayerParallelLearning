@@ -5,7 +5,7 @@
 #include <mpi.h>
 
 // #include "lib.hpp"
-//#include "hessianApprox.hpp"
+#include "hessianApprox.hpp"
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
@@ -35,14 +35,15 @@ int main (int argc, char *argv[])
     double   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
     Network *network;                 /**< DNN Network architecture */
-    double   loss;
-    double   accuracy;
     /* --- Optimization --- */
     int      ndesign;             /**< Number of design variables */
     double  *design;              /**< Pointer to global design vector */
+    double  *design0;             /**< Old design at last iteration */
     double  *gradient;            /**< Pointer to global gradient vector */
+    double  *gradient0;           /**< Old gradient at last iteration*/
+    double  *descentdir;          /**< Descent direction for design updates */
     double   objective;           /**< Optimization objective */
-    double   regul;               /**< Value of the regularization term */
+    double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
     double   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
     double   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
@@ -77,17 +78,19 @@ int main (int argc, char *argv[])
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
 
+    struct rusage r_usage;
+    double StartTime, StopTime, UsedTime, myMB, globalMB; 
     char  optimfilename[255];
     FILE *optimfile;   
     char* activname;
-    double mygnorm, stepsize;
+    double mygnorm, stepsize, ls_objective;
     int nreq, ls_iter;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    double StartTime = MPI_Wtime();
+    StartTime = MPI_Wtime();
 
     
 
@@ -340,11 +343,6 @@ int main (int argc, char *argv[])
     /* Create the network */
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init);
 
-    /* Get pointer to gradient and design */
-    ndesign  = network->getnDesign();
-    design   = network->getDesign();
-    gradient = network->getGradient();
-
 
     /* Initialize xbraid's app structure */
     app_train = (my_App *) malloc(sizeof(my_App));
@@ -410,6 +408,33 @@ int main (int argc, char *argv[])
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
     stepsize    = stepsize_init;
+
+    /* Get pointers to gradient and design */
+    ndesign  = network->getnDesign();
+    design   = network->getDesign();
+    gradient = network->getGradient();
+
+    /* Initialize hessian approximation */
+    HessianApprox  *hessian;
+    if (myid == MASTER_NODE)
+    {
+        switch (hessian_approx)
+        {
+            case USE_BFGS:
+                hessian = new BFGS(ndesign);
+                break;
+            case USE_LBFGS: 
+                hessian = new L_BFGS(ndesign, lbfgs_stages);
+                break;
+        }
+
+        /* Allocate memory for optimization vars */
+        design0    = new double [ndesign];
+        gradient0  = new double [ndesign];
+        descentdir = new double [ndesign];
+    }
+
+
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
@@ -538,15 +563,82 @@ int main (int argc, char *argv[])
 
         /* --- Design update --- */
 
+        /* Compute search direction on first processor */
+        if (myid == MASTER_NODE)
+        {
+            /* Update the L-BFGS memory */
+            if (iter > 0) 
+            {
+                hessian->update_memory(iter, design, design0, gradient, gradient0);
+            }
+            /* Compute descent direction */
+            hessian->compute_step(iter, gradient, descentdir);
 
+            /* Store design and gradient into *0 vectors */
+            vec_copy(ndesign, design, design0);
+            vec_copy(ndesign, gradient, gradient0);
+
+            /* Compute wolfe condition */
+            wolfe = vecdot(ndesign, gradient, descentdir);
+
+            /* Update the global design using the initial stepsize */
+            for (int id = 0; id < ndesign; id++)
+            {
+                design[id] -= stepsize * descentdir[id];
+            }
+        }
+
+        /* Broadcast the new design and wolfe condition to all processors */
+        MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+
+        /* --- Backtracking linesearch --- */
+        stepsize = stepsize_init;
+        for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
+        {
+            /* Compute new objective function value for current trial step */
+            braid_SetPrintLevel(core_train, 0);
+            braid_SetObjectiveOnly(core_train, 1);
+            braid_Drive(core_train);
+            braid_GetObjective(core_train, &ls_objective);
+            if (myid == MASTER_NODE) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
+
+            /* Test the wolfe condition */
+            if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
+            {
+                /* Success, use this new design */
+                break;
+            }
+            else
+            {
+                /* Test for line-search failure */
+                if (ls_iter == ls_maxiter - 1)
+                {
+                    if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    break;
+                }
+
+                /* Decrease the stepsize */
+                stepsize = stepsize * ls_factor;
+
+                /* Compute new design using new stepsize */
+                if (myid == MASTER_NODE)
+                {
+                    /* Go back a portion of the step */
+                    for (int id = 0; id < ndesign; id++)
+                    {
+                        design[id] += stepsize * descentdir[id];
+                    }
+                }
+                MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+ 
+            }
+ 
+        }
+ 
     }
 
 
-
-
-  
-
-    if (myid == MASTER_NODE) write_data("gradient.dat", gradient, ndesign);
 
 
 // /** ==================================================================================
@@ -593,10 +685,37 @@ int main (int argc, char *argv[])
 
 
 
+    /* Print some statistics */
+    StopTime = MPI_Wtime();
+    UsedTime = StopTime-StartTime;
+    getrusage(RUSAGE_SELF,&r_usage);
+    myMB = (double) r_usage.ru_maxrss / 1024.0;
+    MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
+    if (myid == MASTER_NODE)
+    {
+        printf("\n");
+        printf(" Used Time:        %.2f seconds\n",UsedTime);
+        printf(" Global Memory:    %.2f MB\n", globalMB);
+        printf(" Processors used:  %d\n", size);
+        printf("\n");
+    }
+
+
     /* Clean up */
     delete network;
     braid_Destroy(core_train);
+    braid_Destroy(core_val);
     free(app_train);
+    free(app_val);
+
+    if (myid == MASTER_NODE)
+    {
+        delete hessian;
+        delete [] design0;
+        delete [] gradient0;
+    }
 
     for (int ix = 0; ix<ntraining; ix++)
     {

@@ -46,3 +46,11 @@ int argvecmax(int     dimN,
  */
 double vec_normsq(int    dimN,
                   double *x);
+
+
+/**
+ * Copy a vector u into u_copy 
+ */
+int vec_copy(int N, 
+             double* u, 
+             double* u_copy);

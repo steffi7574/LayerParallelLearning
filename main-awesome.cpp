@@ -364,45 +364,59 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
 
 
+    /* Solve forward propagation with braid */
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
 
-    /* Propagate training data */
-    network->applyFWD(ntraining, train_examples, train_labels);
 
-    /* Evaluate objective function */
-    loss      = network->getLoss();
-    regul     = network->evalRegularization(gamma_tik, gamma_ddt);
-    objective = loss + regul;
-    printf("Objective0: %1.16e %1.16e %1.16e\n",   objective, loss, regul);
-    
-    /* Pertub the design */
-    double EPS = 1e-6;
-    design[43] += EPS;
+    printf(" Objective:  %1.16e\n", objective);
+    printf(" Accuracy:   %3.4f %%\n", app_train->accuracy);
+  
 
-    /* Evaluate objective function */
-    network->applyFWD(ntraining, train_examples, train_labels);
-    loss      = network->getLoss();
-    regul     = network->evalRegularization(gamma_tik, gamma_ddt);
-    double objective1 = loss + regul;
+    write_data("gradient.dat", gradient, ndesign);
 
-    printf("Objective1: %1.16e %1.16e %1.16e\n",   objective1, loss, regul);
 
-    double diff = (objective1 - objective);
-    double fd   = diff / EPS;
-    printf("\nDiff: %1.14e\n", diff);
-    printf("\nFD:   %1.14e\n",   fd);
+/** ==================================================================================
+ * Adjoint dot test xbarTxdot = ybarTydot
+ * where xbar = (dfdx)T ybar
+ *       ydot = (dfdx)  xdot
+ * choosing xdot to be a vector of all ones, ybar = 1.0;
+ * ==================================================================================*/
+ printf("\n\n ============================ \n");
+ printf(" Adjoint dot test: \n\n");
+     
+    /* Propagate through braid */
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    // write_data("gradient.dat", gradient, ndesign);
+    double obj0 = objective;
 
-//    /* Propagate through braid */
-//     // braid_SetObjectiveOnly(core_train, 1);
-//     braid_Drive(core_train);
-//     braid_GetObjective(core_train, &objective);
+    /* Sum up xtx */
+    double xtx = 0.0;
+    for (int i = 0; i < ndesign; i++)
+    {
+        xtx += gradient[i];
+    }
 
-//     /* TODO: MPIAllreduce loss and accuracy! or not. */
-//     /* TODO: Reduce gradient data (in place on master_node) */
+    /* perturb into direction "only ones" */
+    double EPS = 1e-7;
+    for (int i = 0; i < ndesign; i++)
+    {
+        design[i] += EPS;
+    }
 
-//     write_data("gradient.dat", gradient, ndesign);
+    /* New objective function evaluation */
+    braid_SetObjectiveOnly(core_train, 1);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    double obj1 = objective;
 
-//     /* Output */
-//     printf("Objective1: %1.16e %1.16e \n",   objective, app_train->loss);
+    /* Finite differences */
+    double yty = (obj1 - obj0)/EPS;
+
+
+    /* Print adjoint dot test result */
+    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
 
 
 

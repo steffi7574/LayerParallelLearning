@@ -144,12 +144,8 @@ void Network::applyFWD(int      nexamples,
         /* Propagate through all layers */ 
         for (int ilayer = 0; ilayer < nlayers; ilayer++)
         {
-
-            // layers[ilayer]->print_data(state);
             /* Apply the next layer */
             layers[ilayer]->applyFWD(state);
-            // layers[ilayer]->print_data(state_upd);
- 
         }
 
         /* Evaluate loss */

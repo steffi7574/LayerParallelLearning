@@ -21,8 +21,6 @@ my_Step(braid_App        app,
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
-    printf("STEP %d \n", ts);
-
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
@@ -268,13 +266,13 @@ my_ObjectiveT(braid_App              app,
     }
 
     /* Tikhonov regularization */
-    // regul_tik = app->network->layers[ilayer]->evalTikh();
+    regul_tik = app->network->layers[ilayer]->evalTikh();
 
     /* ddt-regularization term */
-    // if (ilayer > 1 && ilayer < nlayers - 1) 
-    // {
-        // regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
-    // }
+    if (ilayer > 1 && ilayer < nlayers - 1) 
+    {
+        regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
+    }
 
  
     /* Evaluate loss and accuracy at last layer */
@@ -287,19 +285,18 @@ my_ObjectiveT(braid_App              app,
             loss += app->network->layers[nlayers-1]->evalLoss(u->state[iex], app->labels[iex]);
 
             /* Test for successful prediction */
-            // class_id = app->network->layers[nlayers-1]->prediction(u->state[iex]);
-            // if ( app->labels[iex][class_id] > 0.99 )  
-            // {
-                // success++;
-            // }
+            class_id = app->network->layers[nlayers-1]->prediction(u->state[iex]);
+            if ( app->labels[iex][class_id] > 0.99 )  
+            {
+                success++;
+            }
         }
         loss     = 1. / nexamples * loss;
-        // accuracy  = 100.0 * (double) success / nexamples;
+        accuracy  = 100.0 * (double) success / nexamples;
 
-        printf("loss %1.14e\n", loss);
         /* Report to app */
         app->loss     = loss;
-        // app->accuracy = accuracy;
+        app->accuracy = accuracy;
     }
 
 
@@ -358,13 +355,13 @@ my_ObjectiveT_diff(braid_App            app,
     }
 
     /* Derivative of ddt-regularization term */
-    // if (ilayer > 1 && ilayer < nlayers - 1) 
-    // {
-    //     app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
-    // }
+    if (ilayer > 1 && ilayer < nlayers - 1) 
+    {
+        app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
+    }
 
-    // /* Derivative of the tikhonov regularization term */
-    // app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
+    /* Derivative of the tikhonov regularization term */
+    app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
 
     return 0;
 }
@@ -384,7 +381,6 @@ my_Step_diff(braid_App         app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    printf("step_diff\n" );
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
     braid_StepStatusGetTIndex(status, &ts);
@@ -422,7 +418,6 @@ my_ResetGradient(braid_App app)
     {
         app->network->layers[ilayer]->resetBar();
     }
-    printf("reset\n");
 
     return 0;
 }

@@ -75,7 +75,7 @@ void Layer::initialize(double* design_ptr,
     weights     = design_ptr;
     weights_bar = gradient_ptr;
     
-    /* Set primal and adjoint bias memory locations */
+    /* Bias memory locations is a shift by number of weights */
     int nweights = dim_Out * dim_In;
     bias         = design_ptr + nweights;    
     bias_bar     = gradient_ptr + nweights;

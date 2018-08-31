@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #pragma once
 
 /**
@@ -37,3 +38,11 @@ double vecmax(int     dimN,
  */
 int argvecmax(int     dimN,
               double* x);
+
+
+
+/**
+ * Return square of the l2-norm of the vector x
+ */
+double vec_normsq(int    dimN,
+                  double *x);

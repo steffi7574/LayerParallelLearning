@@ -50,9 +50,13 @@ int main (int argc, char *argv[])
     double   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
     double   stepsize_init;       /**< Initial stepsize for design updates */
     int      maxoptimiter;        /**< Maximum number of optimization iterations */
-    double   gtol;                /**< Stopping Tolerance on norm of gradient */
+    double   rnorm;               /**< Space-time Norm of the state variables */
+    double   rnorm_adj;           /**< Space-time norm of the adjoint variables */
+    double   gnorm;               /**< Norm of the gradient */
+    double   gtol;                /**< Stoping tolerance on the gradient norm */
     int      ls_maxiter;          /**< Max. number of linesearch iterations */
     double   ls_factor;           /**< Reduction factor for linesearch */
+    double   ls_param;            /**< Parameter in wolfe condition test */
     int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
     /* --- PinT --- */
@@ -74,6 +78,8 @@ int main (int argc, char *argv[])
     char  optimfilename[255];
     FILE *optimfile;   
     char* activname;
+    double mygnorm, stepsize;
+    int nreq;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -368,6 +374,13 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core_train, braid_abstol);
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
 
+    /* Initialize optimization parameters */
+    ls_param    = 1e-4;
+    gnorm       = 0.0;
+    objective   = 0.0;
+    rnorm       = 0.0;
+    rnorm_adj   = 0.0;
+    stepsize    = stepsize_init;
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
@@ -407,7 +420,62 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "\n");
     }
 
-    /* Solve forward propagation with braid */
+    /* Prepare optimization output */
+    if (myid == MASTER_NODE)
+    {
+       /* Screen output */
+       printf("\n#    || r ||          || r_adj ||      Objective       Loss      theta_R   class_R   || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
+       
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss        theta_reg   class_reg   || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
+    }
+
+
+    /* --- OPTIMIZATION --- */
+
+    for (int iter = 0; iter < maxoptimiter; iter++)
+    {
+        /* Reset the app */
+        app_train->loss = 0.0;
+
+        /* --- Training data: Get objective and compute gradient ---*/ 
+
+        /* Solve with braid */
+        braid_SetObjectiveOnly(core_train, 0);
+        braid_SetPrintLevel(core_train, 1);
+        braid_Drive(core_train);
+        braid_GetObjective(core_train, &objective);
+        // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+        /* Get primal and adjoint residual norms */
+        nreq = -1;
+        braid_GetRNorms(core_train, &nreq, &rnorm);
+        braid_GetRNormAdjoint(core_train, &rnorm_adj);
+
+        /* Reduce gradient on MASTER_NODE (in-place communication)*/
+        if (myid == MASTER_NODE) 
+        {
+            MPI_Reduce(MPI_IN_PLACE, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        }
+        else
+        {
+            MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        }
+
+        /* Compute and communicate the norm */
+        mygnorm = 0.0;
+        if (myid == MASTER_NODE) {
+            mygnorm = vec_normsq(ndesign, gradient);
+        } 
+        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        gnorm = sqrt(gnorm);
+
+        printf("gnorm %1.16e\n", gnorm);
+
+    }
+
+
+
+
     braid_Drive(core_train);
     braid_GetObjective(core_train, &objective);
 

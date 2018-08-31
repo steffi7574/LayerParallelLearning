@@ -65,3 +65,16 @@ int argvecmax(int     dimN,
     }
     return i_max;
 }
+
+
+double vec_normsq(int    dimN,
+                  double *x)
+{
+    double norm = 0.0;
+    for (int i = 0; i<dimN; i++)
+    {
+        norm += pow(x[i],2);
+    }
+
+    return norm;
+}

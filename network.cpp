@@ -67,7 +67,7 @@ Network::Network(int    nLayers,
     }
     else
     {
-       layers[0] = new DenseLayer(0, nFeatures, nChannels, 1.0, activ_ptr, dactiv_ptr);
+       layers[0] = new OpenDenseLayer(0, nFeatures, nChannels, 1.0, activ_ptr, dactiv_ptr);
     }
     ndesign += layers[0]->getnDesign();
     /* intermediate layers */

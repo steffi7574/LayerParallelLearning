@@ -130,8 +130,9 @@ class Layer
 };
 
 /**
- * Layer consisting of dense weight matrix K \in R^{nxn}
- * Linear transformation is a matrix multiplication plus 1D bias: Ky + bias
+ * Layer using square dense weight matrix K \in R^{nxn}
+ * Layer transformation: y = y + dt * sigma(Wy + b)
+ * if not openlayer: requires dimI = dimO !
  */
 class DenseLayer : public Layer {
 
@@ -143,6 +144,36 @@ class DenseLayer : public Layer {
                  double (*Activ)(double x),
                  double (*dActiv)(double x));     
       ~DenseLayer();
+
+      void applyFWD(double* data_In, 
+                    double* data_Out);
+
+      void applyBWD(double* data_In,
+                    double* data_In_bar,
+                    double* data_Out,
+                    double* data_Out_bar);
+};
+
+
+/**
+ * Opening Layer using dense weight matrix K \in R^{nxn}
+ * Layer transformation: y = sigma(W*y_ex + b)  for examples y_ex \in \R^dimI
+ */
+class OpenDenseLayer : public DenseLayer {
+
+  protected: 
+      double* example;    /* Pointer to the current example data */
+
+  public:
+      OpenDenseLayer(int     idx,
+                int     dimI,
+                int     dimO,
+                double  deltaT,
+                double (*Activ)(double x),
+                double (*dActiv)(double x));     
+      ~OpenDenseLayer();
+
+      void setExample(double* example_ptr);
 
       void applyFWD(double* data_In, 
                     double* data_Out);

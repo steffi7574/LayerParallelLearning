@@ -224,6 +224,100 @@ void DenseLayer::applyBWD(double* data_In,
 }
 
 
+OpenDenseLayer::OpenDenseLayer(int     idx,
+                     int     dimI,
+                     int     dimO,
+                     double  deltaT,
+                     double (*Activ)(double x),
+                     double (*dActiv)(double x)) : DenseLayer(idx, dimI, dimO, deltaT, Activ, dActiv) 
+{
+    example = NULL;
+}
+
+OpenDenseLayer::~OpenDenseLayer(){}
+
+void OpenDenseLayer::setExample(double* example_ptr)
+{
+    example = example_ptr;
+}
+
+void OpenDenseLayer::applyFWD(double* data_In, 
+                         double* data_Out)
+{
+       /* Compute update for each channel */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      /* Apply weights */
+      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+    //   for (int ii = 0; ii < dim_In; ii++)
+    //   {
+// 
+        //   printf("d %d %1.14e", io*dim_In + ii, weights[io*dim_In + ii]);
+    //   }
+    //   printf("\n");
+
+      /* Add bias */
+      data_Out[io] += bias[0];
+
+      /* apply activation */
+      data_Out[io] = activation(data_Out[io]);
+
+      /* Apply step */
+      data_Out[io] = dt * data_Out[io];
+    //   printf("%1.14e ", data_Out[io]);
+
+      /* If not first layer, add the incoming data. */
+      if (index != 0)
+      {
+         data_Out[io] += data_In[io];
+      }
+   }
+    // applyFWD(data_In, data_Out);
+}
+
+void OpenDenseLayer::applyBWD(double* data_In,
+                    double* data_In_bar,
+                    double* data_Out,
+                    double* data_Out_bar)
+{
+       /* Backward propagation for each channel */
+   for (int io = 0; io < dim_Out; io++)
+   {
+     
+      /* Derivative of the update */
+      if (index != 0)
+      {
+         data_In_bar[io] += data_Out_bar[io];
+      }
+      data_Out_bar[io] = dt*data_Out_bar[io];
+
+
+      /* Recompute data_Out */
+      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
+      data_Out[io] += bias[0];
+
+      /* Derivative of activation function */
+      data_Out_bar[io] = dactivation(data_Out[io]) * data_Out_bar[io];
+
+      /* Derivative of bias addition */
+      bias_bar[0] += data_Out_bar[io];
+
+      /* Derivative of weight application */
+    //   printf("dense applybwd");
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         weights_bar[io*dim_In + ii] += data_In[ii] * data_Out_bar[io];
+         data_In_bar[ii] += weights[io*dim_In + ii] * data_Out_bar[io]; 
+        //   printf("%1.14e ", weights_bar[io*dim_In +ii]);
+      }
+    //   printf("\n");
+
+      /* Reset */
+      data_Out_bar[io] = 0.0;
+   }
+}                
+
+
 OpenExpandZero::OpenExpandZero(int    dimI,
                                int    dimO,
                                double deltaT) : Layer(0, dimI, dimO, 1, deltaT, NULL, NULL)

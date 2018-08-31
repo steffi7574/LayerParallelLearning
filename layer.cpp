@@ -128,6 +128,7 @@ void Layer::evalTikh_diff(double regul_bar)
     }
 }
 
+void Layer::setExample(double* example_ptr) {}
 
 double Layer::evalLoss(double *data_Out, 
                        double *label) { return 0.0; }
@@ -242,19 +243,13 @@ void OpenDenseLayer::setExample(double* example_ptr)
 }
 
 void OpenDenseLayer::applyFWD(double* data_In, 
-                         double* data_Out)
+                              double* data_Out)
 {
        /* Compute update for each channel */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
-      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), data_In);
-    //   for (int ii = 0; ii < dim_In; ii++)
-    //   {
-// 
-        //   printf("d %d %1.14e", io*dim_In + ii, weights[io*dim_In + ii]);
-    //   }
-    //   printf("\n");
+      data_Out[io] = vecdot(dim_In, &(weights[io*dim_In]), example);
 
       /* Add bias */
       data_Out[io] += bias[0];
@@ -263,16 +258,8 @@ void OpenDenseLayer::applyFWD(double* data_In,
       data_Out[io] = activation(data_Out[io]);
 
       /* Apply step */
-      data_Out[io] = dt * data_Out[io];
-    //   printf("%1.14e ", data_Out[io]);
-
-      /* If not first layer, add the incoming data. */
-      if (index != 0)
-      {
-         data_Out[io] += data_In[io];
-      }
+      data_Out[io] = data_Out[io];
    }
-    // applyFWD(data_In, data_Out);
 }
 
 void OpenDenseLayer::applyBWD(double* data_In,

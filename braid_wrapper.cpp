@@ -21,13 +21,14 @@ my_Step(braid_App        app,
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
+    printf("STEP %d \n", ts);
+
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
         if (ts == 0)
         {
-            app->network->layers[0]->setDt(1.0);
-            app->network->setState(app->network->layers[0]->getDimIn(), app->examples[iex]);
+            app->network->layers[0]->setExample(app->examples[iex]);
         }
         else
         {
@@ -385,8 +386,7 @@ my_Step_diff(braid_App         app,
 
         if (ts == 0)
         {
-            app->network->layers[0]->setDt(1.0);
-            app->network->setState(app->network->layers[0]->getDimIn(), app->examples[iex]);
+            app->network->layers[0]->setExample(app->examples[iex]);
         }
         else
         {

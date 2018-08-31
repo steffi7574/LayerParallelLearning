@@ -177,7 +177,7 @@ void Network::applyFWD(int      nexamples,
     for (int iex = 0; iex < nexamples; iex++)
     { 
         /* Load input data */
-        setState(layers[0]->getDimIn(), examples[iex]);
+        layers[0]->setExample(examples[iex]);
        
         /* Propagate through all layers */ 
         for (int ilayer = 0; ilayer < nlayers; ilayer++)

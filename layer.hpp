@@ -86,6 +86,11 @@ class Layer
       void evalTikh_diff(double regul_bar);
 
       /**
+       * In opening layers: set pointer to the current example
+       */
+      virtual void setExample(double* example_ptr);
+
+      /**
        * Forward propagation of an example 
        * In/Out: vector holding the current example data
        */

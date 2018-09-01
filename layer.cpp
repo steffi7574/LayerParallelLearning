@@ -16,6 +16,7 @@ Layer::Layer()
    activation   = NULL;
    dactivation  = NULL;
    update       = NULL;
+   update_bar   = NULL;
 }
 
 Layer::Layer(int     idx,
@@ -35,12 +36,14 @@ Layer::Layer(int     idx,
    activation  = Activ;
    dactivation = dActiv;
    
-   update = new double[dimO];
+   update     = new double[dimO];
+   update_bar = new double[dimO];
 }   
 
 Layer::~Layer()
 {
-    delete update;
+    delete [] update;
+    delete [] update_bar;
 }
 
 
@@ -168,7 +171,7 @@ DenseLayer::~DenseLayer() {}
 
 void DenseLayer::applyFWD(double* state)
 {
-   /* Compute update for each channel */
+   /* Affine transformation */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
@@ -176,15 +179,12 @@ void DenseLayer::applyFWD(double* state)
 
       /* Add bias */
       update[io] += bias[0];
-
-      /* apply activation */
-      update[io] = activation(update[io]);
    }
 
       /* Apply step */
    for (int io = 0; io < dim_Out; io++)
    {
-      state[io] = state[io] + dt * update[io];
+      state[io] = state[io] + dt * activation(update[io]);
    }
 }
 
@@ -192,31 +192,29 @@ void DenseLayer::applyFWD(double* state)
 void DenseLayer::applyBWD(double* state,
                           double* state_bar)
 {
-   double tmp;
 
-   /* Derivative of the update */
+   /* Derivative of the step */
    for (int io = 0; io < dim_Out; io++)
    {
-        update[io] = dt * state_bar[io];
+      /* Recompute affine transformation */
+        update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
+        update[io] += bias[0];
+        
+        /* Derivative */
+        update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
    }
 
+    /* Derivative of linear transformation */
    for (int io = 0; io < dim_Out; io++)
    {
-      /* Recompute intermediate state at actiation evaluation point */
-      tmp  = vecdot(dim_In, &(weights[io*dim_In]), state);
-      tmp += bias[0];
-
-      /* Derivative of activation function */
-      update[io] = dactivation(tmp) * update[io];
-
       /* Derivative of bias addition */
-      bias_bar[0] += update[io];
+      bias_bar[0] += update_bar[io];
 
       /* Derivative of weight application */
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += state[ii] * update[io];
-         state_bar[ii] += weights[io*dim_In + ii] * update[io]; 
+         weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+         state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
       }
    }
 }
@@ -241,46 +239,49 @@ void OpenDenseLayer::setExample(double* example_ptr)
 
 void OpenDenseLayer::applyFWD(double* state) 
 {
-       /* Compute update for each channel */
+   /* affine transformation */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Apply weights */
-      state[io] = vecdot(dim_In, &(weights[io*dim_In]), example);
+      update[io] = vecdot(dim_In, &(weights[io*dim_In]), example);
 
       /* Add bias */
-      state[io] += bias[0];
+      update[io] += bias[0];
+   }
 
-      /* apply activation */
-      state[io] = activation(state[io]);
+   /* Step */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      state[io] = activation(update[io]);
    }
 }
 
 void OpenDenseLayer::applyBWD(double* state,
                               double* state_bar)
 {
-    double tmp;
-
-   /* Backward propagation for each channel */
+   /* Derivative of step */
    for (int io = 0; io < dim_Out; io++)
    {
-      /* Recompute data_Out */
-      tmp  = vecdot(dim_In, &(weights[io*dim_In]), state);
-      tmp += bias[0];
+      /* Recompute affine transformation */
+      update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
+      update[io] += bias[0];
 
-      /* Derivative of activation function */
-      state_bar[io] = dactivation(tmp) * state_bar[io];
+      /* Derivative */
+      update_bar[io] = dactivation(update[io]) * state_bar[io];
+      state_bar[io] = 0.0;
+   }
 
+   /* Derivative of affine transformation */
+   for (int io = 0; io < dim_Out; io++)
+   {
       /* Derivative of bias addition */
-      bias_bar[0] += state_bar[io];
+      bias_bar[0] += update_bar[io];
 
       /* Derivative of weight application */
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += example[ii] * state_bar[io];
+         weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
       }
-
-      /* Reset */
-      state_bar[io] = 0.0;
    }
 }                
 
@@ -342,12 +343,11 @@ ClassificationLayer::~ClassificationLayer()
 
 void ClassificationLayer::applyFWD(double* state)
 {
-    /* Compute update for each channel */
+    /* Compute affine transformation */
     for (int io = 0; io < dim_Out; io++)
     {
         /* Apply weights */
         update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
-  
         /* Add bias */
         update[io] += bias[io];
     }
@@ -360,6 +360,8 @@ void ClassificationLayer::applyFWD(double* state)
         printf("Error: dimI < dimO on classification layer. Change implementation here. \n");
         exit(1);
     }
+
+    /* Apply step */
     for (int io = 0; io < dim_Out; io++)
     {
         state[io] = update[io];
@@ -374,43 +376,41 @@ void ClassificationLayer::applyFWD(double* state)
 void ClassificationLayer::applyBWD(double* state,
                                    double* state_bar)
 {
-    double* tmpbar = new double[dim_Out];
-
-    for (int ii = dim_Out; ii < dim_In; ii++)
-    {
-        state_bar[ii] = 0.0;
-    }
-    for (int io = 0; io < dim_Out; io++)
-    {
-        tmpbar[io]    = state_bar[io];
-        state_bar[io] = 0.0;
-    }
-    
-    /* Recompute data_out */
+    /* Recompute affine transformation */
     for (int io = 0; io < dim_Out; io++)
     {
         update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
         update[io] += bias[io];
     }        
 
- 
-    /* Derivative of the normalization */
-    normalize_diff(update, tmpbar);
 
-    /* Backward propagation for each channel */
+    /* Derivative of step */
+    for (int ii = dim_Out; ii < dim_In; ii++)
+    {
+        state_bar[ii] = 0.0;
+    }
+    for (int io = 0; io < dim_Out; io++)
+    {
+        update_bar[io] = state_bar[io];
+        state_bar[io]  = 0.0;
+    }
+    
+    /* Derivative of the normalization */
+    normalize_diff(update, update_bar);
+
+    /* Derivatie of affine transformation */
     for (int io = 0; io < dim_Out; io++)
     {
        /* Derivative of bias addition */
-        bias_bar[io] += tmpbar[io];
+        bias_bar[io] += update_bar[io];
   
         /* Derivative of weight application */
         for (int ii = 0; ii < dim_In; ii++)
         {
-           weights_bar[io*dim_In + ii] += state[ii] * tmpbar[io];
-           state_bar[ii] += weights[io*dim_In + ii] * tmpbar[io];
+           weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+           state_bar[ii] += weights[io*dim_In + ii] * update_bar[io];
         }
     }   
-    delete tmpbar;
 }
 
 

@@ -30,6 +30,7 @@ class Layer
       double  (*dactivation)(double x);    /* derivative of activation function */
 
       double *update;                      /* Auxilliary for computing fwd update */
+      double *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
       Layer();

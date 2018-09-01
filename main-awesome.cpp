@@ -528,16 +528,12 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
 
-        // printf("gnorm %1.16e\n", gnorm);
-
 
         /* --- Validation data: Get accuracy --- */
 
         braid_SetObjectiveOnly(core_val, 1);
         braid_SetPrintLevel( core_val,   0);
         braid_Drive(core_val);
-        // printf(" Validation accuracy:   %3.4f %%\n", app_val->accuracy);
-
 
         /* --- Optimization control and output ---*/
 
@@ -564,6 +560,7 @@ int main (int argc, char *argv[])
 
         /* --- Design update --- */
 
+        stepsize = stepsize_init;
         /* Compute search direction on first processor */
         if (myid == MASTER_NODE)
         {
@@ -594,7 +591,6 @@ int main (int argc, char *argv[])
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
         /* --- Backtracking linesearch --- */
-        stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Compute new objective function value for current trial step */
@@ -602,8 +598,9 @@ int main (int argc, char *argv[])
             braid_SetObjectiveOnly(core_train, 1);
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
-            if (myid == MASTER_NODE) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
 
+            double test = objective - ls_param * stepsize * wolfe;
+            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
             /* Test the wolfe condition */
             if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
             {
@@ -637,8 +634,6 @@ int main (int argc, char *argv[])
  
         }
  
-        write_vector("design.dat", design, ndesign);
-        write_vector("gradient.dat", gradient, ndesign);
     }
 
 

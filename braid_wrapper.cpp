@@ -274,25 +274,22 @@ my_ObjectiveT(braid_App              app,
     }
 
  
-    /* Evaluate loss and accuracy at last layer */
+    /* Evaluate loss and accuracy */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        loss += app->network->layers[ilayer]->evalLoss(u->state[iex], app->labels[iex]);
+
+        success += app->network->layers[ilayer]->prediction(u->state[iex], app->labels[iex]);
+    }
+    loss     = 1. / nexamples * loss;
+    accuracy = 100.0 * (double) success / nexamples;
+
+    /* Report to app */
     if (ilayer == nlayers - 1)
     {
-        success = 0;
-        loss    = 0.0;
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            loss += app->network->layers[nlayers-1]->evalLoss(u->state[iex], app->labels[iex]);
-
-            success += app->network->layers[nlayers-1]->prediction(u->state[iex], app->labels[iex]);
-        }
-        loss     = 1. / nexamples * loss;
-        accuracy  = 100.0 * (double) success / nexamples;
-
-        /* Report to app */
         app->loss     = loss;
         app->accuracy = accuracy;
     }
-
 
     /* Compute objective function */
     *objective_ptr = loss + app->gamma_tik * regul_tik + app->gamma_ddt * regul_ddt;
@@ -311,7 +308,6 @@ my_ObjectiveT_diff(braid_App            app,
 {
     double loss_bar, regul_tik_bar, regul_ddt_bar;
     int nlayers   = app->network->getnLayers();
-    int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
     /* Get the time index*/
@@ -329,23 +325,10 @@ my_ObjectiveT_diff(braid_App            app,
     regul_ddt_bar = f_bar * app->gamma_ddt;
 
     /* Derivative of loss function evaluation */
-    if (ilayer == nlayers - 1)
+    loss_bar = 1./nexamples * loss_bar;
+    for (int iex = 0; iex < nexamples; iex++)
     {
-        loss_bar = 1./nexamples * loss_bar;
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            app->network->layers[nlayers-1]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
-        }
-    }
-    else /* dfdu = 0.0 */
-    {
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            for (int ic = 0; ic < nchannels; ic++)
-            {
-                u_bar->state[iex][ic] = 0.0;
-            }
-        }            
+        app->network->layers[ilayer]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
     }
 
     /* Derivative of ddt-regularization term */

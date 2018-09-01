@@ -143,7 +143,14 @@ double Layer::evalLoss(double *data_Out,
 void Layer::evalLoss_diff(double *data_Out, 
                           double *data_Out_bar,
                           double *label,
-                          double  loss_bar) {}
+                          double  loss_bar) 
+{
+    /* dfdu = 0.0 */
+    for (int io = 0; io < dim_Out; io++)
+    {
+        data_Out_bar[io] =  0.0;
+    }
+}
 
 int Layer::prediction(double* data, double* label) {return 0;}
 

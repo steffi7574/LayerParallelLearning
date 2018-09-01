@@ -245,7 +245,6 @@ my_ObjectiveT(braid_App              app,
               braid_ObjectiveStatus  ostatus,
               double                *objective_ptr)
 {
-    int    class_id = 0;
     int    success = 0;
     double regul_tik = 0.0;
     double regul_ddt = 0.0;
@@ -284,12 +283,7 @@ my_ObjectiveT(braid_App              app,
         {
             loss += app->network->layers[nlayers-1]->evalLoss(u->state[iex], app->labels[iex]);
 
-            /* Test for successful prediction */
-            class_id = app->network->layers[nlayers-1]->prediction(u->state[iex]);
-            if ( app->labels[iex][class_id] > 0.99 )  
-            {
-                success++;
-            }
+            success += app->network->layers[nlayers-1]->prediction(u->state[iex], app->labels[iex]);
         }
         loss     = 1. / nexamples * loss;
         accuracy  = 100.0 * (double) success / nexamples;

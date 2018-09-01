@@ -145,7 +145,7 @@ void Layer::evalLoss_diff(double *data_Out,
                           double *label,
                           double  loss_bar) {}
 
-int Layer::prediction(double* data) {return -1;}
+int Layer::prediction(double* data, double* label) {return 0;}
 
 
 DenseLayer::DenseLayer(int     idx,
@@ -486,10 +486,12 @@ void ClassificationLayer::evalLoss_diff(double *data_Out,
 }                              
 
 
-int ClassificationLayer::prediction(double* data_Out)
+int ClassificationLayer::prediction(double* data_Out, 
+                                    double* label)
 {
    double exp_sum, max;
    int    class_id;
+   int    success = 0;
 
    /* Compute sum_i (exp(x_i)) */
    max = -1.0;
@@ -499,9 +501,9 @@ int ClassificationLayer::prediction(double* data_Out)
       exp_sum += exp(data_Out[io]);
    }
 
-   /* Compute class probabilities (Softmax) */
    for (int io = 0; io < dim_Out; io++)
    {
+       /* Compute class probabilities (Softmax) */
        probability[io] = exp(data_Out[io]) / exp_sum;
 
       /* Predicted class is the one with maximum probability */ 
@@ -512,5 +514,12 @@ int ClassificationLayer::prediction(double* data_Out)
       }
    }
 
-   return class_id;
+  /* Test for successful prediction */
+  if ( label[class_id] > 0.99 )  
+  {
+      success = 1;
+  }
+   
+
+   return success;
 }

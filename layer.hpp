@@ -128,9 +128,11 @@ class Layer
                                  double  loss_bar);
 
       /**
-       * Compute class probabilities and return predicted class id.
+       * Compute class probabilities,
+       * return 1 if predicted class was correct, else 0.
        */
-      virtual int prediction(double* data_Out);
+      virtual int prediction(double* data_Out,
+                             double* label);
 
 };
 
@@ -243,9 +245,10 @@ class ClassificationLayer : public Layer
 
             /**
              * Compute the class probabilities
-             * Returns index of predicted class (is index with  max probability)
+             * return 1 if predicted class was correct, 0 else.
              */
-            int prediction(double* data);
+            int prediction(double* data_out, 
+                           double* label);
 
             /**
              * Translate the data: 

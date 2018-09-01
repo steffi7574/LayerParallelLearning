@@ -130,7 +130,7 @@ void Network::applyFWD(int      nexamples,
                        double **examples,
                        double **labels)
 {
-    int class_id, success;
+    int success;
     double* state = new double[nchannels];
 
     /* Propagate the examples */
@@ -152,11 +152,7 @@ void Network::applyFWD(int      nexamples,
         loss += layers[nlayers-1]->evalLoss(state, labels[iex]);
 
         /* Test for successful prediction */
-        class_id = layers[nlayers-1]->prediction(state);
-        if ( labels[iex][class_id] > 0.99 )  
-        {
-            success++;
-        }
+        success += layers[nlayers-1]->prediction(state, labels[iex]);
     }
         
     /* Set loss and accuracy */

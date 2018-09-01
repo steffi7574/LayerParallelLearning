@@ -46,11 +46,11 @@ class Layer
       /* Set time step size */
       void setDt(double DT);
 
-      /* Get a pointer to the weights bias*/
+      /* Get pointer to the weights bias*/
       double* getWeights();
       double* getBias();
 
-      /* Get a pointer to the weights bias bar */
+      /* Get pointer to the weights bias bar */
       double* getWeightsBar();
       double* getBiasBar();
 

@@ -263,7 +263,7 @@ void OpenDenseLayer::applyBWD(double* state,
    for (int io = 0; io < dim_Out; io++)
    {
       /* Recompute affine transformation */
-      update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
+      update[io]  = vecdot(dim_In, &(weights[io*dim_In]), example);
       update[io] += bias[0];
 
       /* Derivative */
@@ -357,7 +357,7 @@ void ClassificationLayer::applyFWD(double* state)
 
     if (dim_In < dim_Out)
     {
-        printf("Error: dimI < dimO on classification layer. Change implementation here. \n");
+        printf("Error: nchannels < nclasses. Implementation of classification layer doesn't support this setting. Change! \n");
         exit(1);
     }
 

@@ -325,8 +325,8 @@ int main (int argc, char *argv[])
         if (myid == MASTER_NODE) train_examples[ix] = new double[nfeatures];
         if (myid == size-1)      train_labels[ix]   = new double[nclasses];
     }
-    if (myid == MASTER_NODE) read_data(train_ex_filename,  train_examples, ntraining, nfeatures);
-    if (myid == size-1)      read_data(train_lab_filename, train_labels,   ntraining, nclasses);
+    if (myid == MASTER_NODE) read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
+    if (myid == size-1)      read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
 
     /* Read validation data */
     val_examples = new double* [nvalidation];
@@ -336,8 +336,8 @@ int main (int argc, char *argv[])
         if (myid == MASTER_NODE) val_examples[ix] = new double[nfeatures];
         if (myid == size-1)      val_labels[ix]   = new double[nclasses];
     }
-    if (myid == MASTER_NODE) read_data(val_ex_filename,  val_examples, nvalidation, nfeatures);
-    if (myid == size - 1)    read_data(val_lab_filename, val_labels,   nvalidation, nclasses);
+    if (myid == MASTER_NODE) read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    if (myid == size - 1)    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
 
     /* Create the network */
@@ -499,6 +499,7 @@ int main (int argc, char *argv[])
         braid_SetPrintLevel(core_train, 1);
         braid_Drive(core_train);
         braid_GetObjective(core_train, &objective);
+        write_vector("gradient.dat", gradient, ndesign);
 
         // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         // printf(" Objective:  %1.16e\n", objective);
@@ -636,54 +637,115 @@ int main (int argc, char *argv[])
  
         }
  
+        write_vector("design.dat", design, ndesign);
+        write_vector("gradient.dat", gradient, ndesign);
     }
 
 
 
 
-// /** ==================================================================================
-//  * Adjoint dot test xbarTxdot = ybarTydot
-//  * where xbar = (dfdx)T ybar
-//  *       ydot = (dfdx)  xdot
-//  * choosing xdot to be a vector of all ones, ybar = 1.0;
-//  * ==================================================================================*/
-//  printf("\n\n ============================ \n");
-//  printf(" Adjoint dot test: \n\n");
+/** ==================================================================================
+ * Adjoint dot test xbarTxdot = ybarTydot
+ * where xbar = (dfdx)T ybar
+ *       ydot = (dfdx)  xdot
+ * choosing xdot to be a vector of all ones, ybar = 1.0;
+ * ==================================================================================*/
+ printf("\n\n ============================ \n");
+ printf(" Adjoint dot test: \n\n");
+
+    // read_vector("design.dat", design, ndesign);
      
-//     /* Propagate through braid */
-//     braid_Drive(core_train);
-//     braid_GetObjective(core_train, &objective);
-//     // write_data("gradient.dat", gradient, ndesign);
-//     double obj0 = objective;
+    /* Propagate through braid */
+    braid_SetObjectiveOnly(core_train, 0);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    write_vector("gradient.dat", gradient, ndesign);
+    double obj0 = objective;
 
-//     /* Sum up xtx */
-//     double xtx = 0.0;
-//     for (int i = 0; i < ndesign; i++)
-//     {
-//         xtx += gradient[i];
-//     }
+    /* Sum up xtx */
+    double xtx = 0.0;
+    for (int i = 0; i < ndesign; i++)
+    {
+        xtx += gradient[i];
+    }
 
-//     /* perturb into direction "only ones" */
-//     double EPS = 1e-7;
-//     for (int i = 0; i < ndesign; i++)
-//     {
-//         design[i] += EPS;
-//     }
+    /* perturb into direction "only ones" */
+    double EPS = 1e-7;
+    for (int i = 0; i < ndesign; i++)
+    {
+        design[i] += EPS;
+    }
 
-//     /* New objective function evaluation */
-//     braid_SetObjectiveOnly(core_train, 1);
-//     braid_Drive(core_train);
-//     braid_GetObjective(core_train, &objective);
-//     double obj1 = objective;
+    /* New objective function evaluation */
+    braid_SetObjectiveOnly(core_train, 1);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    double obj1 = objective;
 
-//     /* Finite differences */
-//     double yty = (obj1 - obj0)/EPS;
-
-
-//     /* Print adjoint dot test result */
-//     printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+    /* Finite differences */
+    double yty = (obj1 - obj0)/EPS;
 
 
+    /* Print adjoint dot test result */
+    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+
+
+/** =======================================
+ * Full finite differences 
+ * ======================================= */
+
+    double* findiff = new double[ndesign];
+    double* relerr = new double[ndesign];
+    double errnorm = 0.0;
+
+    /* Compute baseline objective */
+    read_vector("design.dat", design, ndesign);
+    braid_SetObjectiveOnly(core_train, 0);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    obj0 = objective;
+
+    // EPS = 1e-8;
+    for (int i = 0; i < ndesign; i++)
+    {
+        /* Restore design */
+        // read_vector("design.dat", design, ndesign);
+    
+        /*  Perturb design */
+        design[i] += EPS;
+
+        /* Recompute objective */
+        braid_SetObjectiveOnly(core_train, 1);
+        braid_SetPrintLevel(core_train, 0);
+        braid_Drive(core_train);
+        braid_GetObjective(core_train, &objective);
+        obj1 = objective;
+
+        /* Findiff */
+        findiff[i] = (obj1 - obj0) / EPS;
+        relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
+        errnorm += pow(relerr[i],2);
+
+        printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
+
+        /* Restore design */
+        design[i] -= EPS;
+    }
+    errnorm = sqrt(errnorm);
+    printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
+
+    write_vector("findiff.dat", findiff, ndesign); 
+    write_vector("relerr.dat", relerr, ndesign); 
+     
+
+    /* check network implementation */
+    // network->applyFWD(ntraining, train_examples, train_labels);
+    // double accur = network->getAccuracy();
+    // double regul = network->evalRegularization(gamma_tik, gamma_ddt);
+    // objective = network->getLoss() + regul;
+    // printf("\n --- \n");
+    // printf(" Network: obj %1.14e \n", objective);
+    // printf(" ---\n");
 
     /* Print some statistics */
     StopTime = MPI_Wtime();

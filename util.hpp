@@ -5,14 +5,21 @@
 /**
  * Read data from file 
  */
-void read_data(char*    filename, 
+void read_matrix(char*    filename, 
                double** var, 
                int      dimx, 
                int      dimy);
 
 /**
+ * Read data from file 
+ */
+void read_vector(char*    filename, 
+                 double*  var, 
+                 int      dimy);
+
+/**
  * Write data to file
  */
-void write_data(char   *filename,
-               double  *var, 
-               int      dimN);
+void write_vector(char   *filename,
+                  double  *var, 
+                  int      dimN);

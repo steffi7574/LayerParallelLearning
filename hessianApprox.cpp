@@ -1,6 +1,8 @@
 #include "linalg.hpp"
 #include "hessianApprox.hpp"
 
+HessianApprox::HessianApprox(){}
+HessianApprox::~HessianApprox(){}
 
 
 L_BFGS::L_BFGS(int N, int stages)

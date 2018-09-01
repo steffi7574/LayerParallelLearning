@@ -715,6 +715,7 @@ int main (int argc, char *argv[])
         delete hessian;
         delete [] design0;
         delete [] gradient0;
+        delete [] descentdir;
     }
 
     for (int ix = 0; ix<ntraining; ix++)

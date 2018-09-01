@@ -11,6 +11,8 @@ class HessianApprox {
       int dimN;             /* Dimension of the gradient vector */
 
    public:
+      HessianApprox();
+      virtual ~HessianApprox();
 
       /**
        * Compute the BFGS descent direction 

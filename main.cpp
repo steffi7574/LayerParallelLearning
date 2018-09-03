@@ -648,45 +648,48 @@ int main (int argc, char *argv[])
  *       ydot = (dfdx)  xdot
  * choosing xdot to be a vector of all ones, ybar = 1.0;
  * ==================================================================================*/
- printf("\n\n ============================ \n");
- printf(" Adjoint dot test: \n\n");
+    // if (size == 1)
+    // {
+    //      printf("\n\n ============================ \n");
+    //      printf(" Adjoint dot test: \n\n");
 
-    // read_vector("design.dat", design, ndesign);
-     
-    /* Propagate through braid */
-    braid_SetObjectiveOnly(core_train, 0);
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    write_vector("gradient.dat", gradient, ndesign);
-    double obj0 = objective;
+    //     // read_vector("design.dat", design, ndesign);
+         
+    //     /* Propagate through braid */
+    //     braid_SetObjectiveOnly(core_train, 0);
+    //     braid_Drive(core_train);
+    //     braid_GetObjective(core_train, &objective);
+    //     write_vector("gradient.dat", gradient, ndesign);
+    //     double obj0 = objective;
 
-    /* Sum up xtx */
-    double xtx = 0.0;
-    for (int i = 0; i < ndesign; i++)
-    {
-        xtx += gradient[i];
-    }
+    //     /* Sum up xtx */
+    //     double xtx = 0.0;
+    //     for (int i = 0; i < ndesign; i++)
+    //     {
+    //         xtx += gradient[i];
+    //     }
 
-    /* perturb into direction "only ones" */
-    double EPS = 1e-7;
-    for (int i = 0; i < ndesign; i++)
-    {
-        design[i] += EPS;
-    }
+    //     /* perturb into direction "only ones" */
+    //     double EPS = 1e-7;
+    //     for (int i = 0; i < ndesign; i++)
+    //     {
+    //         design[i] += EPS;
+    //     }
 
-    /* New objective function evaluation */
-    braid_SetObjectiveOnly(core_train, 1);
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    double obj1 = objective;
+    //     /* New objective function evaluation */
+    //     braid_SetObjectiveOnly(core_train, 1);
+    //     braid_Drive(core_train);
+    //     braid_GetObjective(core_train, &objective);
+    //     double obj1 = objective;
 
-    /* Finite differences */
-    double yty = (obj1 - obj0)/EPS;
+    //     /* Finite differences */
+    //     double yty = (obj1 - obj0)/EPS;
 
 
-    /* Print adjoint dot test result */
-    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+    //     /* Print adjoint dot test result */
+    //     printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
 
+    // }
 
 /** =======================================
  * Full finite differences 
@@ -695,6 +698,11 @@ int main (int argc, char *argv[])
     // double* findiff = new double[ndesign];
     // double* relerr = new double[ndesign];
     // double errnorm = 0.0;
+    // double obj0, obj1;
+    // double EPS;
+
+    // printf("\n--------------------------------\n");
+    // printf(" FINITE DIFFERENCE TESTING\n\n");
 
     // /* Compute baseline objective */
     // // read_vector("design.dat", design, ndesign);
@@ -703,8 +711,9 @@ int main (int argc, char *argv[])
     // braid_GetObjective(core_train, &objective);
     // obj0 = objective;
 
-    // // EPS = 1e-8;
-    // for (int i = 0; i < ndesign; i++)
+    // EPS = 1e-6;
+    // // for (int i = 0; i < ndesign; i++)
+    // for (int i = 0; i < 20; i++)
     // {
     //     /* Restore design */
     //     // read_vector("design.dat", design, ndesign);
@@ -724,7 +733,7 @@ int main (int argc, char *argv[])
     //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
     //     errnorm += pow(relerr[i],2);
 
-    //     // printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
+    //     printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
 
     //     /* Restore design */
     //     design[i] -= EPS;
@@ -739,7 +748,7 @@ int main (int argc, char *argv[])
     /* check network implementation */
     // network->applyFWD(ntraining, train_examples, train_labels);
     // double accur = network->getAccuracy();
-    // double regul = network->evalRegularization(gamma_tik, gamma_ddt, gamma_class);
+    // double regul = network->evalRegularization();
     // objective = network->getLoss() + regul;
     // printf("\n --- \n");
     // printf(" Network: obj %1.14e \n", objective);

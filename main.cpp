@@ -502,11 +502,8 @@ int main (int argc, char *argv[])
         braid_SetPrintLevel(core_train, 1);
         braid_Drive(core_train);
         braid_GetObjective(core_train, &objective);
-        write_vector("gradient.dat", gradient, ndesign);
+        // write_vector("gradient.dat", gradient, ndesign);
 
-        // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        // printf(" Objective:  %1.16e\n", objective);
-        // printf(" Accuracy:   %3.4f %%\n", app_train->accuracy);
 
         /* Get primal and adjoint residual norms */
         nreq = -1;
@@ -523,6 +520,15 @@ int main (int argc, char *argv[])
             MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
         }
 
+        /* --- Validation data: Get accuracy --- */
+
+        braid_SetObjectiveOnly(core_val, 1);
+        braid_SetPrintLevel( core_val,   0);
+        braid_Drive(core_val);
+
+
+        /* --- Optimization control and output ---*/
+
         /* Compute and communicate the norm */
         mygnorm = 0.0;
         if (myid == MASTER_NODE) {
@@ -531,21 +537,17 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
 
-
-        /* --- Validation data: Get accuracy --- */
-
-        braid_SetObjectiveOnly(core_val, 1);
-        braid_SetPrintLevel( core_val,   0);
-        braid_Drive(core_val);
-
-        /* --- Optimization control and output ---*/
-
+        /* Communicate loss and accuracy. This is actually not needed, except for printing output. Remove it. */
+        double train_loss, train_accur, val_accur;
+        MPI_Allreduce(&app_train->loss, &train_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&app_train->accuracy, &train_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&app_val->accuracy, &val_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         /* Output */
         if (myid == MASTER_NODE)
         {
    
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, app_train->loss, gnorm, stepsize, ls_iter, app_train->accuracy, app_val->accuracy);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, app_train->loss, gnorm, stepsize, ls_iter, app_train->accuracy, app_val->accuracy);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur);
             fflush(optimfile);
         }
 

@@ -29,7 +29,6 @@ double vecdot(int     dimN,
    {
       dotprod += x[i] * y[i];
    }
-
    return dotprod;
 }
 
@@ -104,5 +103,4 @@ void vecvecT(int N,
       }
    }
 }
-
 

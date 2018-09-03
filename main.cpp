@@ -2,82 +2,72 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <mpi.h>
 
-#include "lib.hpp"
+// #include "lib.hpp"
 #include "hessianApprox.hpp"
+#include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
+#include "network.hpp"
 
 #define MASTER_NODE 0
 #define USE_BFGS  1
 #define USE_LBFGS 2
 
+
 int main (int argc, char *argv[])
 {
-    braid_Core core_train;       /**< Braid core for training data */
-    braid_Core core_val;         /**< Braid core for validation data */
-    my_App     *app;
-
-    HessianApprox  *hessian;   /**< Chossing the hessian approximation */
-    double   objective;        /**< Objective function */
-    double   obj_loss;         /**< Loss term of the objective function */
-    double   theta_regul;      /**< Theta-Regulariation term of the objective function */
-    double   class_regul;      /**< Classifier-Regulariation term of the objective function */
-    double  *Ytrain;           /**< Traning data set */
-    double  *Ctrain;           /**< Classes of the training data set */
-    double  *Yval;             /**< Validation data set */
-    double  *Cval;             /**< Classes of the validation data set */
-    double  *theta;            /**< Weights of the network layers */
-    double  *theta_grad;       /**< Gradient of objective function wrt theta */
-    double  *theta_open;       /**< Weights and bias of the opening layer */
-    double  *theta_open_grad;  /**< Gradient of the weights and bias of the opening layer */
-    double  *classW;           /**< Weights for the classification problem, applied at last layer */
-    double  *classW_grad;      /**< Gradient wrt the classification weights */
-    double  *classMu;          /**< Bias of the classification problem, applied at last layer */
-    double  *classMu_grad;     /**< Gradient wrt the classification bias */
-    double   weights_init;       /**< Factor to scale the initial theta weights and biases */
-    double   weights_open_init;  /**< Factor to scale the initial opening layer weights and biases */
-    double   weights_class_init;       /**< Factor to scale the initial classification weights and biases */
-    double   gamma_theta_tik;  /**< Relaxation parameter for theta tikhonov */
-    double   gamma_theta_ddt;  /**< Relaxation parameter for theta time-derivative */
-    double   gamma_class;       /**< Relaxation parameter for the classification weights and bias */
-    int      nclasses;          /**< Number of classes / Clabels */
-    int      ntraining;         /**< Number of examples in the training data */
-    int      nvalidation;       /**< Number of examples in the validation data */
-    int      nfeatures;         /**< Number of features in the data set */
-    int      ntheta_open;       /**< dimension of the opening layer theta variables */
-    int      ntheta;            /**< dimension of the theta variables */
-    int      nclassW;           /**< dimension of the classification weights W */
-    int      ndesign;           /**< Number of global design variables (theta, classW and classMu) */
-    int      nlayers;            /**< Number of layers / time steps */
-    int      nchannels;         /**< Number of channels of the netword (width) */
-    double   T;                 /**< Final time */
+    /* --- Data set --- */
+    int      ntraining;               /**< Number of elements in training data */
+    int      nvalidation;             /**< Number of elements in validation data */
+    int      nfeatures;               /**< Number of features in the data set */
+    int      nclasses;                /**< Number of classes / Clabels */
+    double **train_examples = NULL;   /**< Traning examples */
+    double **train_labels   = NULL;   /**< Training labels*/
+    double **val_examples   = NULL;   /**< Validation examples */
+    double **val_labels     = NULL;   /**< Validation labels*/
+    /* --- Network --- */
+    int      nlayers;                  /**< Number of layers / time steps */
+    int      nchannels;               /**< Number of channels of the netword (width) */
+    double   T;                       /**< Final time */
+    int      activation;              /**< Enumerator for the activation function */
+    Network *network;                 /**< DNN Network architecture */
+    /* --- Optimization --- */
+    int      ndesign;             /**< Number of design variables */
+    double  *design;              /**< Pointer to global design vector */
+    double  *design0;             /**< Old design at last iteration */
+    double  *gradient;            /**< Pointer to global gradient vector */
+    double  *gradient0;           /**< Old gradient at last iteration*/
+    double  *descentdir;          /**< Descent direction for design updates */
+    double   objective;           /**< Optimization objective */
+    double   wolfe;               /**< Holding the wolfe condition value */
+    double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
+    double   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
+    double   gamma_class;         /**< Parameter for regularization of classification weights and bias*/
+    double   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
+    double   weights_init;        /**< Factor for scaling initial weights and bias of intermediate layers*/
+    double   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
+    double   stepsize_init;       /**< Initial stepsize for design updates */
+    int      maxoptimiter;        /**< Maximum number of optimization iterations */
+    double   rnorm;               /**< Space-time Norm of the state variables */
+    double   rnorm_adj;           /**< Space-time norm of the adjoint variables */
+    double   gnorm;               /**< Norm of the gradient */
+    double   gtol;                /**< Stoping tolerance on the gradient norm */
+    int      ls_maxiter;          /**< Max. number of linesearch iterations */
+    double   ls_factor;           /**< Reduction factor for linesearch */
+    double   ls_param;            /**< Parameter in wolfe condition test */
+    int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
+    int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
+    /* --- PinT --- */
+    braid_Core core_train;      /**< Braid core for training data */
+    braid_Core core_val;        /**< Braid core for validation data */
+    my_App  *app_train;         /**< Braid app for training data */
+    my_App  *app_val;           /**< Braid app for validation data */
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
-    double   stepsize;          /**< stepsize for theta updates */
-    double   stepsize_init;     /**< Initial stepsize for theta updates */
-    double  *global_design;     /**< All design vars: theta, classW and classMu */
-    double  *global_design0;    /**< Old design vector of previous iteration  */
-    double  *global_gradient;   /**< Gradient of objective wrt all design vars: theta, classW and classMu */
-    double  *global_gradient0;  /**< Old gradient at previous iteration */
-    double  *descentdir;       /**< Descent direction for optimization algorithm  */
-    double   gnorm;             /**< Norm of the gradient */
-    double   mygnorm;           /**< Temporary, holding local norm of the gradient on each proc */
-    // double   findiff;           /**< flag: test gradient with finite differences (1) */
-    int      maxoptimiter;      /**< Maximum number of optimization iterations */
-    double   rnorm;             /**< Space-time Norm of the state variables */
-    double   rnorm_adj;         /**< Space-time norm of the adjoint variables */
-    double   gtol;              /**< Tolerance for gradient norm */
-    double   ls_objective;      /**< Objective function value for linesearch */
-    int      ls_maxiter;        /**< Max. number of linesearch iterations */
-    double   ls_factor;         /**< Reduction factor for linesearch */
-    double   ls_param;          /**< c-parameter for Armijo line-search test */
-    int      ls_iter;           /**< Iterator for linesearch */
-    int      hessian_approx;     /**< Hessian approximation (1 = BFGS, 2 = L-BFGS) */
-    int      lbfgs_stages;       /**< Number of stages of the L-bfgs method */
-    double   wolfe;             /**< Wolfe conditoin for linesearch */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
     int      braid_printlevel;  /**< print level of xbraid */
     int      braid_cfactor;     /**< temporal coarsening factor */
@@ -88,25 +78,14 @@ int main (int argc, char *argv[])
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
-    double   accur_train;       /**< Prediction accuracy on the training data */
-    double   accur_val;         /**< Prediction accuracy on the validation data */
-    int      ReLu;              /**< Flag to determine whether to use ReLu activation or tanh */
-    int      apply_openlayer;   /**< Flag: apply opening layer (1) or just expand data with zero (0) */
-    Layer    *layer;            /**< A general layer of the network */
-    Layer    *openlayer;        /**< Opening layer: Maps input data to the network width */
-    double  (*activation)(double x);  /**< Pointer to the activation function */
-    double  (*dactivation)(double x); /**< Pointer to derivative of activation function */
-
-    int      nreq, igrad; 
-    char     Ytrain_file[255];
-    char     Ctrain_file[255];
-    char     Yval_file[255];
-    char     Cval_file[255];
-    char     optimfilename[255]; /**< Name of the optimization output file */
-    FILE    *optimfile;      /**< File for optimization history */
 
     struct rusage r_usage;
     double StartTime, StopTime, UsedTime, myMB, globalMB; 
+    char  optimfilename[255];
+    FILE *optimfile;   
+    char* activname;
+    double mygnorm, stepsize, ls_objective;
+    int nreq, ls_iter;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -114,48 +93,41 @@ int main (int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     StartTime = MPI_Wtime();
 
-    /* Input data file names */
-    sprintf(Ytrain_file, "data/%s.dat", "Ytrain_orig");
-    sprintf(Ctrain_file, "data/%s.dat", "Ctrain_orig");
-    sprintf(Yval_file,   "data/%s.dat", "Yval_orig");
-    sprintf(Cval_file,   "data/%s.dat", "Cval_orig");
     
 
-    /* --- Set DEFAULT parameters for the config option --- */ 
+    /* --- Set DEFAULT parameters of the config file options --- */ 
 
-
-    ntraining         = 5000;
-    nvalidation       = 200;
-    nfeatures         = 2;
-    nclasses          = 5;
-    nchannels         = 8;
-    nlayers           = 32;
-    T                 = 10.0;
-    ReLu              = 1;
-    apply_openlayer   = 1;
-    braid_cfactor     = 4;
-    braid_maxlevels   = 10;
-    braid_maxiter     = 3;
-    braid_abstol      = 1e-10;
-    braid_abstoladj   = 1e-06;
-    braid_printlevel  = 1;
-    braid_accesslevel = 0;
-    braid_setskip     = 0;
-    braid_fmg         = 0;
-    braid_nrelax      = 1;
-    gamma_theta_tik   = 1e-07;
-    gamma_theta_ddt   = 1e-07;
-    gamma_class       = 1e-05;
-    stepsize_init     = 1.0;
-    maxoptimiter      = 500;
-    gtol              = 1e-08;
-    ls_maxiter        = 20;
-    ls_factor         = 0.5;
-    weights_open_init   = 0.001;
-    weights_init        = 0.0;
-    weights_class_init        = 0.001;
-    hessian_approx    = USE_LBFGS;
-    lbfgs_stages      = 20;
+    ntraining          = 5000;
+    nvalidation        = 200;
+    nfeatures          = 2;
+    nclasses           = 5;
+    nchannels          = 8;
+    nlayers            = 32;
+    T                  = 10.0;
+    activation         = Network::RELU;
+    braid_cfactor      = 4;
+    braid_maxlevels    = 10;
+    braid_maxiter      = 3;
+    braid_abstol       = 1e-10;
+    braid_abstoladj    = 1e-06;
+    braid_printlevel   = 1;
+    braid_accesslevel  = 0;
+    braid_setskip      = 0;
+    braid_fmg          = 0;
+    braid_nrelax       = 1;
+    gamma_tik          = 1e-07;
+    gamma_ddt          = 1e-07;
+    gamma_class        = 1e-07;
+    stepsize_init      = 1.0;
+    maxoptimiter       = 500;
+    gtol               = 1e-08;
+    ls_maxiter         = 20;
+    ls_factor          = 0.5;
+    weights_open_init  = 0.001;
+    weights_init       = 0.0;
+    weights_class_init = 0.001;
+    hessian_approx     = USE_LBFGS;
+    lbfgs_stages       = 20;
 
 
     /* --- Read the config file (overwrite default values) --- */
@@ -207,33 +179,19 @@ int main (int argc, char *argv[])
         {
             if ( strcmp(co->value, "ReLu") == 0 )
             {
-                activation  = ReLu_act;
-                dactivation = d_ReLu_act;
-                ReLu = 1;
-                // activ = Network::RELU;
+                activation = Network::RELU;
+                activname  = "ReLu";
             }
             else if (strcmp(co->value, "tanh") == 0 )
             {
-                activation  = tanh_act;
-                dactivation = d_tanh_act;
-                ReLu = 0;
+                activation = Network::TANH;
+                activname  = "tanh";
             }
             else
             {
                 printf("Invalid activation function!");
                 MPI_Finalize();
                 return(0);
-            }
-        }
-        else if ( strcmp(co->key, "apply_openlayer") == 0 )
-        {
-            if ( strcmp(co->value, "YES") == 0 )
-            {
-                apply_openlayer = 1;
-            }
-            else
-            {
-                apply_openlayer = 0;
             }
         }
         else if ( strcmp(co->key, "T") == 0 )
@@ -280,17 +238,17 @@ int main (int argc, char *argv[])
         {
            braid_nrelax = atoi(co->value);
         }
-        else if ( strcmp(co->key, "gamma_theta_tik") == 0 )
+        else if ( strcmp(co->key, "gamma_tik") == 0 )
         {
-            gamma_theta_tik = atof(co->value);
+            gamma_tik = atof(co->value);
         }
-        else if ( strcmp(co->key, "gamma_theta_ddt") == 0 )
+        else if ( strcmp(co->key, "gamma_ddt") == 0 )
         {
-            gamma_theta_ddt = atof(co->value);
+            gamma_ddt = atof(co->value);
         }
         else if ( strcmp(co->key, "gamma_class") == 0 )
         {
-            gamma_class = atof(co->value);
+            gamma_class= atof(co->value);
         }
         else if ( strcmp(co->key, "stepsize") == 0 )
         {
@@ -355,170 +313,69 @@ int main (int argc, char *argv[])
 
     /*--- INITIALIZATION ---*/
 
-    /* Read the training and validation data  */
-    if (myid == MASTER_NODE)  // Input data is only needed on first processor 
-    {
-        Ytrain = new double [ntraining   * nfeatures];
-        Yval   = new double [nvalidation * nfeatures];
-        read_data(Ytrain_file, Ytrain, ntraining   * nfeatures);
-        read_data(Yval_file,   Yval,   nvalidation * nfeatures);
-    }
-    if (myid == size - 1) // Labels are only needed on last layer 
-    {
-        Ctrain = new double [ntraining   * nclasses];
-        Cval   = new double [nvalidation * nclasses];
-        read_data(Ctrain_file, Ctrain, ntraining   * nclasses);
-        read_data(Cval_file,   Cval,   nvalidation * nclasses);
-    }
+    /* Set the data file names */
+    char train_ex_filename[255];
+    char train_lab_filename[255];
+    char val_ex_filename[255];
+    char val_lab_filename[255];
+    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
+    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
+    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
+    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
 
-    /* Initialize opening layer */
-    if (apply_openlayer)
+    /* Read training data */
+    train_examples = new double* [ntraining];
+    train_labels   = new double* [ntraining];
+    for (int ix = 0; ix<ntraining; ix++)
     {
-        ntheta_open      = nchannels * nfeatures + 1;
-        theta_open       = new double [ntheta_open];
-        theta_open_grad  = new double [ntheta_open];
-        for (int i = 0; i < ntheta_open; i++)
-        {
-                theta_open[i]      = weights_open_init * (double) rand() / ((double) RAND_MAX);
-                theta_open_grad[i] = 0.0;
-        }
-
-        openlayer = new OpenLayer(nchannels, nfeatures, activation, dactivation);
-        openlayer->setWeights(theta_open);
-        openlayer->setWeights_bar(theta_open_grad);
-        openlayer->setBias(&(theta_open[nfeatures*nchannels]));
-        openlayer->setBias_bar(&(theta_open_grad[nfeatures*nchannels]));
+        if (myid == MASTER_NODE) train_examples[ix] = new double[nfeatures];
+        if (myid == size-1)      train_labels[ix]   = new double[nclasses];
     }
-    else
+    if (myid == MASTER_NODE) read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
+    if (myid == size-1)      read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
+
+    /* Read validation data */
+    val_examples = new double* [nvalidation];
+    val_labels   = new double* [nvalidation];
+    for (int ix = 0; ix<nvalidation; ix++)
     {
-        ntheta_open = 0;
-        openlayer = new OpenLayerZero(nchannels, nfeatures);
+        if (myid == MASTER_NODE) val_examples[ix] = new double[nfeatures];
+        if (myid == size-1)      val_labels[ix]   = new double[nclasses];
     }
+    if (myid == MASTER_NODE) read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    if (myid == size - 1)    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
-    /* Initialize a general network layer and all weights */
-    ntheta     = (nchannels * nchannels + 1 ) * nlayers;
-    theta      = new double [ntheta];
-    theta_grad = new double [ntheta];
-    for (int i = 0; i < ntheta; i++)
-    {
-        theta[i]      = weights_init * (double) rand() / ((double) RAND_MAX); 
-        theta_grad[i] = 0.0; 
-    }
 
-    layer = new DenseLayer(nchannels, activation, dactivation);
+    /* Create the network */
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
 
-    /* Initialize classification parameters and its gradient */
-    nclassW      = nchannels * nclasses;
-    classW       = new double [nclassW];
-    classW_grad  = new double [nclassW];
-    classMu      = new double [nclasses];
-    classMu_grad = new double [nclasses];
-    for (int i = 0; i < nchannels * nclasses; i++)
-    {
-        classW[i]      = weights_class_init * (double) rand() / ((double) RAND_MAX); 
-        classW_grad[i] = 0.0; 
-    }
-    for (int i = 0; i < nclasses; i++)
-    {
-        classMu[i]      = weights_class_init * (double) rand() / ((double) RAND_MAX);
-        classMu_grad[i] = 0.0;
-    }
-
-    /* Initialize optimization parameters */
-    ls_iter     = 0;
-    ls_param    = 1e-4;
-    gnorm       = 0.0;
-    mygnorm     = 0.0;
-    objective   = 0.0;
-    obj_loss    = 0.0;
-    theta_regul = 0.0;
-    class_regul = 0.0;
-    rnorm       = 0.0;
-    rnorm_adj   = 0.0;
-    stepsize    = stepsize_init;
-
-    /* Initialize global design and gradient, on first processor only */
-    ndesign = ntheta_open + ntheta + nclassW + nclasses;
-    if (myid == MASTER_NODE)
-    {
-        global_design     = new double [ndesign];
-        global_design0    = new double [ndesign];
-        global_gradient   = new double [ndesign];
-        global_gradient0  = new double [ndesign];
-        descentdir        = new double [ndesign];
-        for (int idesign = 0; idesign < ndesign; idesign++)
-        {
-            global_design[idesign]    = 0.0;
-            global_design0[idesign]   = 0.0;
-            global_gradient[idesign]  = 0.0;
-            global_gradient0[idesign] = 0.0;
-            descentdir[idesign]       = 0.0; 
-        }
-        concat_4vectors(ntheta_open, theta_open, ntheta, theta, nclassW, classW, nclasses, classMu, global_design);
-    }
-
-    /* Initialize Hessian approximation */
-    if (myid == MASTER_NODE)
-    {
-        if (hessian_approx == USE_BFGS )
-        {
-            hessian = new BFGS(ndesign);
-        }
-        else if (hessian_approx == USE_LBFGS)
-        {
-            hessian = new L_BFGS(ndesign, lbfgs_stages);
-        }
-        else
-        {
-            printf("Invalid Hessian. \n");
-            MPI_Finalize();
-            return(0);
-        }
-    }
 
     /* Initialize xbraid's app structure */
-    app = (my_App *) malloc(sizeof(my_App));
-    app->myid            = myid;
-    app->Ytrain          = Ytrain;
-    app->Ctrain          = Ctrain;
-    app->Yval            = Yval;
-    app->Cval            = Cval;
-    app->theta           = theta;
-    app->theta_grad      = theta_grad;
-    app->theta_open      = theta_open;
-    app->theta_open_grad = theta_open_grad;
-    app->classW          = classW;
-    app->classW_grad     = classW_grad;
-    app->classMu         = classMu;
-    app->classMu_grad    = classMu_grad;
-    app->ntraining       = ntraining;
-    app->nvalidation     = nvalidation;
-    app->nfeatures       = nfeatures;
-    app->nclasses        = nclasses;
-    app->nchannels       = nchannels;
-    app->ntheta_open     = ntheta_open;
-    app->nlayers         = nlayers;
-    app->layer           = layer;
-    app->openlayer       = openlayer;
-    app->gamma_theta_tik = gamma_theta_tik;
-    app->gamma_theta_ddt = gamma_theta_ddt;
-    app->gamma_class     = gamma_class;
-    app->deltaT          = T /(double)nlayers; 
-    app->loss            = 0.0;
-    app->class_regul     = 0.0;
-    app->theta_regul     = 0.0;
-    app->accuracy        = 0.0;
-    app->output          = 0;
+    app_train = (my_App *) malloc(sizeof(my_App));
+    app_train->myid        = myid;
+    app_train->network     = network;
+    app_train->nexamples   = ntraining;
+    app_train->examples    = train_examples;
+    app_train->labels      = train_labels;
+    app_train->accuracy    = 0.0;
+    app_train->loss        = 0.0;
+    /* Initialize xbraid's app structure */
+    app_val = (my_App *) malloc(sizeof(my_App));
+    app_val->myid          = myid;
+    app_val->network       = network;
+    app_val->nexamples     = nvalidation;
+    app_val->examples      = val_examples;
+    app_val->labels        = val_labels;
+    app_val->accuracy      = 0.0;
+    app_val->loss          = 0.0;
 
-    /* Initialize (adjoint) XBraid for training data set */
-    app->training = 1;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+
+    /* Initializze adjoint XBraid for training data */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-    braid_SetInit_diff(core_train, my_Init_diff);
 
-    /* Initialize (adjoint) XBraid for validation data set */
-    app->training = 0;
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    /* Init XBraid for validation data */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
     /* Set Braid parameters */
@@ -545,44 +402,78 @@ int main (int argc, char *argv[])
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
 
+    /* Initialize optimization parameters */
+    ls_param    = 1e-4;
+    ls_iter     = 0;
+    gnorm       = 0.0;
+    objective   = 0.0;
+    rnorm       = 0.0;
+    rnorm_adj   = 0.0;
+    stepsize    = stepsize_init;
+
+    /* Get pointers to gradient and design */
+    ndesign  = network->getnDesign();
+    design   = network->getDesign();
+    gradient = network->getGradient();
+
+    /* Initialize hessian approximation */
+    HessianApprox  *hessian;
+    if (myid == MASTER_NODE)
+    {
+        switch (hessian_approx)
+        {
+            case USE_BFGS:
+                hessian = new BFGS(ndesign);
+                break;
+            case USE_LBFGS: 
+                hessian = new L_BFGS(ndesign, lbfgs_stages);
+                break;
+        }
+
+        /* Allocate memory for optimization vars */
+        design0    = new double [ndesign];
+        gradient0  = new double [ndesign];
+        descentdir = new double [ndesign];
+    }
+
+
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
     {
         sprintf(optimfilename, "%s.dat", "optim");
         optimfile = fopen(optimfilename, "w");
-        fprintf(optimfile, "# Problem setup: ntraining       %d \n", ntraining);
-        fprintf(optimfile, "#                nvalidation     %d \n", nvalidation);
-        fprintf(optimfile, "#                nfeatures       %d \n", nfeatures);
-        fprintf(optimfile, "#                nclasses        %d \n", nclasses);
-        fprintf(optimfile, "#                nchannels       %d \n", nchannels);
-        fprintf(optimfile, "#                nlayers         %d \n", nlayers);
-        fprintf(optimfile, "#                T               %f \n", T);
-        fprintf(optimfile, "#                ReLu activ.?    %d \n", ReLu);
-        fprintf(optimfile, "#                apply_openlayer?%d \n", apply_openlayer);
-        fprintf(optimfile, "# XBraid setup:  max levels      %d \n", braid_maxlevels);
-        fprintf(optimfile, "#                coasening       %d \n", braid_cfactor);
-        fprintf(optimfile, "#                max. braid iter %d \n", braid_maxiter);
-        fprintf(optimfile, "#                abs. tol        %1.e \n", braid_abstol);
-        fprintf(optimfile, "#                abs. toladj     %1.e \n", braid_abstoladj);
-        fprintf(optimfile, "#                print level     %d \n", braid_printlevel);
-        fprintf(optimfile, "#                access level    %d \n", braid_accesslevel);
-        fprintf(optimfile, "#                skip?           %d \n", braid_setskip);
-        fprintf(optimfile, "#                fmg?            %d \n", braid_fmg);
-        fprintf(optimfile, "#                nrelax          %d \n", braid_nrelax);
-        fprintf(optimfile, "# Optimization:  gamma_theta_tik %1.e \n", gamma_theta_tik);
-        fprintf(optimfile, "#                gamma_theta_ddt %1.e \n", gamma_theta_ddt);
-        fprintf(optimfile, "#                gamma_class     %1.e \n", gamma_class);
-        fprintf(optimfile, "#                stepsize        %f \n", stepsize_init);
-        fprintf(optimfile, "#                max. optim iter %d \n", maxoptimiter);
-        fprintf(optimfile, "#                gtol            %1.e \n", gtol);
-        fprintf(optimfile, "#                max. ls iter    %d \n", ls_maxiter);
-        fprintf(optimfile, "#                ls factor       %f \n", ls_factor);
-        fprintf(optimfile, "#                weights_init      %f \n", weights_init);
-        fprintf(optimfile, "#                weights_open_init %f \n", weights_open_init);
-        fprintf(optimfile, "#                weights_class_init      %f \n", weights_class_init);
-        fprintf(optimfile, "#                hessian_approx  %d \n", hessian_approx);
-        fprintf(optimfile, "#                lbfgs_stages    %d \n", lbfgs_stages);
+        fprintf(optimfile, "# Problem setup: ntraining           %d \n", ntraining);
+        fprintf(optimfile, "#                nvalidation         %d \n", nvalidation);
+        fprintf(optimfile, "#                nfeatures           %d \n", nfeatures);
+        fprintf(optimfile, "#                nclasses            %d \n", nclasses);
+        fprintf(optimfile, "#                nchannels           %d \n", nchannels);
+        fprintf(optimfile, "#                nlayers             %d \n", nlayers);
+        fprintf(optimfile, "#                T                   %f \n", T);
+        fprintf(optimfile, "#                Activation          %s \n", activname);
+        fprintf(optimfile, "# XBraid setup:  max levels          %d \n", braid_maxlevels);
+        fprintf(optimfile, "#                coasening           %d \n", braid_cfactor);
+        fprintf(optimfile, "#                max. braid iter     %d \n", braid_maxiter);
+        fprintf(optimfile, "#                abs. tol            %1.e \n", braid_abstol);
+        fprintf(optimfile, "#                abs. toladj         %1.e \n", braid_abstoladj);
+        fprintf(optimfile, "#                print level         %d \n", braid_printlevel);
+        fprintf(optimfile, "#                access level        %d \n", braid_accesslevel);
+        fprintf(optimfile, "#                skip?               %d \n", braid_setskip);
+        fprintf(optimfile, "#                fmg?                %d \n", braid_fmg);
+        fprintf(optimfile, "#                nrelax              %d \n", braid_nrelax);
+        fprintf(optimfile, "# Optimization:  gamma_tik           %1.e \n", gamma_tik);
+        fprintf(optimfile, "#                gamma_ddt           %1.e \n", gamma_ddt);
+        fprintf(optimfile, "#                gamma_class         %1.e \n", gamma_class);
+        fprintf(optimfile, "#                stepsize            %f \n", stepsize_init);
+        fprintf(optimfile, "#                max. optim iter     %d \n", maxoptimiter);
+        fprintf(optimfile, "#                gtol                %1.e \n", gtol);
+        fprintf(optimfile, "#                max. ls iter        %d \n", ls_maxiter);
+        fprintf(optimfile, "#                ls factor           %f \n", ls_factor);
+        fprintf(optimfile, "#                weights_init        %f \n", weights_init);
+        fprintf(optimfile, "#                weights_open_init   %f \n", weights_open_init);
+        fprintf(optimfile, "#                weights_class_init  %f \n", weights_class_init) ;
+        fprintf(optimfile, "#                hessian_approx      %d \n", hessian_approx);
+        fprintf(optimfile, "#                lbfgs_stages        %d \n", lbfgs_stages);
         fprintf(optimfile, "\n");
     }
 
@@ -590,9 +481,9 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
        /* Screen output */
-       printf("\n#    || r ||          || r_adj ||      Objective       Loss      theta_R   class_R   || grad ||      Stepsize  ls_iter   Accur_train  Accur_val\n");
+       printf("\n#    || r ||          || r_adj ||       Objective             Loss                || grad ||             Stepsize  ls_iter   Accur_train  Accur_val\n");
        
-       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss        theta_reg   class_reg   || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
     }
 
 
@@ -600,83 +491,63 @@ int main (int argc, char *argv[])
 
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
-
         /* Reset the app */
-        app->loss        = 0.0;
-        app->theta_regul = 0.0;
-        app->class_regul = 0.0;
+        app_train->loss = 0.0;
+        app_val->loss   = 0.0;
 
-        /* --- Training data: Objective function evaluation and gradient computation ---*/ 
+        /* --- Training data: Get objective and compute gradient ---*/ 
 
-        /* Parallel-in-layer propagation and gradient computation  */
+        /* Solve with braid */
         braid_SetObjectiveOnly(core_train, 0);
         braid_SetPrintLevel(core_train, 1);
-        app->training = 1;
         braid_Drive(core_train);
+        braid_GetObjective(core_train, &objective);
+        write_vector("gradient.dat", gradient, ndesign);
 
-        /* Get the state and adjoint residual norms */
+        // MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // printf(" Objective:  %1.16e\n", objective);
+        // printf(" Accuracy:   %3.4f %%\n", app_train->accuracy);
+
+        /* Get primal and adjoint residual norms */
         nreq = -1;
         braid_GetRNorms(core_train, &nreq, &rnorm);
         braid_GetRNormAdjoint(core_train, &rnorm_adj);
 
-        /* Get objective function and prediction accuracy for training data */
-        braid_GetObjective(core_train, &objective);
-        MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app->theta_regul, &theta_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app->class_regul, &class_regul, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        /* Reduce gradient on MASTER_NODE (in-place communication)*/
+        if (myid == MASTER_NODE) 
+        {
+            MPI_Reduce(MPI_IN_PLACE, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        }
+        else
+        {
+            MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        }
 
-
-        /* On Masternode: Get gradient data from app and put it into global_gradient */
-        igrad = 0;
-        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        igrad += ntheta_open;
-        MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        igrad += ntheta;
-        MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        igrad += nclassW;
-        MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-
-        /* Compute gradient norm */
+        /* Compute and communicate the norm */
         mygnorm = 0.0;
         if (myid == MASTER_NODE) {
-            mygnorm = vector_normsq(ndesign, global_gradient);
+            mygnorm = vec_normsq(ndesign, gradient);
         } 
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
 
 
-        /* --- Compute Validation Accuracy --- */
+        /* --- Validation data: Get accuracy --- */
 
-        /* Propagate validation data */
         braid_SetObjectiveOnly(core_val, 1);
         braid_SetPrintLevel( core_val,   0);
-        app->training = 0;
         braid_Drive(core_val);
 
-        /* Get prediction accuracy for validation data */
-        MPI_Allreduce(&app->accuracy, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-
         /* --- Optimization control and output ---*/
-
 
         /* Output */
         if (myid == MASTER_NODE)
         {
    
-            printf("%3d  %1.8e  %1.8e  %1.16e  %1.2e  %1.2e  %1.2e  %1.16e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.4e  %1.4e  %1.4e  %1.14e  %5f  %2d        %2.2f%%       %2.2f%%\n", iter, rnorm, rnorm_adj, objective, obj_loss, theta_regul, class_regul, gnorm, stepsize, ls_iter, accur_train, accur_val);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, app_train->loss, gnorm, stepsize, ls_iter, app_train->accuracy, app_val->accuracy);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, app_train->loss, gnorm, stepsize, ls_iter, app_train->accuracy, app_val->accuracy);
             fflush(optimfile);
         }
-
-        // /* Print to file */
-        // char designoptfile[128];
-        // char gradientfile[128];
-        // sprintf(designoptfile, "design.dat.%d", iter);
-        // sprintf(gradientfile, "gradient.dat.%d", iter);
-        // write_data(designoptfile, global_design, ndesign);
-        // write_data(gradientfile, global_gradient, ndesign);
 
         /* Check optimization convergence */
         if (  gnorm < gtol )
@@ -688,58 +559,51 @@ int main (int argc, char *argv[])
             }
             break;
         }
-        
+
+
         /* --- Design update --- */
 
-
-        /* Compute new design on first processor */
+        stepsize = stepsize_init;
+        /* Compute search direction on first processor */
         if (myid == MASTER_NODE)
         {
             /* Update the L-BFGS memory */
             if (iter > 0) 
             {
-                hessian->update_memory(iter, global_design, global_design0, global_gradient, global_gradient0);
+                hessian->update_memory(iter, design, design0, gradient, gradient0);
             }
+            /* Compute descent direction */
+            hessian->compute_step(iter, gradient, descentdir);
 
-            /* Compute descent direction using L-BFGS Hessian approximation */
-            hessian->compute_step(iter, global_gradient, descentdir);
+            /* Store design and gradient into *0 vectors */
+            vec_copy(ndesign, design, design0);
+            vec_copy(ndesign, gradient, gradient0);
 
-            /* Compute Wolfe condition */
-            wolfe = getWolfe(ndesign, global_gradient, descentdir);
-
-            /* Store current design and gradient into *0 vectors */
-            copy_vector(ndesign, global_design, global_design0);
-            copy_vector(ndesign, global_gradient, global_gradient0);
+            /* Compute wolfe condition */
+            wolfe = vecdot(ndesign, gradient, descentdir);
 
             /* Update the global design using the initial stepsize */
-            update_design(ndesign, stepsize, descentdir, global_design);
-
-            /* Pass the design to the app */
-            split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
-
+            for (int id = 0; id < ndesign; id++)
+            {
+                design[id] -= stepsize * descentdir[id];
+            }
         }
-        /* Communicate the new design to all processors */
-        MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-        MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-        MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-        MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
-        /* Communicate wolfe condition */
+        /* Broadcast the new design and wolfe condition to all processors */
+        MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
         /* --- Backtracking linesearch --- */
-        stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Compute new objective function value for current trial step */
             braid_SetPrintLevel(core_train, 0);
             braid_SetObjectiveOnly(core_train, 1);
-            app->training = 1;
             braid_Drive(core_train);
             braid_GetObjective(core_train, &ls_objective);
 
-            if (myid == MASTER_NODE) printf("ls_iter %d: ls_objective %1.14e\n", ls_iter, ls_objective);
-
+            double test = objective - ls_param * stepsize * wolfe;
+            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
             /* Test the wolfe condition */
             if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
             {
@@ -758,82 +622,130 @@ int main (int argc, char *argv[])
                 /* Decrease the stepsize */
                 stepsize = stepsize * ls_factor;
 
-                /* Compute new design on first processor */
+                /* Compute new design using new stepsize */
                 if (myid == MASTER_NODE)
                 {
-                    /* Restore the old design */
-                    copy_vector(ndesign, global_design0, global_design);
-
-                    /* Update the design with new stepsize */
-                    update_design(ndesign, stepsize, descentdir, global_design);
-                    split_into_4vectors(global_design, ntheta_open, app->theta_open, ntheta, app->theta, nclassW, app->classW, nclasses, app->classMu);
+                    /* Go back a portion of the step */
+                    for (int id = 0; id < ndesign; id++)
+                    {
+                        design[id] += stepsize * descentdir[id];
+                    }
                 }
-
-                /* Communicate the new design to all processors */
-                MPI_Bcast(app->theta_open, ntheta_open, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-                MPI_Bcast(app->theta,      ntheta,      MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-                MPI_Bcast(app->classW,     nclassW,     MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-                MPI_Bcast(app->classMu,    nclasses,    MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+ 
             }
-
+ 
         }
+ 
+    }
 
-        /* Print memory consumption and time in each optimization iteration */
-        // getrusage(RUSAGE_SELF,&r_usage);
-        // printf(" sys: %d memory  %.2f MB\n", myid, (double) r_usage.ru_maxrss / 1024.0);
 
-   }
 
-    /* --- Run a final propagation ---- */
 
-    /* Parallel-in-layer propagation and gradient computation  */
+/** ==================================================================================
+ * Adjoint dot test xbarTxdot = ybarTydot
+ * where xbar = (dfdx)T ybar
+ *       ydot = (dfdx)  xdot
+ * choosing xdot to be a vector of all ones, ybar = 1.0;
+ * ==================================================================================*/
+ printf("\n\n ============================ \n");
+ printf(" Adjoint dot test: \n\n");
+
+    // read_vector("design.dat", design, ndesign);
+     
+    /* Propagate through braid */
     braid_SetObjectiveOnly(core_train, 0);
-    app->training = 1;
     braid_Drive(core_train);
-
-        /* On Masternode: Get gradient data from app and put it into global_gradient */
-    igrad = 0;
-    if (apply_openlayer)
-    {
-        MPI_Reduce(app->theta_open_grad, &(global_gradient[igrad]), ntheta_open, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-    }
-    igrad += ntheta_open;
-    MPI_Reduce(app->theta_grad, &(global_gradient[igrad]), ntheta, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-    igrad += ntheta;
-    MPI_Reduce(app->classW_grad, &(global_gradient[igrad]), nclassW, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-    igrad += nclassW;
-    MPI_Reduce(app->classMu_grad, &(global_gradient[igrad]), nclasses, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-
-    /* Compute gradient norm */
-    mygnorm = 0.0;
-    if (myid == MASTER_NODE) {
-        mygnorm = vector_normsq(ndesign, global_gradient);
-    } 
-    MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    /* Get objective function value and prediction accuracy for training data */
     braid_GetObjective(core_train, &objective);
-    MPI_Allreduce(&app->loss, &obj_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&app->accuracy, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    write_vector("gradient.dat", gradient, ndesign);
+    double obj0 = objective;
 
-    
-    /* --- Output --- */
-    if (myid == MASTER_NODE)
+    /* Sum up xtx */
+    double xtx = 0.0;
+    for (int i = 0; i < ndesign; i++)
     {
-        printf("\n Loss          %1.14e", obj_loss);
-        printf("\n Objective     %1.14e", objective);
-        printf("\n Gradientnorm: %1.14e", gnorm);
-        printf("\n\n");
-
-
-        /* Print to file */
-        write_data("design_opt.dat", global_design, ndesign);
-        write_data("gradient.dat", global_gradient, ndesign);
+        xtx += gradient[i];
     }
 
+    /* perturb into direction "only ones" */
+    double EPS = 1e-7;
+    for (int i = 0; i < ndesign; i++)
+    {
+        design[i] += EPS;
+    }
+
+    /* New objective function evaluation */
+    braid_SetObjectiveOnly(core_train, 1);
+    braid_Drive(core_train);
+    braid_GetObjective(core_train, &objective);
+    double obj1 = objective;
+
+    /* Finite differences */
+    double yty = (obj1 - obj0)/EPS;
 
 
-    /* Print time and memory consumption */
+    /* Print adjoint dot test result */
+    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+
+
+/** =======================================
+ * Full finite differences 
+ * ======================================= */
+
+    // double* findiff = new double[ndesign];
+    // double* relerr = new double[ndesign];
+    // double errnorm = 0.0;
+
+    // /* Compute baseline objective */
+    // // read_vector("design.dat", design, ndesign);
+    // braid_SetObjectiveOnly(core_train, 0);
+    // braid_Drive(core_train);
+    // braid_GetObjective(core_train, &objective);
+    // obj0 = objective;
+
+    // // EPS = 1e-8;
+    // for (int i = 0; i < ndesign; i++)
+    // {
+    //     /* Restore design */
+    //     // read_vector("design.dat", design, ndesign);
+    
+    //     /*  Perturb design */
+    //     design[i] += EPS;
+
+    //     /* Recompute objective */
+    //     braid_SetObjectiveOnly(core_train, 1);
+    //     braid_SetPrintLevel(core_train, 0);
+    //     braid_Drive(core_train);
+    //     braid_GetObjective(core_train, &objective);
+    //     obj1 = objective;
+
+    //     /* Findiff */
+    //     findiff[i] = (obj1 - obj0) / EPS;
+    //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
+    //     errnorm += pow(relerr[i],2);
+
+    //     // printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
+
+    //     /* Restore design */
+    //     design[i] -= EPS;
+    // }
+    // errnorm = sqrt(errnorm);
+    // printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
+
+    // write_vector("findiff.dat", findiff, ndesign); 
+    // write_vector("relerr.dat", relerr, ndesign); 
+     
+
+    /* check network implementation */
+    // network->applyFWD(ntraining, train_examples, train_labels);
+    // double accur = network->getAccuracy();
+    // double regul = network->evalRegularization(gamma_tik, gamma_ddt, gamma_class);
+    // objective = network->getLoss() + regul;
+    // printf("\n --- \n");
+    // printf(" Network: obj %1.14e \n", objective);
+    // printf(" ---\n");
+
+    /* Print some statistics */
     StopTime = MPI_Wtime();
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
@@ -852,48 +764,34 @@ int main (int argc, char *argv[])
 
 
     /* Clean up */
-    if (myid == MASTER_NODE)
-    {
-        delete [] Ytrain;
-        delete [] Yval;
-    }
-    if (myid == size -1)
-    {
-        delete [] Ctrain;
-        delete [] Cval;
-    }
+    delete network;
+    braid_Destroy(core_train);
+    braid_Destroy(core_val);
+    free(app_train);
+    free(app_val);
 
     if (myid == MASTER_NODE)
     {
         delete hessian;
-        delete [] global_design;
-        delete [] global_design0;
-        delete [] global_gradient;
-        delete [] global_gradient0;
+        delete [] design0;
+        delete [] gradient0;
         delete [] descentdir;
     }
-    delete [] theta;
-    delete [] theta_grad;
-    if (apply_openlayer)
+
+    for (int ix = 0; ix<ntraining; ix++)
     {
-        delete [] theta_open;
-        delete [] theta_open_grad;
+        if (myid == MASTER_NODE) delete [] train_examples[ix];
+        if (myid == size-1)      delete [] train_labels[ix];
     }
-    delete [] classW;
-    delete [] classW_grad;
-    delete [] classMu;
-    delete [] classMu_grad;
-
-    delete layer;
-    delete openlayer;
-
-    app->training = 1;
-    braid_Destroy(core_train);
-    app->training = 0;
-    braid_Destroy(core_val);
-
-    free(app);
-    MPI_Finalize();
+    delete [] train_examples;
+    delete [] train_labels;
+    for (int ix = 0; ix<nvalidation; ix++)
+    {
+        if (myid == MASTER_NODE) delete [] val_examples[ix];
+        if (myid == size-1)      delete [] val_labels[ix];
+    }
+    delete [] val_examples;
+    delete [] val_labels;
 
     if (myid == MASTER_NODE)
     {
@@ -901,6 +799,6 @@ int main (int argc, char *argv[])
         printf("Optimfile: %s\n", optimfilename);
     }
 
-
+    MPI_Finalize();
     return 0;
 }

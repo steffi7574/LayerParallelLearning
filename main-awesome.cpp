@@ -46,6 +46,7 @@ int main (int argc, char *argv[])
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
     double   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
+    double   gamma_class;         /**< Parameter for regularization of classification weights and bias*/
     double   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
     double   weights_init;        /**< Factor for scaling initial weights and bias of intermediate layers*/
     double   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
@@ -116,6 +117,7 @@ int main (int argc, char *argv[])
     braid_nrelax       = 1;
     gamma_tik          = 1e-07;
     gamma_ddt          = 1e-07;
+    gamma_class        = 1e-07;
     stepsize_init      = 1.0;
     maxoptimiter       = 500;
     gtol               = 1e-08;
@@ -244,6 +246,10 @@ int main (int argc, char *argv[])
         {
             gamma_ddt = atof(co->value);
         }
+        else if ( strcmp(co->key, "gamma_class") == 0 )
+        {
+            gamma_class= atof(co->value);
+        }
         else if ( strcmp(co->key, "stepsize") == 0 )
         {
             stepsize_init = atof(co->value);
@@ -341,31 +347,27 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
 
 
     /* Initialize xbraid's app structure */
     app_train = (my_App *) malloc(sizeof(my_App));
-    app_train->myid      = myid;
-    app_train->network   = network;
-    app_train->nexamples = ntraining;
-    app_train->examples  = train_examples;
-    app_train->labels    = train_labels;
-    app_train->accuracy  = 0.0;
-    app_train->loss      = 0.0;
-    app_train->gamma_tik = gamma_tik;
-    app_train->gamma_ddt = gamma_ddt;
+    app_train->myid        = myid;
+    app_train->network     = network;
+    app_train->nexamples   = ntraining;
+    app_train->examples    = train_examples;
+    app_train->labels      = train_labels;
+    app_train->accuracy    = 0.0;
+    app_train->loss        = 0.0;
     /* Initialize xbraid's app structure */
     app_val = (my_App *) malloc(sizeof(my_App));
-    app_val->myid      = myid;
-    app_val->network   = network;
-    app_val->nexamples = nvalidation;
-    app_val->examples  = val_examples;
-    app_val->labels    = val_labels;
-    app_val->accuracy  = 0.0;
-    app_val->loss      = 0.0;
-    app_val->gamma_tik = gamma_tik;
-    app_val->gamma_ddt = gamma_ddt;
+    app_val->myid          = myid;
+    app_val->network       = network;
+    app_val->nexamples     = nvalidation;
+    app_val->examples      = val_examples;
+    app_val->labels        = val_labels;
+    app_val->accuracy      = 0.0;
+    app_val->loss          = 0.0;
 
 
     /* Initializze adjoint XBraid for training data */
@@ -461,6 +463,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                nrelax              %d \n", braid_nrelax);
         fprintf(optimfile, "# Optimization:  gamma_tik           %1.e \n", gamma_tik);
         fprintf(optimfile, "#                gamma_ddt           %1.e \n", gamma_ddt);
+        fprintf(optimfile, "#                gamma_class         %1.e \n", gamma_class);
         fprintf(optimfile, "#                stepsize            %f \n", stepsize_init);
         fprintf(optimfile, "#                max. optim iter     %d \n", maxoptimiter);
         fprintf(optimfile, "#                gtol                %1.e \n", gtol);
@@ -736,7 +739,7 @@ int main (int argc, char *argv[])
     /* check network implementation */
     // network->applyFWD(ntraining, train_examples, train_labels);
     // double accur = network->getAccuracy();
-    // double regul = network->evalRegularization(gamma_tik, gamma_ddt);
+    // double regul = network->evalRegularization(gamma_tik, gamma_ddt, gamma_class);
     // objective = network->getLoss() + regul;
     // printf("\n --- \n");
     // printf(" Network: obj %1.14e \n", objective);

@@ -13,6 +13,7 @@ class Network
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
+      double  gamma_ddt;            /* Parameter for ddt-regularization */
 
       int     ndesign;              /* Number of design variables */
       double* design;               /* Vector of all design variables (weights & biases at all layers) */
@@ -31,7 +32,10 @@ class Network
               double deltaT,
               double Weight_init,
               double Weight_open_init,
-              double Classification_init);
+              double Classification_init,
+              double Gamma_tik, 
+              double Gamma_ddt,
+              double Gamma_class);
       ~Network();
 
       /* Get dimensions */
@@ -69,8 +73,7 @@ class Network
       /**
        * Returns the regularization term 
        */
-      double evalRegularization(double gamma_tik,
-                                double gamma_ddt);
+      double evalRegularization();
       
       /**
        * Regularization for the time-derivative of the layer weights

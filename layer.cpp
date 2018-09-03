@@ -15,6 +15,7 @@ Layer::Layer()
    bias_bar     = NULL;
    activation   = NULL;
    dactivation  = NULL;
+   gamma        = 0.0;
    update       = NULL;
    update_bar   = NULL;
 }
@@ -25,7 +26,8 @@ Layer::Layer(int     idx,
              int     dimB,
              double  deltaT,
              double (*Activ)(double x),
-             double  (*dActiv)(double x))
+             double  (*dActiv)(double x),
+             double  Gamma)
 {
    index       = idx;
    dim_In      = dimI;
@@ -35,10 +37,17 @@ Layer::Layer(int     idx,
    dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
+   gamma       = Gamma;
    
    update     = new double[dimO];
    update_bar = new double[dimO];
 }   
+ 
+// Layer::Layer(0, dimI, dimO, 1)
+Layer::Layer(int idx, 
+             int dimI, 
+             int dimO, 
+             int dimB) : Layer(idx, dimI, dimO, dimB, 1.0, NULL, NULL, 0.0) {}         
 
 Layer::~Layer()
 {
@@ -121,11 +130,13 @@ double Layer::evalTikh()
         tik += pow(bias[i],2);
     }
 
-    return tik / 2.0;
+    return gamma / 2.0 * tik;
 }
 
 void Layer::evalTikh_diff(double regul_bar)
 {
+    regul_bar = gamma * regul_bar;
+
     /* Derivative bias term */
     for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
     {
@@ -163,7 +174,8 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimO,
                        double  deltaT,
                        double (*Activ)(double x),
-                       double  (*dActiv)(double x)) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv)
+                       double (*dActiv)(double x),
+                       double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv, Gamma)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -220,12 +232,11 @@ void DenseLayer::applyBWD(double* state,
 }
 
 
-OpenDenseLayer::OpenDenseLayer(int     idx,
-                               int     dimI,
+OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
-                               double  deltaT,
                                double (*Activ)(double x),
-                               double (*dActiv)(double x)) : DenseLayer(idx,     dimI, dimO, deltaT, Activ, dActiv) 
+                               double (*dActiv)(double x), 
+                               double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, dActiv, Gamma) 
 {
     example = NULL;
 }
@@ -286,9 +297,8 @@ void OpenDenseLayer::applyBWD(double* state,
 }                
 
 
-OpenExpandZero::OpenExpandZero(int    dimI,
-                               int    dimO,
-                               double deltaT) : Layer(0, dimI, dimO, 1, deltaT, NULL, NULL)
+OpenExpandZero::OpenExpandZero(int dimI,
+                               int dimO) : Layer(0, dimI, dimO, 1)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -326,11 +336,12 @@ void OpenExpandZero::applyBWD(double* state,
 }                           
 
 
-ClassificationLayer::ClassificationLayer(int idx,
-                                         int dimI,
-                                         int dimO,
-                                         double  deltaT) : Layer(idx, dimI, dimO, dimO, deltaT, NULL, NULL)
+ClassificationLayer::ClassificationLayer(int    idx,
+                                         int    dimI,
+                                         int    dimO,
+                                         double Gamma) : Layer(idx, dimI, dimO, dimO)
 {
+    gamma = Gamma;
     /* Allocate the probability vector */
     probability = new double[dimO];
 }

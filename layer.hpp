@@ -28,6 +28,7 @@ class Layer
       double* bias_bar;                    /* Derivative of bias */
       double  (*activation)(double x);     /* the activation function */
       double  (*dactivation)(double x);    /* derivative of activation function */
+      double  gamma;                       /* Parameter for Tikhonov regularization of weights and bias */
 
       double *update;                      /* Auxilliary for computing fwd update */
       double *update_bar;                  /* Auxilliary for computing bwd update */
@@ -40,7 +41,14 @@ class Layer
             int     dimB,
             double  deltaT,
             double (*Activ)(double x),
-            double (*dActiv)(double x));     
+            double (*dActiv)(double x),
+            double  Gamme);
+
+      Layer(int idx, 
+             int dimI, 
+             int dimO, 
+             int dimB);
+
       virtual ~Layer();
 
       /* Set time step size */
@@ -150,7 +158,8 @@ class DenseLayer : public Layer {
                  int     dimO,
                  double  deltaT,
                  double (*Activ)(double x),
-                 double (*dActiv)(double x));     
+                 double (*dActiv)(double x),
+                 double  Gamma);     
       ~DenseLayer();
 
       void applyFWD(double* state);
@@ -170,12 +179,11 @@ class OpenDenseLayer : public DenseLayer {
       double* example;    /* Pointer to the current example data */
 
   public:
-      OpenDenseLayer(int     idx,
-                int     dimI,
-                int     dimO,
-                double  deltaT,
-                double (*Activ)(double x),
-                double (*dActiv)(double x));     
+      OpenDenseLayer(int     dimI,
+                     int     dimO,
+                     double (*Activ)(double x),
+                     double (*dActiv)(double x),
+                     double  Gamma);     
       ~OpenDenseLayer();
 
       void setExample(double* example_ptr);
@@ -196,9 +204,8 @@ class OpenExpandZero : public Layer
       protected: 
             double* example;    /* Pointer to the current example data */
       public:
-            OpenExpandZero(int     dimI,
-                           int     dimO,
-                           double  deltaT);
+            OpenExpandZero(int dimI,
+                           int dimO);
             ~OpenExpandZero();
 
             void setExample(double* example_ptr);
@@ -219,10 +226,10 @@ class ClassificationLayer : public Layer
             double* probability;          /* vector of pedicted class probabilities */
       
       public:
-            ClassificationLayer(int idx,
-                                int dimI,
-                                int dimO,
-                                double  deltaT);
+            ClassificationLayer(int    idx,
+                                int    dimI,
+                                int    dimO,
+                                double Gamma);
             ~ClassificationLayer();
 
             void applyFWD(double* state);

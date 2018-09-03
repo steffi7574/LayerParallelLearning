@@ -33,15 +33,15 @@ for itik in range(len(gammatik)):
             konfig = copy.deepcopy(configfile)
 
             # Change the config entry 
-            konfig.gamma_theta_tik = gammatik[itik]
-            konfig.gamma_theta_ddt = gammaddt[iddt]
-            konfig.gamma_class     = gammaclass[iclass]
+            konfig.gamma_tik   = gammatik[itik]
+            konfig.gamma_ddt   = gammaddt[iddt]
+            konfig.gamma_class = gammaclass[iclass]
 
             # Specify jobname 
             jobname =  \
                       "n1024opt"  +\
-                      "tik"     + str(konfig.gamma_theta_tik)   +\
-                      "ddt"     + str(konfig.gamma_theta_ddt)   +\
+                      "tik"     + str(konfig.gamma_tik)   +\
+                      "ddt"     + str(konfig.gamma_ddt)   +\
                       "class"   + str(konfig.gamma_class)
 
             # create folder for the job

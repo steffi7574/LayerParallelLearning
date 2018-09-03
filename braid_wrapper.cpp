@@ -292,7 +292,7 @@ my_ObjectiveT(braid_App              app,
     }
 
     /* Compute objective function */
-    *objective_ptr = loss + app->gamma_tik * regul_tik + app->gamma_ddt * regul_ddt;
+    *objective_ptr = loss + regul_tik + regul_ddt;
 
     
     return 0;
@@ -321,8 +321,8 @@ my_ObjectiveT_diff(braid_App            app,
 
     /* Derivative of objective function */
     loss_bar      = f_bar;
-    regul_tik_bar = f_bar * app->gamma_tik;
-    regul_ddt_bar = f_bar * app->gamma_ddt;
+    regul_tik_bar = f_bar;
+    regul_ddt_bar = f_bar;
 
     /* Derivative of loss function evaluation */
     loss_bar = 1./nexamples * loss_bar;

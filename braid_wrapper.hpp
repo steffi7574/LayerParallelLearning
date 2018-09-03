@@ -16,8 +16,6 @@ typedef struct _braid_App_struct
 
     double   accuracy;   /* Accuracy of the network */
     double   loss;
-    double   gamma_tik;
-    double   gamma_ddt;
 } my_App;
 
 

@@ -7,6 +7,7 @@ Network::Network()
    dt          = 0.0;
    loss        = 0.0;
    accuracy    = 0.0;
+   gamma_ddt   = 0.0;
    gradient    = NULL;
    design      = NULL;
    layers      = NULL;
@@ -20,7 +21,10 @@ Network::Network(int    nLayers,
                  double deltaT,
                  double Weight_init,
                  double Weight_open_init,
-                 double Classification_init)
+                 double Classification_init,
+                 double Gamma_tik, 
+                 double Gamma_ddt,
+                 double Gamma_class)
 {
     double (*activ_ptr)(double x);
     double (*dactiv_ptr)(double x);
@@ -39,6 +43,7 @@ Network::Network(int    nLayers,
     dt        = deltaT;
     loss      = 0.0;
     accuracy  = 0.0;
+    gamma_ddt = Gamma_ddt;
 
 
     /* Set the activation function */
@@ -63,21 +68,21 @@ Network::Network(int    nLayers,
     /* opening layer */
     if (Weight_open_init == 0.0)
     {
-       layers[0]  = new OpenExpandZero(nFeatures, nChannels, 1.0);
+       layers[0]  = new OpenExpandZero(nFeatures, nChannels);
     }
     else
     {
-       layers[0] = new OpenDenseLayer(0, nFeatures, nChannels, 1.0, activ_ptr, dactiv_ptr);
+       layers[0] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
     }
     ndesign += layers[0]->getnDesign();
     /* intermediate layers */
     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
     {
-       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr);
+       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
        ndesign += layers[ilayer]->getnDesign();
     }
     /* end layer */
-    layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, deltaT);
+    layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, Gamma_class);
     ndesign += layers[nlayers-1]->getnDesign();
  
     /* Allocate memory for network design and gradient variables */
@@ -163,11 +168,10 @@ void Network::applyFWD(int      nexamples,
 }
 
 
-double Network::evalRegularization(double gamma_tik,
-                                   double gamma_ddt)
+double Network::evalRegularization()
 {
-    double regul_tikh = 0.0;
-    double regul_ddt  = 0.0;
+    double regul_tikh  = 0.0;
+    double regul_ddt   = 0.0;
 
     /* Evaluate regularization terms for each layer */
     for (int ilayer = 0; ilayer < nlayers; ilayer++)
@@ -176,7 +180,7 @@ double Network::evalRegularization(double gamma_tik,
         if (ilayer > 1 && ilayer < nlayers - 1) regul_ddt += evalRegulDDT(layers[ilayer-1], layers[ilayer]);
     }
 
-    return gamma_tik * regul_tikh + gamma_ddt * regul_ddt;
+    return regul_tikh + regul_ddt;
 }
 
 
@@ -207,7 +211,7 @@ double Network::evalRegulDDT(Layer* layer_old,
     diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / dt;
     ddt += pow(diff,2);
     
-    return ddt/2.0;
+    return gamma_ddt / 2.0 * ddt;
 }                
 
 void Network::evalRegulDDT_diff(Layer* layer_old, 
@@ -215,6 +219,7 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
                                 double regul_bar)
 {
     double diff;
+    regul_bar = gamma_ddt * regul_bar;
 
     /* Derivative of the bias-term */
     diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / pow(dt,2);

@@ -182,6 +182,7 @@ def read_config(filename):
                case("braid_adjtol") or \
                case("gamma_tik") or \
                case("gamma_ddt") or \
+               case("gamma_class") or \
                case("stepsize") or \
                case("gtol") or \
                case("ls_factor") or \

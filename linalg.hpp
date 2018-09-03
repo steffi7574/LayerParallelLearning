@@ -54,3 +54,12 @@ double vec_normsq(int    dimN,
 int vec_copy(int N, 
              double* u, 
              double* u_copy);
+
+
+/**
+ * Compute matrix x* y^T
+ */
+void vecvecT(int N,
+             double* x,
+             double* y,
+             double* XYT);

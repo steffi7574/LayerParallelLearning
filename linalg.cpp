@@ -90,3 +90,19 @@ int vec_copy(int N,
 
     return 0;
 }
+
+void vecvecT(int N,
+             double* x,
+             double* y,
+             double* XYT)
+{
+   for (int i=0; i<N; i++)
+   {
+      for (int j=0; j<N; j++)
+      {
+         XYT[i*N+j] = x[i]*y[j];
+      }
+   }
+}
+
+

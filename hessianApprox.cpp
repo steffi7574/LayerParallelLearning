@@ -83,7 +83,7 @@ int L_BFGS::compute_step(int     k,
       }
    }
 
-   /* scale the step size by H0 */
+   /* scale the step by H0 */
    for (int istep = 0; istep < dimN; istep++)
    {
      step[istep] *= H0;
@@ -155,6 +155,10 @@ BFGS::BFGS(int N)
 
     y = new double[N];
     s = new double[N];
+
+    Hy = new double[N];
+    A  = new double[N*N];
+    B  = new double[N*N];
 }
 
 int BFGS::setIdentity()
@@ -175,6 +179,9 @@ BFGS::~BFGS()
   delete [] Hessian;
   delete [] y; 
   delete [] s; 
+  delete [] A; 
+  delete [] B; 
+  delete [] Hy; 
 }
 
 
@@ -200,7 +207,6 @@ int BFGS::compute_step(int     k,
                        double* step)
 {
     double yTy, yTs, H0;
-    double sum, sum1, sum2, second, yTHy;
     double rho;
 
     /* Check curvature conditoin */
@@ -228,51 +234,31 @@ int BFGS::compute_step(int     k,
 
     rho = 1. / yTs;
 
-    /* Scalar yTHy */
-    yTHy = 0.0;
-    for (int i = 0; i<dimN; i++)
+
+    /* BFGS Update for H */
+    /** H_new  = H + \rho( B - (A+A'))
+     * where B = (1.0 + \rho * y'Hy) * ss'
+     *       A = Hys'
+     */
+
+    /* Compute A = Hys' */
+    matvec(dimN, Hessian, y, Hy);
+    vecvecT(dimN, Hy, s, A);
+
+    /* scalar 1 + rho y'Hy */
+    double b = 1.0 + rho * vecdot(dimN, y, Hy);
+
+    /* Compute B */
+    vecvecT(dimN, s, s, B);
+
+    /* H += rho * (b*B - (A+A')) */
+    for (int i=0; i<dimN; i++)
     {
-        sum = 0.0;
-        for (int j = 0; j<dimN; j++)
-        {
-            sum += Hessian[i*dimN+j] * y[j];
-        }
-        yTHy += y[i] * sum;
-    }
-    second = (yTs + yTHy) / pow(yTs,2);
-        
-    /* Updating the lower triangular part */
-    for (int i = 0; i<dimN; i++)
-    {
-      for (int j=0; j <= i; j++)
+      for (int j=0; j<dimN; j++)
       {
-        sum1 = 0.0;
-        sum2 = 0.0;
-        for (int m=0; m<dimN; m++)
-        {
-          if (m<i)
-          {
-            sum1 += Hessian[m*dimN + i ]*y[m];  // lower half -> exploit symmetry of H!
-            sum2 += Hessian[m*dimN + j ]*y[m];  // lower half -> exploit symmetry of H!
-          } 
-          else
-          {
-            sum1 += Hessian[i*dimN + m ]*y[m];
-            sum2 += Hessian[j*dimN + m ]*y[m];
-          }     
-        }
-        Hessian[i*dimN + j] += second * s[i]*s[j] - rho * ( s[j]*sum1  + s[i]*sum2 );
+         Hessian[i*dimN+j] += rho * ( b * B[i*dimN+j] - A[i*dimN+j] - A[j*dimN+i] ) ;
       }
-    }
-    
-    /* Fill the upper half with symmetrie */
-    for (int i = 0; i<dimN; i++)
-    {
-        for (int j=0; j<i; j++)
-        {
-          Hessian[j*dimN+i] = Hessian[i*dimN+j];
-        }
-    }
+    } 
 
     /* Compute the step */
     matvec(dimN, Hessian, currgrad, step);

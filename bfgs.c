@@ -170,5 +170,56 @@ bfgs(int     N,
    free(y);
 
 
+
+
+    // double sum, sum1, sum2, second, yTHy;
+    // /* Scalar yTHy */
+    // yTHy = 0.0;
+    // for (int i = 0; i<dimN; i++)
+    // {
+    //     sum = 0.0;
+    //     for (int j = 0; j<dimN; j++)
+    //     {
+    //         sum += Hessian[i*dimN+j] * y[j];
+    //     }
+    //     yTHy += y[i] * sum;
+    // }
+    // second = (yTs + yTHy) / pow(yTs,2);
+        
+    // /* Updating the lower triangular part */
+    // for (int i = 0; i<dimN; i++)
+    // {
+    //   for (int j=0; j <= i; j++)
+    //   {
+    //     sum1 = 0.0;
+    //     sum2 = 0.0;
+    //     for (int m=0; m<dimN; m++)
+    //     {
+    //       if (m<i)
+    //       {
+    //         sum1 += Hessian[m*dimN + i ]*y[m];  // lower half -> exploit symmetry of H!
+    //         sum2 += Hessian[m*dimN + j ]*y[m];  // lower half -> exploit symmetry of H!
+    //       } 
+    //       else
+    //       {
+    //         sum1 += Hessian[i*dimN + m ]*y[m];
+    //         sum2 += Hessian[j*dimN + m ]*y[m];
+    //       }     
+    //     }
+    //     Hessian[i*dimN + j] += second * s[i]*s[j] - rho * ( s[j]*sum1  + s[i]*sum2 );
+    //   }
+    // }
+    
+    // /* Fill the upper half with symmetrie */
+    // for (int i = 0; i<dimN; i++)
+    // {
+    //     for (int j=0; j<i; j++)
+    //     {
+    //       Hessian[j*dimN+i] = Hessian[i*dimN+j];
+    //     }
+    // }
+
+
+
    return 0;
 }         

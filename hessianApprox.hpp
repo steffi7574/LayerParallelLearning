@@ -63,10 +63,16 @@ class L_BFGS : public HessianApprox {
 
 
 class BFGS : public HessianApprox {
+
+   private:
+      double* A;
+      double* B;
+      double* Hy;
    
-   double* s;          
-   double* y; 
-   double* Hessian;   /* Storing the Hessian approximation (flattened: dimN*dimN) */
+   protected:
+      double* s;          
+      double* y; 
+      double* Hessian;   /* Storing the Hessian approximation (flattened: dimN*dimN) */
 
    public:
       BFGS(int N);

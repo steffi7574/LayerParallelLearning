@@ -41,9 +41,9 @@ L_BFGS::~L_BFGS()
 
 
 
-int L_BFGS::compute_step(int     k,
-                         double* currgrad,
-                         double* step)
+void L_BFGS::computeDescentDir(int     k,
+                               double* currgrad,
+                               double* descdir)
 {
    int imemory;
    double beta;
@@ -51,10 +51,10 @@ int L_BFGS::compute_step(int     k,
    int imax, imin;
 
 
-   /* Initialize the step with steepest descent */
-   for (int istep = 0; istep < dimN; istep++)
+   /* Initialize the descdir with steepest descent */
+   for (int idir = 0; idir < dimN; idir++)
    {
-      step[istep] = currgrad[istep];
+      descdir[idir] = currgrad[idir];
    }
 
 
@@ -75,18 +75,18 @@ int L_BFGS::compute_step(int     k,
    {
       imemory = i % M;
       /* Compute alpha */
-      alpha[imemory] = rho[imemory] * vecdot(dimN, s[imemory], step);
-      /* Update the step */
-      for (int istep = 0; istep < dimN; istep++)
+      alpha[imemory] = rho[imemory] * vecdot(dimN, s[imemory], descdir);
+      /* Update the descdir */
+      for (int idir = 0; idir < dimN; idir++)
       {
-         step[istep] -= alpha[imemory] * y[imemory][istep];
+         descdir[idir] -= alpha[imemory] * y[imemory][idir];
       }
    }
 
-   /* scale the step by H0 */
-   for (int istep = 0; istep < dimN; istep++)
+   /* scale the descdir by H0 */
+   for (int idir = 0; idir < dimN; idir++)
    {
-     step[istep] *= H0;
+     descdir[idir] *= H0;
    }
 
   /* loop forwards through the l-bfgs memory */
@@ -94,22 +94,21 @@ int L_BFGS::compute_step(int     k,
   {
     imemory = i % M;
     /* Compute beta */
-    beta = rho[imemory] * vecdot(dimN, y[imemory], step);
-    /* Update the step */
-    for (int istep = 0; istep < dimN; istep++)
+    beta = rho[imemory] * vecdot(dimN, y[imemory], descdir);
+    /* Update the descdir */
+    for (int idir = 0; idir < dimN; idir++)
     {
-      step[istep] += s[imemory][istep] * (alpha[imemory] - beta);
+      descdir[idir] += s[imemory][idir] * (alpha[imemory] - beta);
     }
   }
 
   delete [] alpha;
 
-   return 0;
 }
 
 
 
-int L_BFGS::update_memory(int     k,
+void L_BFGS::updateMemory(int     k,
                           double* xnew,
                           double* xold,
                           double* gradnew,
@@ -119,10 +118,10 @@ int L_BFGS::update_memory(int     k,
    int imemory = (k-1) % M ;
 
       /* Update BFGS memory for s, y */
-   for (int istep = 0; istep < dimN; istep++)
+   for (int idir = 0; idir < dimN; idir++)
    {
-     y[imemory][istep] = gradnew[istep] - gradold[istep];
-     s[imemory][istep] = xnew[istep]    - xold[istep];
+     y[imemory][idir] = gradnew[idir] - gradold[idir];
+     s[imemory][idir] = xnew[idir]    - xold[idir];
    }
 
    /* Update rho and H0 */
@@ -141,7 +140,6 @@ int L_BFGS::update_memory(int     k,
    rho[imemory] = 1. / yTs;
    H0 = yTs / yTy;
   
-   return 0;
 }
 
 
@@ -161,7 +159,7 @@ BFGS::BFGS(int N)
     B  = new double[N*N];
 }
 
-int BFGS::setIdentity()
+void BFGS::setIdentity()
 {
     for (int i = 0; i<dimN; i++)
     {
@@ -171,7 +169,6 @@ int BFGS::setIdentity()
           else      Hessian[i*dimN+j] = 0.0;
       }
     }
-    return 0;
 }
 
 BFGS::~BFGS()
@@ -185,83 +182,83 @@ BFGS::~BFGS()
 }
 
 
-int BFGS::update_memory(int     k,
+void BFGS::updateMemory(int     k,
                         double* xnew,
                         double* xold,
                         double* gradnew,
                         double* gradold)
 {
     /* Update BFGS memory for s, y */
-    for (int istep = 0; istep < dimN; istep++)
+    for (int idir = 0; idir < dimN; idir++)
     {
-      y[istep] = gradnew[istep] - gradold[istep];
-      s[istep] = xnew[istep]    - xold[istep];
+      y[idir] = gradnew[idir] - gradold[idir];
+      s[idir] = xnew[idir]    - xold[idir];
     }
- 
-  
-    return 0;
 }
 
-int BFGS::compute_step(int     k, 
-                       double* currgrad, 
-                       double* step)
+void BFGS::computeDescentDir(int     k, 
+                             double* currgrad, 
+                             double* descdir)
 {
     double yTy, yTs, H0;
-    double rho;
+    double b, rho;
+
+    /* Steepest descent in first iteration */
+    if (k == 0)
+    {
+      setIdentity();
+      matvec(dimN, Hessian, currgrad, descdir);
+      return;
+    }
 
     /* Check curvature conditoin */
     yTs = vecdot(dimN, y, s);
-    if (yTs < 1e-12) 
+    if ( yTs < 1e-12) 
     {
-      printf("  Warning: Curvature condition not satisfied %1.14e \n", yTs);
+      printf(" Warning: Curvature condition not satisfied %1.14e \n", yTs);
       setIdentity();
-
-      matvec(dimN, Hessian, currgrad, step);
-
-      return 0;
     }
-   
-    /* Scale first Hessian approximation */
-    yTy = vecdot(dimN, y, y);
-    if (k == 1)
+    else
     {
-      H0  = yTs / yTy;
+      /* Scale first Hessian approximation */
+      yTy = vecdot(dimN, y, y);
+      if (k == 1)
+      {
+        H0  = yTs / yTy;
+        for (int i=0; i<dimN; i++)
+        {
+            Hessian[i*dimN+i] = H0;
+        }
+      }
+
+      /** BFGS Update for H  (Noceda, Wright, Chapter 6.1)
+       *  H_new  = H + \rho( B - (A+A'))
+       * where B = (1.0 + \rho * y'Hy) * ss'
+       *       A = Hys'
+       */
+
+      /* Compute A = Hys' */
+      matvec(dimN, Hessian, y, Hy);
+      vecvecT(dimN, Hy, s, A);
+
+      /* scalar 1 + rho y'Hy */
+      rho = 1. / yTs;
+      b   = 1.0 + rho * vecdot(dimN, y, Hy);
+
+      /* Compute B */
+      vecvecT(dimN, s, s, B);
+
+      /* H += rho * (b*B - (A+A')) */
       for (int i=0; i<dimN; i++)
       {
-          Hessian[i*dimN+i] = H0;
-      }
+        for (int j=0; j<dimN; j++)
+        {
+           Hessian[i*dimN+j] += rho * ( b * B[i*dimN+j] - A[i*dimN+j] - A[j*dimN+i] ) ;
+        }
+      } 
+
     }
 
-    rho = 1. / yTs;
-
-
-    /* BFGS Update for H */
-    /** H_new  = H + \rho( B - (A+A'))
-     * where B = (1.0 + \rho * y'Hy) * ss'
-     *       A = Hys'
-     */
-
-    /* Compute A = Hys' */
-    matvec(dimN, Hessian, y, Hy);
-    vecvecT(dimN, Hy, s, A);
-
-    /* scalar 1 + rho y'Hy */
-    double b = 1.0 + rho * vecdot(dimN, y, Hy);
-
-    /* Compute B */
-    vecvecT(dimN, s, s, B);
-
-    /* H += rho * (b*B - (A+A')) */
-    for (int i=0; i<dimN; i++)
-    {
-      for (int j=0; j<dimN; j++)
-      {
-         Hessian[i*dimN+j] += rho * ( b * B[i*dimN+j] - A[i*dimN+j] - A[j*dimN+i] ) ;
-      }
-    } 
-
-    /* Compute the step */
-    matvec(dimN, Hessian, currgrad, step);
-
-    return 0;
+    /* Compute the descdir */
+    matvec(dimN, Hessian, currgrad, descdir);
 }

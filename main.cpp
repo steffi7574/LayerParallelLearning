@@ -570,10 +570,10 @@ int main (int argc, char *argv[])
             /* Update the L-BFGS memory */
             if (iter > 0) 
             {
-                hessian->update_memory(iter, design, design0, gradient, gradient0);
+                hessian->updateMemory(iter, design, design0, gradient, gradient0);
             }
             /* Compute descent direction */
-            hessian->compute_step(iter, gradient, descentdir);
+            hessian->computeDescentDir(iter, gradient, descentdir);
 
             /* Store design and gradient into *0 vectors */
             vec_copy(ndesign, design, design0);

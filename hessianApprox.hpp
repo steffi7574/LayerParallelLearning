@@ -17,14 +17,14 @@ class HessianApprox {
       /**
        * Compute the BFGS descent direction 
        */
-      virtual int compute_step(int     k, 
+      virtual void computeDescentDir(int     k, 
                                double* currgrad, 
-                               double* step) = 0;   
+                               double* descdir) = 0;   
 
       /**
        * Update the BFGS memory (like s, y, rho, H0...)
        */
-      virtual int update_memory(int     k,
+      virtual void updateMemory(int     k,
                                 double* xnew,
                                 double* xold,
                                 double* gradnew,
@@ -48,11 +48,11 @@ class L_BFGS : public HessianApprox {
              int stage);        /* Constructor */
       ~L_BFGS();                /* Destructor */
 
-      int compute_step(int     k, 
-                       double* currgrad, 
-                       double* step);
+      void computeDescentDir(int     k, 
+                             double* currgrad, 
+                             double* descdir);
 
-      int update_memory(int     k,
+      void updateMemory(int     k,
                         double* xnew,
                         double* xold,
                         double* gradnew,
@@ -78,13 +78,13 @@ class BFGS : public HessianApprox {
       BFGS(int N);
       ~BFGS();
 
-      int setIdentity();                    
+      void setIdentity();                    
 
-      int compute_step(int     k, 
-                       double* currgrad, 
-                       double* step);
+      void computeDescentDir(int     k, 
+                             double* currgrad, 
+                             double* descdir);
 
-      int update_memory(int     k,
+      void updateMemory(int     k,
                         double* xnew,
                         double* xold,
                         double* gradnew,

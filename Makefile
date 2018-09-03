@@ -1,10 +1,9 @@
 CC     = mpicc
 CXX    = mpicxx
 
-INC = -I. -I$(BRAID_INC_DIR) -I$(CODI_DIR)
+INC = -I. -I$(BRAID_INC_DIR)
 BRAID_INC_DIR = /home/sguenther/Software/xbraid/braid
 BRAID_LIB_FILE = /home/sguenther/Software/xbraid/braid/libbraid.a
-CODI_DIR = /home/sguenther/Software/CoDiPack_v1.0/include/
 
 # set compiler flags
 CPPFLAGS = -g -Wall -pedantic -lm -Wno-write-strings -Wno-delete-non-virtual-dtor -std=c++11

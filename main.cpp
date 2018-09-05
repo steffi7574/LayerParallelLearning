@@ -328,22 +328,22 @@ int main (int argc, char *argv[])
     train_labels   = new double* [ntraining];
     for (int ix = 0; ix<ntraining; ix++)
     {
-        if (myid == MASTER_NODE) train_examples[ix] = new double[nfeatures];
-        if (myid == size-1)      train_labels[ix]   = new double[nclasses];
+        train_examples[ix] = new double[nfeatures];
+        train_labels[ix]   = new double[nclasses];
     }
-    if (myid == MASTER_NODE) read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
-    if (myid == size-1)      read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
+    read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
+    read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
 
     /* Read validation data */
     val_examples = new double* [nvalidation];
     val_labels   = new double* [nvalidation];
     for (int ix = 0; ix<nvalidation; ix++)
     {
-        if (myid == MASTER_NODE) val_examples[ix] = new double[nfeatures];
-        if (myid == size-1)      val_labels[ix]   = new double[nclasses];
+        val_examples[ix] = new double[nfeatures];
+        val_labels[ix]   = new double[nclasses];
     }
-    if (myid == MASTER_NODE) read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
-    if (myid == size - 1)    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
+    read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
 
     /* Create the network */

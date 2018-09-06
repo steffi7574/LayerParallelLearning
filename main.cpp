@@ -791,15 +791,15 @@ int main (int argc, char *argv[])
 
     for (int ix = 0; ix<ntraining; ix++)
     {
-        if (myid == MASTER_NODE) delete [] train_examples[ix];
-        if (myid == size-1)      delete [] train_labels[ix];
+        delete [] train_examples[ix];
+        delete [] train_labels[ix];
     }
     delete [] train_examples;
     delete [] train_labels;
     for (int ix = 0; ix<nvalidation; ix++)
     {
-        if (myid == MASTER_NODE) delete [] val_examples[ix];
-        if (myid == size-1)      delete [] val_labels[ix];
+        delete [] val_examples[ix];
+        delete [] val_labels[ix];
     }
     delete [] val_examples;
     delete [] val_labels;

@@ -18,10 +18,19 @@ L_BFGS::L_BFGS(int N, int stages)
    {
       s[imem] = new double[dimN];
       y[imem] = new double[dimN];
+      for (int i = 0; i < dimN; i++)
+      {
+          s[imem][i] = 0.0;
+          y[imem][i] = 0.0;
+      }
    }
 
    /* Allocate memory for rho's values */
    rho = new double[M];
+   for (int i = 0; i < M; i++)
+   {
+       rho[i] = 0.0;
+   }
 }
 
 

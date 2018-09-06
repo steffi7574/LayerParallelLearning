@@ -639,6 +639,21 @@ int main (int argc, char *argv[])
  
         }
  
+        /* Print some statistics */
+        StopTime = MPI_Wtime();
+        UsedTime = StopTime-StartTime;
+        getrusage(RUSAGE_SELF,&r_usage);
+        myMB = (double) r_usage.ru_maxrss / 1024.0;
+        MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+        // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
+        if (myid == MASTER_NODE)
+        {
+            printf("\n");
+            printf(" Used Time:        %.2f seconds\n",UsedTime);
+            printf(" Global Memory:    %.2f MB\n", globalMB);
+            printf("\n");
+        }
     }
 
 

@@ -90,3 +90,27 @@ class BFGS : public HessianApprox {
                         double* gradnew,
                         double* gradold);
 };
+
+
+
+/**
+ * No second order: Use Identity for Hessian Approximation 
+ */ 
+class Identity : public HessianApprox{
+
+   public: 
+      Identity(int N);
+      ~Identity();
+
+      void computeDescentDir(int     k, 
+                             double* currgrad, 
+                             double* descdir);
+
+      void updateMemory(int     k,
+                        double* xnew,
+                        double* xold,
+                        double* gradnew,
+                        double* gradold);
+
+
+};

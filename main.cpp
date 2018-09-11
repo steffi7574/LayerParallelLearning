@@ -16,6 +16,7 @@
 #define MASTER_NODE 0
 #define USE_BFGS  1
 #define USE_LBFGS 2
+#define IDENTITY  3
 
 
 int main (int argc, char *argv[])
@@ -428,6 +429,8 @@ int main (int argc, char *argv[])
             case USE_LBFGS: 
                 hessian = new L_BFGS(ndesign, lbfgs_stages);
                 break;
+            case IDENTITY:
+                hessian = new Identity(ndesign);
         }
 
         /* Allocate memory for optimization vars */

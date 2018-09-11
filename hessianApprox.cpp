@@ -271,3 +271,31 @@ void BFGS::computeDescentDir(int     k,
     /* Compute the descdir */
     matvec(dimN, Hessian, currgrad, descdir);
 }
+
+Identity::Identity(int N) 
+{
+  dimN = N;
+}
+
+Identity::~Identity(){}
+
+void Identity::updateMemory(int     k,
+                            double* xnew,
+                            double* xold,
+                            double* gradnew,
+                            double* gradold){}
+
+
+
+void Identity::computeDescentDir(int     k, 
+                                 double* currgrad, 
+                                 double* descdir)
+{
+  /* Steepest descent */
+  for (int i = 0; i<dimN; i++)
+  {
+    descdir[i] = currgrad[i];
+  }
+}                           
+
+

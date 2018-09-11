@@ -5,11 +5,11 @@
 * Put activation and dactivation into a class / struct 
 * Convolutional network
 
-## Run:
-* Optimization with nlayer=1024
-* One-shot paramstudy
+* NO BFGS!?
+* Why is ReLu giving Zero-Gradient for most weights?
+* Does the openlayer produce nonzero gradients for the opening weights? (check number of design variables!)
 
-# Parameter study: Lessons Learned
+# Parameter study: Lessons Learned (n=32)
 
 * if **tanh** activation:
     - *Expand* input data to first layer using zeros

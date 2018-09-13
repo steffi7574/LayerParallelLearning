@@ -177,15 +177,20 @@ int main (int argc, char *argv[])
         }
         else if ( strcmp(co->key, "activation") == 0 )
         {
-            if ( strcmp(co->value, "ReLu") == 0 )
+            if (strcmp(co->value, "tanh") == 0 )
+            {
+                activation = Network::TANH;
+                activname  = "tanh";
+            }
+            else if ( strcmp(co->value, "ReLu") == 0 )
             {
                 activation = Network::RELU;
                 activname  = "ReLu";
             }
-            else if (strcmp(co->value, "tanh") == 0 )
+            else if (strcmp(co->value, "SmoothReLu") == 0 )
             {
-                activation = Network::TANH;
-                activname  = "tanh";
+                activation = Network::SMRELU;
+                activname  = "SmoothRelu";
             }
             else
             {

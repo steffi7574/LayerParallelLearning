@@ -21,7 +21,7 @@ class Network
 
    public: 
       Layer** layers;               /* Array of network layers */
-      enum activation{ RELU, TANH}; /* Available activation functions */
+      enum activation{TANH, RELU, SMRELU}; /* Available activation functions */
 
       Network();
       Network(int    nLayers,
@@ -92,6 +92,10 @@ class Network
       /* ReLu Activation and derivative */
       static double ReLu_act(double x);
       static double dReLu_act(double x);
+        
+      /* Smooth ReLu activation: Uses a quadratic approximation around zero (range: default 0.1) */
+      static double SmoothReLu_act(double x);
+      static double dSmoothReLu_act(double x);
 
       /* tanh Activation and derivative */
       static double tanh_act(double x);

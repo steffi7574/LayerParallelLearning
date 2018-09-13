@@ -49,13 +49,17 @@ Network::Network(int    nLayers,
     /* Set the activation function */
     switch ( Activation )
     {
+       case TANH:
+          activ_ptr  = &Network::tanh_act;
+          dactiv_ptr = &Network::dtanh_act;
+          break;
        case RELU:
            activ_ptr  = &Network::ReLu_act;
            dactiv_ptr = &Network::dReLu_act;
           break;
-       case TANH:
-          activ_ptr  = &Network::tanh_act;
-          dactiv_ptr = &Network::dtanh_act;
+       case SMRELU:
+           activ_ptr  = &Network::SmoothReLu_act;
+           dactiv_ptr = &Network::dSmoothReLu_act;
           break;
        default:
           printf("ERROR: You should specify an activation function!\n");
@@ -244,10 +248,51 @@ double Network::ReLu_act(double x)
 double Network::dReLu_act(double x)
 {
     double diff;
-    if (x > 0.0) diff = 1.0;
+    if (x >= 0.0) diff = 1.0;
     else         diff = 0.0;
 
     return diff;
+}
+
+
+double Network::SmoothReLu_act(double x)
+{
+    /* range of quadratic interpolation */
+    double eta = 0.1;
+    /* Coefficients of quadratic interpolation */
+    double a   = 1./(4.*eta);
+    double b   = 1./2.;
+    double c   = eta / 4.;
+
+    if (-eta < x && x < eta)
+    {
+        /* Quadratic Activation */
+        return a*pow(x,2) + b*x + c;
+    }
+    else
+    {
+        /* ReLu Activation */
+        return Network::ReLu_act(x);
+    }
+}
+
+double Network::dSmoothReLu_act(double x)
+{
+    /* range of quadratic interpolation */
+    double eta = 0.1;
+    /* Coefficients of quadratic interpolation */
+    double a   = 1./(4.*eta);
+    double b   = 1./2.;
+
+    if (-eta < x && x < eta)
+    {
+        return 2.*a*x + b;
+    }
+    else
+    {
+        return Network::dReLu_act(x);
+    }
+
 }
 
 

@@ -5,9 +5,6 @@
 * Put activation and dactivation into a class / struct 
 * Convolutional network
 
-* NO BFGS!?
-* Why is ReLu giving Zero-Gradient for most weights?
-* Does the openlayer produce nonzero gradients for the opening weights? (check number of design variables!)
 
 # Parameter study: Lessons Learned (n=32)
 

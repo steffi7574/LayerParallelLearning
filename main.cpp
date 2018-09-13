@@ -16,7 +16,7 @@
 #define MASTER_NODE 0
 #define USE_BFGS  1
 #define USE_LBFGS 2
-#define IDENTITY  3
+#define USE_IDENTITY  3
 
 
 int main (int argc, char *argv[])
@@ -293,6 +293,10 @@ int main (int argc, char *argv[])
             {
                 hessian_approx = USE_LBFGS;
             }
+            else if (strcmp(co->value, "Identity") == 0 )
+            {
+                hessian_approx = USE_IDENTITY;
+            }
             else
             {
                 printf("Invalid Hessian approximation!");
@@ -429,7 +433,7 @@ int main (int argc, char *argv[])
             case USE_LBFGS: 
                 hessian = new L_BFGS(ndesign, lbfgs_stages);
                 break;
-            case IDENTITY:
+            case USE_IDENTITY:
                 hessian = new Identity(ndesign);
         }
 

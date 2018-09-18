@@ -492,14 +492,15 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
        /* Screen output */
-       printf("\n#    || r ||          || r_adj ||       Objective             Loss                || grad ||             Stepsize  ls_iter   Accur_train  Accur_val\n");
+       printf("\n#    || r ||          || r_adj ||       Objective             Loss                || grad ||             Stepsize  ls_iter   Accur_train  Accur_val    Time(sec)\n");
        
-       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val\n");
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
     }
 
 
     /* --- OPTIMIZATION --- */
     StartTime = MPI_Wtime();
+    StopTime  = 0.0;
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
         /* Reset the app */
@@ -557,8 +558,8 @@ int main (int argc, char *argv[])
         if (myid == MASTER_NODE)
         {
    
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
             fflush(optimfile);
         }
 

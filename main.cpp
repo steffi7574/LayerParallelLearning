@@ -31,8 +31,8 @@ int main (int argc, char *argv[])
     double **val_examples   = NULL;   /**< Validation examples */
     double **val_labels     = NULL;   /**< Validation labels*/
     /* --- Network --- */
-    int      nlayers;                  /**< Number of layers / time steps */
-    int      nchannels;               /**< Number of channels of the netword (width) */
+    int      nlayers;                 /**< Number of layers / time steps */
+    int      nchannels;               /**< Number of channels of the network (width) */
     double   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
     Network *network;                 /**< DNN Network architecture */
@@ -327,10 +327,10 @@ int main (int argc, char *argv[])
     char train_lab_filename[255];
     char val_ex_filename[255];
     char val_lab_filename[255];
-    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
-    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
-    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
-    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
+    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig"); // training input
+    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig"); // training output
+    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");   // validation input
+    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");   // validation output
 
     /* Read training data */
     train_examples = new double* [ntraining];
@@ -492,7 +492,7 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
        /* Screen output */
-       printf("\n#    || r ||          || r_adj ||       Objective             Loss                || grad ||             Stepsize  ls_iter   Accur_train  Accur_val    Time(sec)\n");
+       printf("\n#    || r ||          || r_adj ||      Objective             Loss                 || grad ||             Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
        
        fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
     }
@@ -558,7 +558,7 @@ int main (int argc, char *argv[])
         if (myid == MASTER_NODE)
         {
    
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
             fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
             fflush(optimfile);
         }

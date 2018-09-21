@@ -270,3 +270,70 @@ class ClassificationLayer : public Layer
             void normalize_diff(double* data, 
                                 double* data_bar);
 };
+
+
+/**
+ * Layer using a convolution C of size csize X csize, 
+ * with nconv total convolutions. 
+ * Layer transformation: y = y + dt * sigma(W(C) y + b)
+ * if not openlayer: requires dimI = dimO !
+ */
+class ConvLayer : public Layer {
+
+  protected:
+      int csize;
+      int nconv;
+
+  public:
+      ConvLayer(int     idx,
+                int     dimI,
+                int     dimO,
+                int     csize_in,
+                int     nconv_in,
+                double  deltaT,
+                double (*Activ)(double x),
+                double (*dActiv)(double x),
+                double  Gamma);
+      ~ConvLayer();
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar);
+
+      double apply_conv(double* state,          // state vector to apply convolution to 
+                      int     i,              // convolution index
+                      int     j,              // row index
+                      int     k,              // column index
+                      int     img_size_sqrt); // sqrt of the image size
+};
+
+
+/**
+ * Opening Layer using a convolution C of size MxM 
+ * Layer transformation: y = sigma(W(C) y_ex + b)  for examples y_ex \in \R^dimI
+ */
+class OpenConvLayer : public ConvLayer {
+
+  protected: 
+      int   csize;
+      int   nconv;
+      double* example;    /* Pointer to the current example data */
+
+  public:
+      OpenDenseLayer(int     dimI,
+                     int     dimO,
+                     double (*Activ)(double x),
+                     double (*dActiv)(double x),
+                     double  Gamma);     
+      ~OpenDenseLayer();
+
+      void setExample(double* example_ptr);
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar);
+};
+
+

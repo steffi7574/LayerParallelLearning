@@ -194,6 +194,11 @@ def read_config(filename):
 
             # Put all STRING option here
             if case("activation") or \
+               case("datafolder") or \
+               case("ftrain_ex") or \
+               case("ftrain_labels") or \
+               case("fval_ex") or \
+               case("fval_labels") or \
                case("hessian_approx") :
                data_dict[this_param] = this_value
                break

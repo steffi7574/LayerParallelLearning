@@ -1,3 +1,4 @@
+#include <math.h>
 #include "layer.hpp"
 
 Layer::Layer()
@@ -541,3 +542,100 @@ int ClassificationLayer::prediction(double* data_Out,
 
    return success;
 }
+
+
+ConvLayer::ConvLayer(int     idx,
+                     int     dimI,
+                     int     dimO,
+                     int     csize_in,
+                     int     nconv_in,
+                     double  deltaT,
+                     double (*Activ)(double x),
+                     double (*dActiv)(double x),
+                     double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv, Gamma)
+{
+   csize = csize_in;
+   nconv = nconv_in;
+   ndesign = csize*csize*nconv;
+}
+   
+ConvLayer::~ConvLayer() {}
+
+double apply_conv(double* state, int i, int j, int k, int img_size_sqrt)
+{
+   double val = 0.0;
+   int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   int fcsize = floor(csize/2.0);
+   
+   for(int s = -fcsize; s <= fcsize; s++)
+   {
+      for(int t = -fcsize; t <= fcsize; t++)
+      {
+         int offset = s*img_size_sqrt + t;
+         if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt)
+         {
+            val += state[idx + offset]*weights[i*csize*csize + (s+fcsize)*csize + (t+fcsize) ];
+         }
+      }
+   }
+   return val
+}
+
+void ConvLayer::applyFWD(double* state)
+{
+   /* Affine transformation */
+   int img_size = dim_In / nconv;
+   int img_size_sqrt = round(sqrt(img_size));
+
+   for(int i = 0; i < nconv; i++)
+   {
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt) + bias[0];
+             
+         }
+      }
+   }
+
+   /* Apply step */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      state[io] = state[io] + dt * activation(update[io]);
+   }
+}
+
+
+void ConvLayer::applyBWD(double* state,
+                          double* state_bar)
+{
+
+   /* Derivative of the step */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      /* Recompute affine transformation */
+        update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
+        update[io] += bias[0];
+        
+        /* Derivative */
+        update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
+   }
+
+    /* Derivative of linear transformation */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      /* Derivative of bias addition */
+      bias_bar[0] += update_bar[io];
+
+      /* Derivative of weight application */
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+         
+         //     this line here just scales the sum of a row of the weight matrix 
+         state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
+      }
+   }
+}
+

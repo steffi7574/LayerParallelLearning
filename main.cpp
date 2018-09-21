@@ -85,6 +85,7 @@ int main (int argc, char *argv[])
     char  optimfilename[255];
     FILE *optimfile;   
     char* activname;
+    char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     double mygnorm, stepsize, ls_objective;
     int nreq, ls_iter;
 
@@ -151,7 +152,27 @@ int main (int argc, char *argv[])
     }
     while(1) {
 
-        if ( strcmp(co->key, "ntraining") == 0 )
+        if ( strcmp(co->key, "datafolder") == 0 )
+        {
+            datafolder = co->value;
+        }
+        else if ( strcmp(co->key, "ftrain_ex") == 0 )
+        {
+            ftrain_ex = co->value;
+        }
+        else if ( strcmp(co->key, "ftrain_labels") == 0 )
+        {
+            ftrain_labels = co->value;
+        }
+        else if ( strcmp(co->key, "fval_ex") == 0 )
+        {
+            fval_ex = co->value;
+        }
+        else if ( strcmp(co->key, "fval_labels") == 0 )
+        {
+            fval_labels = co->value;
+        }
+        else if ( strcmp(co->key, "ntraining") == 0 )
         {
             ntraining = atoi(co->value);
         }
@@ -327,10 +348,10 @@ int main (int argc, char *argv[])
     char train_lab_filename[255];
     char val_ex_filename[255];
     char val_lab_filename[255];
-    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig");
-    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig");
-    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");
-    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");
+    sprintf(train_ex_filename,  "%s/%s", datafolder, ftrain_ex);
+    sprintf(train_lab_filename, "%s/%s", datafolder, ftrain_labels);
+    sprintf(val_ex_filename,    "%s/%s", datafolder, fval_ex);
+    sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
     /* Read training data */
     train_examples = new double* [ntraining];

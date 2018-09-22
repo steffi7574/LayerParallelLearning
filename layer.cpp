@@ -561,7 +561,7 @@ ConvLayer::ConvLayer(int     idx,
    
 ConvLayer::~ConvLayer() {}
 
-double apply_conv(double* state, int i, int j, int k, int img_size_sqrt)
+double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sqrt)
 {
    double val = 0.0;
    int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
@@ -572,13 +572,13 @@ double apply_conv(double* state, int i, int j, int k, int img_size_sqrt)
       for(int t = -fcsize; t <= fcsize; t++)
       {
          int offset = s*img_size_sqrt + t;
-         if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt)
+         if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt))
          {
             val += state[idx + offset]*weights[i*csize*csize + (s+fcsize)*csize + (t+fcsize) ];
          }
       }
    }
-   return val
+   return val;
 }
 
 void ConvLayer::applyFWD(double* state)

@@ -321,12 +321,12 @@ class OpenConvLayer : public ConvLayer {
       double* example;    /* Pointer to the current example data */
 
   public:
-      OpenDenseLayer(int     dimI,
+      OpenConvLayer(int     dimI,
                      int     dimO,
                      double (*Activ)(double x),
                      double (*dActiv)(double x),
                      double  Gamma);     
-      ~OpenDenseLayer();
+      ~OpenConvLayer();
 
       void setExample(double* example_ptr);
 

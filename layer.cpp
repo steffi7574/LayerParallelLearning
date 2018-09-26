@@ -565,7 +565,7 @@ ConvLayer::ConvLayer(int     idx,
    
 ConvLayer::~ConvLayer() {}
 
-double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sqrt)
+double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sqrt,bool transpose)
 {
    double val = 0.0;
    int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
@@ -576,9 +576,12 @@ double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sq
       for(int t = -fcsize; t <= fcsize; t++)
       {
          int offset = s*img_size_sqrt + t;
+         int wght_idx =  transpose  
+                       ? i*csize*csize + (t+fcsize)*csize + (s+fcsize)
+                       : i*csize*csize + (s+fcsize)*csize + (t+fcsize);
          if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt))
          {
-            val += state[idx + offset]*weights[i*csize*csize + (s+fcsize)*csize + (t+fcsize) ];
+            val += state[idx + offset]*weights[wght_idx];
          }
       }
    }
@@ -597,7 +600,7 @@ void ConvLayer::applyFWD(double* state)
       {
          for(int k = 0; k < img_size_sqrt; k++)
          {
-             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt) + bias[0];
+             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt, false) + bias[0];
              
          }
       }
@@ -671,7 +674,7 @@ void ConvLayer::applyBWD(double* state,
              int m = i*img_size + j*img_size_sqrt + k;
 
              /* compute the affine transformation */
-             update[m]     = apply_conv(state, i, j, k, img_size_sqrt) + bias[0];
+             update[m]     = apply_conv(state, i, j, k, img_size_sqrt,true) + bias[0];
 
              /* derivative of the update, this is the contribution from old time */
              update_bar[m] = dt * dactivation(update[m]) * state_bar[m];
@@ -683,18 +686,5 @@ void ConvLayer::applyBWD(double* state,
 
      /* Loop over the input dimensions */
 
-   /* Derivative of linear transformation */
-   for (int io = 0; io < dim_Out; io++)
-   {
-      /* Derivative of bias addition */
-      bias_bar[0] += update_bar[io];
-
-      /* Derivative of weight application */
-      for (int ii = 0; ii < dim_In; ii++)
-      {
-         weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
-         state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
-      }
-   }
 }
 

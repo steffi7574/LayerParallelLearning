@@ -301,11 +301,12 @@ class ConvLayer : public Layer {
       void applyBWD(double* state,
                     double* state_bar);
 
-      double apply_conv(double* state,          // state vector to apply convolution to 
+      double apply_conv(double* state,        // state vector to apply convolution to 
                       int     i,              // convolution index
                       int     j,              // row index
                       int     k,              // column index
-                      int     img_size_sqrt); // sqrt of the image size
+                      int     img_size_sqrt,  // sqrt of the image size
+                      bool    transpose);     // apply the tranpose of the kernel
 };
 
 

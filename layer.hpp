@@ -307,6 +307,31 @@ class ConvLayer : public Layer {
                       int     k,              // column index
                       int     img_size_sqrt,  // sqrt of the image size
                       bool    transpose);     // apply the tranpose of the kernel
+
+      /** 
+       * This method is designed to be used only in the applyBWD. It computes the
+       * derivative of the objective with respect to the weights. In particular
+       * if you objective is $g$ and your kernel operator has value tau at index
+       * a,b then
+       *
+       *   weights_bar[magic_index] = d_tau [ g] = \sum_{image j,k} tau state_{j+a,k+b} * update_bar_{j,k}
+       *
+       * Note that we assume that update_bar is 
+       *
+       *   update_bar = dt * dactivation * state_bar
+       *
+       * Where state_bar _must_ be at the old time. Note that the adjoint variable
+       * state_bar carries withit all the information of the objective derivative.
+       *
+       * On exit this method modifies weights_bar
+       */
+      void updateWeightDerivative(
+                      double* state,          // state vector
+                      double * update_bar,    // combines derivative and adjoint info (see comments)
+                      int     i,              // convolution index
+                      int     j,              // row index
+                      int     k,              // column index
+                      int     img_size_sqrt); // sqrt of the image size
 };
 
 

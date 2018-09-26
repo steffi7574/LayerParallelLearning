@@ -565,6 +565,47 @@ ConvLayer::ConvLayer(int     idx,
    
 ConvLayer::~ConvLayer() {}
 
+/** 
+ * This method is designed to be used only in the applyBWD. It computes the
+ * derivative of the objective with respect to the weights. In particular
+ * if you objective is $g$ and your kernel operator has value tau at index
+ * a,b then
+ *
+ * d_tau [ g] = \sum_{image j,k} tau state_{j+a,k+b} * update_bar_{j,k}
+ *
+ * Note that we assume that update_bar is 
+ *
+ *   update_bar = dt * dactivation * state_bar
+ *
+ * Where state_bar _must_ be at the old time. Note that the adjoint variable
+ * state_bar carries withit all the information of the objective derivative.
+ */
+void ConvLayer::
+updateWeightDerivative(double* state, double * update_bar, 
+                       int i, int j, int k, int img_size_sqrt)
+{
+   int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   int fcsize = floor(csize/2.0);
+
+   // weight derivative
+   for(int s = -fcsize; s <= fcsize; s++)
+   {
+      for(int t = -fcsize; t <= fcsize; t++)
+      {
+         int wght_idx = i*csize*csize + (s+fcsize)*csize + (t+fcsize);
+         if(    ((i+s) >= 0)
+             && ((i+s) < img_size_sqrt) 
+             && ((j+t) >= 0) 
+             && ((j+t) < img_size_sqrt))
+         {
+            int offset = s*img_size_sqrt + t;
+
+            weights_bar[wght_idx] += update_bar[idx]*state[idx+offset];
+         }
+      }
+   }
+}
+
 double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sqrt,bool transpose)
 {
    double val = 0.0;
@@ -594,13 +635,15 @@ void ConvLayer::applyFWD(double* state)
    int img_size = dim_In / nconv;
    int img_size_sqrt = round(sqrt(img_size));
 
+   const bool no_transpose = false;
+
    for(int i = 0; i < nconv; i++)
    {
       for(int j = 0; j < img_size_sqrt; j++)
       {
          for(int k = 0; k < img_size_sqrt; k++)
          {
-             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt, false) + bias[0];
+             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[0];
              
          }
       }
@@ -663,6 +706,9 @@ void ConvLayer::applyBWD(double* state,
    int img_size = dim_In / nconv;
    int img_size_sqrt = round(sqrt(img_size));
 
+   const bool no_transpose = false;
+   const bool transpose    = true;
+
    /* loop over number convolutions */
    for(int i = 0; i < nconv; i++)
    {
@@ -674,7 +720,7 @@ void ConvLayer::applyBWD(double* state,
              int m = i*img_size + j*img_size_sqrt + k;
 
              /* compute the affine transformation */
-             update[m]     = apply_conv(state, i, j, k, img_size_sqrt,true) + bias[0];
+             update[m]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[0];
 
              /* derivative of the update, this is the contribution from old time */
              update_bar[m] = dt * dactivation(update[m]) * state_bar[m];
@@ -683,8 +729,26 @@ void ConvLayer::applyBWD(double* state,
    }
 
    /* Loop over the output dimensions */
+   for(int i = 0; i < nconv; i++)
+   {
+      /* loop over full image */
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+            int m = i*img_size + j*img_size_sqrt + k;
 
-     /* Loop over the input dimensions */
+            // bias derivative
+            bias_bar[0] += update_bar[m];
 
+            // weight derivative (updates weight_bar)
+            updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
+
+            // next adjoint step
+            state_bar[m] = apply_conv(state,i,j,k,img_size_sqrt,transpose);
+         }
+      }
+
+   } // end for i
 }
 

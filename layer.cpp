@@ -206,6 +206,10 @@ void DenseLayer::applyBWD(double* state,
                           double* state_bar)
 {
 
+   /* state_bar is the adjoint of the state variable, it contains the 
+      old time adjoint informationk, and is modified on the way out to
+      contain the update. */
+
    /* Derivative of the step */
    for (int io = 0; io < dim_Out; io++)
    {
@@ -213,7 +217,7 @@ void DenseLayer::applyBWD(double* state,
         update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
         update[io] += bias[0];
         
-        /* Derivative */
+        /* Derivative: This is the update from old time */
         update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
    }
 
@@ -608,21 +612,78 @@ void ConvLayer::applyFWD(double* state)
 
 
 void ConvLayer::applyBWD(double* state,
-                          double* state_bar)
+                         double* state_bar)
 {
+   /* state_bar is the adjoint of the state variable, it contains the 
+      old time adjoint informationk, and is modified on the way out to
+      contain the update. */
 
-   /* Derivative of the step */
-   for (int io = 0; io < dim_Out; io++)
+   /* Okay, for my own clarity:
+      state       = forward state solution
+      state_bar   = backward adjoint solution (in - new time, out - current time)
+      update_bar  = update to the bacward solution, this is "double dipped" in that
+                    it is used to compute the weight and bias derivative.
+                    Note that because this is written as a forward update (the
+                    residual is F = u_{n+1} - u_n - dt * sigma(W_n * u_n + b_n)               
+                    the adjoint variable is also the derivative of the objective
+                    with respect to the solution. 
+      weights_bar = Derivative of the objective with respect to the weights
+      bias_bar    = Derivative of the objective with respect to the bias
+
+  
+      More details: Assume that the objective is 'g', and the constraint in
+      residual form is F(u,W). Then
+ 
+        d_{W_n} g = \partial_{u} g * \partial_{W_n} u
+
+      Note that $\partial_{u} g$ only depends on the final layer. Expanding 
+      around the constraint then gives
+ 
+        d_{W_n} g = \partial_{u} g * (\partial_{u} F)^{-1} * \partial_{W_n} F
+
+      and now doing the standard adjoint thing we get
+      
+        d_{W_n} g = (\partial_{u} F)^{-T} * \partial_{u} g ) * \partial_{W_n} F
+ 
+      yielding
+         
+        d_{W_n} g = state_bar * \partial_{W_n} F
+
+      This is directly 
+
+        weights_bar = state_bar * \partial_{W_n} F
+
+      computed below. Similar for the bias. 
+    */
+
+   /* Affine transformation, and derivative of time step */
+   int img_size = dim_In / nconv;
+   int img_size_sqrt = round(sqrt(img_size));
+
+   /* loop over number convolutions */
+   for(int i = 0; i < nconv; i++)
    {
-      /* Recompute affine transformation */
-        update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
-        update[io] += bias[0];
-        
-        /* Derivative */
-        update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
+      /* loop over full image */
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+             int m = i*img_size + j*img_size_sqrt + k;
+
+             /* compute the affine transformation */
+             update[m]     = apply_conv(state, i, j, k, img_size_sqrt) + bias[0];
+
+             /* derivative of the update, this is the contribution from old time */
+             update_bar[m] = dt * dactivation(update[m]) * state_bar[m];
+         }
+      }
    }
 
-    /* Derivative of linear transformation */
+   /* Loop over the output dimensions */
+
+     /* Loop over the input dimensions */
+
+   /* Derivative of linear transformation */
    for (int io = 0; io < dim_Out; io++)
    {
       /* Derivative of bias addition */
@@ -632,8 +693,6 @@ void ConvLayer::applyBWD(double* state,
       for (int ii = 0; ii < dim_In; ii++)
       {
          weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
-         
-         //     this line here just scales the sum of a row of the weight matrix 
          state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
       }
    }

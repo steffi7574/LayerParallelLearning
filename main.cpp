@@ -9,6 +9,7 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
+#include "_braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
 #include "network.hpp"
@@ -748,7 +749,7 @@ int main (int argc, char *argv[])
     // double* findiff = new double[ndesign];
     // double* relerr = new double[ndesign];
     // double errnorm = 0.0;
-    // double obj0, obj1;
+    // double obj0, obj1, design_store;
     // double EPS;
 
     // printf("\n--------------------------------\n");
@@ -761,17 +762,20 @@ int main (int argc, char *argv[])
     // braid_GetObjective(core_train, &objective);
     // obj0 = objective;
 
-    // EPS = 1e-6;
-    // // for (int i = 0; i < ndesign; i++)
-    // for (int i = 0; i < 20; i++)
+    // EPS = 1e-4;
+    // for (int i = 0; i < ndesign; i++)
+    // // for (int i = 0; i < 22; i++)
+    // // int i=21;
     // {
     //     /* Restore design */
     //     // read_vector("design.dat", design, ndesign);
     
     //     /*  Perturb design */
+    //     design_store = design[i];
     //     design[i] += EPS;
 
     //     /* Recompute objective */
+    //     _braid_CoreElt(core_train, warm_restart) = 0;
     //     braid_SetObjectiveOnly(core_train, 1);
     //     braid_SetPrintLevel(core_train, 0);
     //     braid_Drive(core_train);
@@ -783,10 +787,10 @@ int main (int argc, char *argv[])
     //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
     //     errnorm += pow(relerr[i],2);
 
-    //     printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
+    //     printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f",i, findiff[i], gradient[i], relerr[i] * 100.0);
 
     //     /* Restore design */
-    //     design[i] -= EPS;
+    //     design[i] = design_store;
     // }
     // errnorm = sqrt(errnorm);
     // printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
@@ -795,7 +799,9 @@ int main (int argc, char *argv[])
     // write_vector("relerr.dat", relerr, ndesign); 
      
 
-    /* check network implementation */
+ /* ======================================= 
+  * check network implementation 
+  * ======================================= */
     // network->applyFWD(ntraining, train_examples, train_labels);
     // double accur = network->getAccuracy();
     // double regul = network->evalRegularization();

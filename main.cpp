@@ -36,6 +36,7 @@ int main (int argc, char *argv[])
     int      nchannels;               /**< Number of channels of the network (width) */
     double   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
+    int      networkType;             /**< Use a dense or convolutional network */
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
     int      ndesign;             /**< Number of design variables */
@@ -107,6 +108,7 @@ int main (int argc, char *argv[])
     nlayers            = 32;
     T                  = 10.0;
     activation         = Network::RELU;
+    networkType        = Network::DENSE;
     braid_cfactor      = 4;
     braid_maxlevels    = 10;
     braid_maxiter      = 3;
@@ -217,6 +219,23 @@ int main (int argc, char *argv[])
             else
             {
                 printf("Invalid activation function!");
+                MPI_Finalize();
+                return(0);
+            }
+        }
+        else if ( strcmp(co->key, "network_type") == 0 )
+        {
+            if (strcmp(co->value, "dense") == 0 )
+            {
+                networkType  = Network::DENSE;
+            }
+            else if (strcmp(co->value, "convolutional") == 0 )
+            {
+                networkType  = Network::CONVOLUTIONAL;
+            }
+            else
+            {
+                printf("Invalid network type !");
                 MPI_Finalize();
                 return(0);
             }
@@ -378,7 +397,10 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
+    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, 
+                          weights_init, weights_open_init, weights_class_init,  
+                          gamma_tik, gamma_ddt, gamma_class,
+                          networkType);
 
 
     /* Initialize xbraid's app structure */

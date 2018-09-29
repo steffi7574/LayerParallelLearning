@@ -22,6 +22,7 @@ class Network
    public: 
       Layer** layers;               /* Array of network layers */
       enum activation{TANH, RELU, SMRELU}; /* Available activation functions */
+      enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
 
       Network();
       Network(int    nLayers,
@@ -35,7 +36,8 @@ class Network
               double Classification_init,
               double Gamma_tik, 
               double Gamma_ddt,
-              double Gamma_class);
+              double Gamma_class,
+              int    networkType);
       ~Network();
 
       /* Get dimensions */
@@ -100,6 +102,5 @@ class Network
       /* tanh Activation and derivative */
       static double tanh_act(double x);
       static double dtanh_act(double x);
-
 };
 

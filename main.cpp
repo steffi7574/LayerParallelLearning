@@ -9,6 +9,7 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid.h"
+#include "_braid.h"
 #include "braid_wrapper.hpp"
 #include "parser.h"
 #include "network.hpp"
@@ -85,6 +86,7 @@ int main (int argc, char *argv[])
     char  optimfilename[255];
     FILE *optimfile;   
     char* activname;
+    char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     double mygnorm, stepsize, ls_objective;
     int nreq, ls_iter;
 
@@ -151,7 +153,27 @@ int main (int argc, char *argv[])
     }
     while(1) {
 
-        if ( strcmp(co->key, "ntraining") == 0 )
+        if ( strcmp(co->key, "datafolder") == 0 )
+        {
+            datafolder = co->value;
+        }
+        else if ( strcmp(co->key, "ftrain_ex") == 0 )
+        {
+            ftrain_ex = co->value;
+        }
+        else if ( strcmp(co->key, "ftrain_labels") == 0 )
+        {
+            ftrain_labels = co->value;
+        }
+        else if ( strcmp(co->key, "fval_ex") == 0 )
+        {
+            fval_ex = co->value;
+        }
+        else if ( strcmp(co->key, "fval_labels") == 0 )
+        {
+            fval_labels = co->value;
+        }
+        else if ( strcmp(co->key, "ntraining") == 0 )
         {
             ntraining = atoi(co->value);
         }
@@ -327,10 +349,10 @@ int main (int argc, char *argv[])
     char train_lab_filename[255];
     char val_ex_filename[255];
     char val_lab_filename[255];
-    sprintf(train_ex_filename,  "data/%s.dat", "Ytrain_orig"); // training input
-    sprintf(train_lab_filename, "data/%s.dat", "Ctrain_orig"); // training output
-    sprintf(val_ex_filename,    "data/%s.dat", "Yval_orig");   // validation input
-    sprintf(val_lab_filename,   "data/%s.dat", "Cval_orig");   // validation output
+    sprintf(train_ex_filename,  "%s/%s", datafolder, ftrain_ex);
+    sprintf(train_lab_filename, "%s/%s", datafolder, ftrain_labels);
+    sprintf(val_ex_filename,    "%s/%s", datafolder, fval_ex);
+    sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
     /* Read training data */
     train_examples = new double* [ntraining];
@@ -727,7 +749,7 @@ int main (int argc, char *argv[])
     // double* findiff = new double[ndesign];
     // double* relerr = new double[ndesign];
     // double errnorm = 0.0;
-    // double obj0, obj1;
+    // double obj0, obj1, design_store;
     // double EPS;
 
     // printf("\n--------------------------------\n");
@@ -740,17 +762,20 @@ int main (int argc, char *argv[])
     // braid_GetObjective(core_train, &objective);
     // obj0 = objective;
 
-    // EPS = 1e-6;
-    // // for (int i = 0; i < ndesign; i++)
-    // for (int i = 0; i < 20; i++)
+    // EPS = 1e-4;
+    // for (int i = 0; i < ndesign; i++)
+    // // for (int i = 0; i < 22; i++)
+    // // int i=21;
     // {
     //     /* Restore design */
     //     // read_vector("design.dat", design, ndesign);
     
     //     /*  Perturb design */
+    //     design_store = design[i];
     //     design[i] += EPS;
 
     //     /* Recompute objective */
+    //     _braid_CoreElt(core_train, warm_restart) = 0;
     //     braid_SetObjectiveOnly(core_train, 1);
     //     braid_SetPrintLevel(core_train, 0);
     //     braid_Drive(core_train);
@@ -762,10 +787,10 @@ int main (int argc, char *argv[])
     //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
     //     errnorm += pow(relerr[i],2);
 
-    //     printf(" %d: %2.4f\n",i, relerr[i] * 100.0);
+    //     printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f",i, findiff[i], gradient[i], relerr[i] * 100.0);
 
     //     /* Restore design */
-    //     design[i] -= EPS;
+    //     design[i] = design_store;
     // }
     // errnorm = sqrt(errnorm);
     // printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
@@ -774,7 +799,9 @@ int main (int argc, char *argv[])
     // write_vector("relerr.dat", relerr, ndesign); 
      
 
-    /* check network implementation */
+ /* ======================================= 
+  * check network implementation 
+  * ======================================= */
     // network->applyFWD(ntraining, train_examples, train_labels);
     // double accur = network->getAccuracy();
     // double regul = network->evalRegularization();

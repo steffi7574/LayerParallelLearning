@@ -24,7 +24,8 @@ Network::Network(int    nLayers,
                  double Classification_init,
                  double Gamma_tik, 
                  double Gamma_ddt,
-                 double Gamma_class)
+                 double Gamma_class,
+                 int   networkTYpe)
 {
     double (*activ_ptr)(double x);
     double (*dactiv_ptr)(double x);

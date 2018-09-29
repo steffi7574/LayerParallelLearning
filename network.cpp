@@ -71,21 +71,48 @@ Network::Network(int    nLayers,
     layers  = new Layer*[nlayers];
     ndesign = 0;
     /* opening layer */
-    if (Weight_open_init == 0.0)
+    switch ( networkType )
     {
-       layers[0]  = new OpenExpandZero(nFeatures, nChannels);
-    }
-    else
-    {
-       layers[0] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+       case DENSE:
+          if (Weight_open_init == 0.0)
+          {
+             layers[0]  = new OpenExpandZero(nFeatures, nChannels);
+          }
+          else
+          {
+             layers[0] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+          }
+          break;
+       case CONVOLUTIONAL:
+          /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
+          {
+             // TODO: Fix nFeatures and nChannels, open convolutional layer
+             // layers[0] = new OpenConvLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+          }
+          break;
     }
     ndesign += layers[0]->getnDesign();
+
     /* intermediate layers */
-    for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+    switch ( networkType )
     {
-       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
-       ndesign += layers[ilayer]->getnDesign();
+       case DENSE:
+          for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+          {
+             layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+             ndesign += layers[ilayer]->getnDesign();
+          }
+          break;
+       case CONVOLUTIONAL:
+          for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
+          {
+             // TODO: Fix
+             // layers[ilayer] = new ConvLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+             ndesign += layers[ilayer]->getnDesign();
+          }
+          break;
     }
+
     /* end layer */
     layers[nlayers-1] = new ClassificationLayer(nLayers-1, nChannels, nClasses, Gamma_class);
     ndesign += layers[nlayers-1]->getnDesign();

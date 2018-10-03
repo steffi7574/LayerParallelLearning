@@ -21,6 +21,8 @@ my_Step(braid_App        app,
     braid_StepStatusGetTIndex(status, &ts);
     deltaT = tstop - tstart;
 
+    printf("%d: step from %d\n", app->myid, ts);
+
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {

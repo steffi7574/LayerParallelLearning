@@ -8,7 +8,10 @@
 class Network
 {
    protected:
-      int     nlayers;              /* Total number of Layers */
+      int     nlayers_global;       /* Total number of Layers of the network */
+      int     nlayers_local;        /* Number of Layers in this network block */
+      int     startlayerID;         /* ID of first layer in this network block */
+      int     endlayerID;           /* ID of last layer in this network block */
       int     nchannels;            /* Width of the network */
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
@@ -25,6 +28,8 @@ class Network
 
       Network();
       Network(int    nLayers,
+              int    StartLayerID, 
+              int    EndLayerID, 
               int    nChannels, 
               int    nFeatures,
               int    nClasses,
@@ -59,21 +64,21 @@ class Network
       int getnDesign();
 
 
-      /**
-       * Forward propagation through the network. Evaluates loss and accuracy at last layer. 
-       * In: - number of examples
-       *     - Pointer to input data, is NULL for all but the first processor!
-       *     - Pointer to data labels, is NULL for all but the last processor!
-       */
-      void applyFWD(int     nexamples,
-                    double **examples,
-                    double **labels);
+//       /**
+//        * Forward propagation through the network. Evaluates loss and accuracy at last layer. 
+//        * In: - number of examples
+//        *     - Pointer to input data, is NULL for all but the first processor!
+//        *     - Pointer to data labels, is NULL for all but the last processor!
+//        */
+//       void applyFWD(int     nexamples,
+//                     double **examples,
+//                     double **labels);
 
 
-      /**
-       * Returns the regularization term 
-       */
-      double evalRegularization();
+//       /**
+//        * Returns the regularization term 
+//        */
+//       double evalRegularization();
       
       /**
        * Regularization for the time-derivative of the layer weights

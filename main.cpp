@@ -409,6 +409,73 @@ int main (int argc, char *argv[])
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
+
+
+    /* Set the activation function */
+    double (*activ_ptr)(double x);
+    double (*dactiv_ptr)(double x);
+    switch ( activation )
+    {
+       case Network::TANH:
+          activ_ptr  = &Network::tanh_act;
+          dactiv_ptr = &Network::dtanh_act;
+          break;
+       case Network::RELU:
+           activ_ptr  = &Network::ReLu_act;
+           dactiv_ptr = &Network::dReLu_act;
+          break;
+       case Network::SMRELU:
+           activ_ptr  = &Network::SmoothReLu_act;
+           dactiv_ptr = &Network::dSmoothReLu_act;
+          break;
+       default:
+          printf("ERROR: You should specify an activation function!\n");
+          printf("GO HOME AND GET SOME SLEEP!");
+    }
+
+    /* Get xbraid's grid distribution */
+    int ilower, iupper;
+    _braid_GetDistribution(core_train, &ilower, &iupper);
+    ilower -= 1;
+    iupper -= 1;
+    if (ilower <= 0) ilower = 0;
+    printf("%d: %d %d\n", myid, ilower, iupper);
+
+    /* Create the network layers */
+    Layer **locallayers;
+    locallayers = new Layer*[iupper - ilower + 1];
+    for (int ilayer = ilower; ilayer <= iupper; ilayer++)
+    {
+        /* Create a layer at time step ilayer. Local storage at index ilayer-ilower */
+        int idx = ilayer - ilower;
+        if (ilayer == 0)
+        {
+            printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
+            /* Opening layer */
+            if (weights_open_init == 0.0)
+            {
+               locallayers[idx]  = new OpenExpandZero(nfeatures, nchannels);
+            }
+            else
+            {
+               locallayers[idx] = new OpenDenseLayer(nfeatures, nchannels, activ_ptr, dactiv_ptr, gamma_tik);
+            }
+        }
+        else if (ilayer == nlayers-1)
+        {
+            printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
+            /* Classification layer */
+            locallayers[idx] = new ClassificationLayer(ilayer, nchannels, nclasses, gamma_class);
+        }
+        else
+        {
+            printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
+            /* Intermediate layer */
+            locallayers[idx] = new DenseLayer(ilayer, nchannels, nchannels, T/(double)nlayers, activ_ptr, dactiv_ptr, gamma_tik);
+        }
+    }
+
+
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);

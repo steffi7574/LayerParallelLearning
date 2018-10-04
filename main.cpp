@@ -378,7 +378,7 @@ int main (int argc, char *argv[])
 
 
     /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
+    network = new Network(nlayers, 0, nlayers-1, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
 
 
     /* Initialize xbraid's app structure */
@@ -418,43 +418,7 @@ int main (int argc, char *argv[])
     if (ilower <= 0) ilower = 0;
     printf("%d: %d %d\n", myid, ilower, iupper);
 
-    // Network localnetblock = new Network(ilower, iupper, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
-
-    // /* Create the network layers */
-    // Layer **locallayers;
-    // locallayers = new Layer*[iupper - ilower + 1];
-    // for (int ilayer = ilower; ilayer <= iupper; ilayer++)
-    // {
-    //     /* Create a layer at time step ilayer. Local storage at index ilayer-ilower */
-    //     int idx = ilayer - ilower;
-    //     if (ilayer == 0)
-    //     {
-    //         printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
-    //         /* Opening layer */
-    //         if (weights_open_init == 0.0)
-    //         {
-    //            locallayers[idx]  = new OpenExpandZero(nfeatures, nchannels);
-    //         }
-    //         else
-    //         {
-    //            locallayers[idx] = new OpenDenseLayer(nfeatures, nchannels, activ_ptr, dactiv_ptr, gamma_tik);
-    //         }
-    //     }
-    //     else if (ilayer == nlayers-1)
-    //     {
-    //         printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
-    //         /* Classification layer */
-    //         locallayers[idx] = new ClassificationLayer(ilayer, nchannels, nclasses, gamma_class);
-    //     }
-    //     else
-    //     {
-    //         printf("%d: Creating layer at ts %d, stored at %d\n", myid, ilayer, idx);
-    //         /* Intermediate layer */
-    //         locallayers[idx] = new DenseLayer(ilayer, nchannels, nchannels, T/(double)nlayers, activ_ptr, dactiv_ptr, gamma_tik);
-    //     }
-    // }
-
-
+    
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);

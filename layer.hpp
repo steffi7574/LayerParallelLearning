@@ -339,19 +339,15 @@ class ConvLayer : public Layer {
  * Opening Layer using a convolution C of size MxM 
  * Layer transformation: y = sigma(W(C) y_ex + b)  for examples y_ex \in \R^dimI
  */
-class OpenConvLayer : public ConvLayer {
+class OpenConvLayer : public Layer {
 
   protected: 
-      int   csize;
       int   nconv;
       double* example;    /* Pointer to the current example data */
 
   public:
       OpenConvLayer(int     dimI,
-                     int     dimO,
-                     double (*Activ)(double x),
-                     double (*dActiv)(double x),
-                     double  Gamma);     
+                     int     dimO);
       ~OpenConvLayer();
 
       void setExample(double* example_ptr);

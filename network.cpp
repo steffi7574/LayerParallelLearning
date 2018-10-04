@@ -35,6 +35,9 @@ Network::Network(int    nLayers,
         nClasses  > nChannels)
     {
         printf("ERROR! Choose a wider netword!\n");
+        printf(" -- nFeatures = %d\n", nFeatures);
+        printf(" -- nChannels = %d\n", nChannels);
+        printf(" -- nClasses = %d\n", nClasses);
         exit(1);
     }
 
@@ -86,8 +89,7 @@ Network::Network(int    nLayers,
        case CONVOLUTIONAL:
           /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
           {
-             // TODO: Fix nFeatures and nChannels, open convolutional layer
-             // layers[0] = new OpenConvLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+             layers[0] = new OpenConvLayer(nFeatures, nChannels);
           }
           break;
     }
@@ -107,7 +109,10 @@ Network::Network(int    nLayers,
           for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
           {
              // TODO: Fix
-             // layers[ilayer] = new ConvLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+             int convolution_size = 5;
+             layers[ilayer] = new ConvLayer(ilayer, nChannels, nChannels,
+                                            convolution_size,nChannels/nFeatures, 
+                                            deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
              ndesign += layers[ilayer]->getnDesign();
           }
           break;

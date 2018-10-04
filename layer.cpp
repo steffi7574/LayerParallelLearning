@@ -1,4 +1,5 @@
 #include <math.h>
+#include <assert.h>
 #include "layer.hpp"
 
 Layer::Layer()
@@ -340,6 +341,48 @@ void OpenExpandZero::applyBWD(double* state,
    }
 }                           
 
+OpenConvLayer::OpenConvLayer(int dimI,
+                             int dimO) : Layer(0, dimI, dimO, 1)
+{
+    /* this layer doesn't have any design variables. */ 
+    ndesign = 0;
+    dim_Bias = 0;
+    
+    nconv = dim_Out/dim_In;
+
+    assert(nconv*dim_In == dim_Out);
+}
+
+
+OpenConvLayer::~OpenConvLayer(){}
+
+
+void OpenConvLayer::setExample(double* example_ptr)
+{
+    example = example_ptr;
+}
+
+
+void OpenConvLayer::applyFWD(double* state)
+{
+   // replicate the image data
+   for(int img = 0; img < nconv; img++) 
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         state[ii+dim_In*img] = example[ii];
+      }
+   }
+}                           
+
+void OpenConvLayer::applyBWD(double* state,
+                             double* state_bar)
+{
+   for (int ii = 0; ii < dim_Out; ii++)
+   {
+      state_bar[ii] = 0.0;
+   }
+}                           
 
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,

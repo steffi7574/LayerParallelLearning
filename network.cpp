@@ -239,8 +239,11 @@ double Network::evalRegulDDT(Layer* layer_old,
             printf("Dimensions don't match. Check and change this routine.\n");
             exit(1);
         }
+   
+    assert(layer_curr->getnDesign()==layer_old->getnDesign());
+    int nDesign = layer_curr->getnDesign();
 
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    for (int iw = 0; iw < nDesign; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / dt;
         ddt += pow(diff,2);
@@ -263,8 +266,11 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     layer_curr->getBiasBar()[0] += diff * regul_bar;
     layer_old->getBiasBar()[0]  -= diff * regul_bar;
 
+    assert(layer_curr->getnDesign()==layer_old->getnDesign());
+    int nDesign = layer_curr->getnDesign();
+
     /* Derivative of the weights term */
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    for (int iw = 0; iw < nDesign; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / pow(dt,2);
         layer_curr->getWeightsBar()[iw] += diff * regul_bar;

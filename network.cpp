@@ -4,8 +4,6 @@ Network::Network()
 {
    nlayers_global = 0;
    nlayers_local  = 0;
-   startlayerID   = 0;
-   endlayerID     = 0;
    nchannels      = 0;
    dt             = 0.0;
    loss           = 0.0;
@@ -16,42 +14,25 @@ Network::Network()
    layers         = NULL;
 }
 
-Network::Network(int    nLayers,
-                 int    StartLayerID, 
-                 int    EndLayerID, 
+Network::Network(int    nLayersGlobal,
                  int    nChannels, 
-                 int    nFeatures,
-                 int    nClasses,
                  int    Activation,
                  double deltaT,
-                 double Weight_init,
-                 double Weight_open_init,
-                 double Classification_init,
                  double Gamma_tik, 
                  double Gamma_ddt,
                  double Gamma_class)
 {
-    double (*activ_ptr)(double x);
-    double (*dactiv_ptr)(double x);
 
-    /* Sanity check */
-    if (nFeatures > nChannels ||
-        nClasses  > nChannels)
-    {
-        printf("ERROR! Choose a wider netword!\n");
-        exit(1);
-    }
 
     /* Initilizize */
-    nlayers_global   = nLayers;
-    startlayerID     = StartLayerID;
-    endlayerID       = EndLayerID;
-    nlayers_local    = endlayerID - startlayerID + 1;
+    nlayers_global   = nLayersGlobal;
     nchannels        = nChannels;
     dt               = deltaT;
     loss             = 0.0;
     accuracy         = 0.0;
+    gamma_tik        = Gamma_tik;
     gamma_ddt        = Gamma_ddt;
+    gamma_class      = Gamma_class;
 
 
     /* Set the activation function */
@@ -74,33 +55,92 @@ Network::Network(int    nLayers,
           printf("GO HOME AND GET SOME SLEEP!");
     }
 
-    /* --- Create the layers --- */
+ 
+}             
+
+  
+
+
+
+Network::~Network()
+{
+    /* Delete the layers */
+    for (int ilayer = 0; ilayer < nlayers_local; ilayer++)
+    {
+        delete layers[ilayer];
+    }
+    delete [] layers;
+
+    delete [] design;
+    delete [] gradient;
+}
+
+int Network::getnChannels() { return nchannels; }
+
+int Network::getnLayers() { return nlayers_global; }
+
+double Network::getLoss() { return loss; }
+
+double Network::getAccuracy() { return accuracy; }
+
+int Network::getnDesign() { return ndesign; }
+
+double* Network::getDesign() { return design; }
+       
+double* Network::getGradient() { return gradient; }
+
+
+
+
+
+void Network::createLayers(int    startlayerID, 
+                           int    endlayerID, 
+                           int    nFeatures,
+                           int    nClasses,
+                           double Weight_init,
+                           double Weight_open_init,
+                           double Classification_init)
+{
+
+    nlayers_local = endlayerID - startlayerID + 1;
+
+
+    /* Sanity check */
+    if (nFeatures > nchannels ||
+        nClasses  > nchannels)
+    {
+        printf("ERROR! Choose a wider netword!\n");
+        exit(1);
+    }
+
+
+   /* --- Create the layers --- */
     layers  = new Layer*[nlayers_local];
     ndesign = 0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = ilayer - startlayerID;
-        if (ilayer == 0)  // Openiing layer
+        if (ilayer == 0)  // Opening layer
         {
             if (Weight_open_init == 0.0)
             {
-               layers[storeID]  = new OpenExpandZero(nFeatures, nChannels);
+               layers[storeID]  = new OpenExpandZero(nFeatures, nchannels);
             }
             else
             {
-               layers[storeID] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+               layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, activ_ptr, dactiv_ptr, gamma_tik);
             }
             ndesign += layers[storeID]->getnDesign();
         }
         else if (ilayer < nlayers_global-1) // Intermediate layer
         {
-            layers[storeID] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+            layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, activ_ptr, dactiv_ptr, gamma_tik);
             ndesign += layers[storeID]->getnDesign();
         }
         else // Classification layer 
         {
-            layers[storeID] = new ClassificationLayer(nLayers-1, nChannels, nClasses, Gamma_class);
+            layers[storeID] = new ClassificationLayer(nlayers_global-1, nchannels, nClasses, gamma_class);
             ndesign += layers[storeID]->getnDesign();
         }
     }
@@ -129,37 +169,11 @@ Network::Network(int    nLayers,
             layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
         }
     }
-}             
+}    
 
-  
 
-Network::~Network()
-{
-    /* Delete the layers */
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
-    {
-        int    storeID = ilayer - startlayerID;
-        delete layers[storeID];
-    }
-    delete [] layers;
 
-    delete [] design;
-    delete [] gradient;
-}
 
-int Network::getnChannels() { return nchannels; }
-
-int Network::getnLayers() { return nlayers_global; }
-
-double Network::getLoss() { return loss; }
-
-double Network::getAccuracy() { return accuracy; }
-
-int Network::getnDesign() { return ndesign; }
-
-double* Network::getDesign() { return design; }
-       
-double* Network::getGradient() { return gradient; }
 
 // void Network::applyFWD(int      nexamples,
 //                        double **examples,

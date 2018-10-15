@@ -377,9 +377,8 @@ int main (int argc, char *argv[])
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
 
-    /* Create the network */
-    network = new Network(nlayers, 0, nlayers-1, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
-
+    /* Create a network */
+    network = new Network(nlayers, nchannels, activation, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class);
 
     /* Initialize xbraid's app structure */
     app_train = (my_App *) malloc(sizeof(my_App));
@@ -418,6 +417,8 @@ int main (int argc, char *argv[])
     if (ilower <= 0) ilower = 0;
     printf("%d: %d %d\n", myid, ilower, iupper);
 
+    /* Allocate and initialize the network layers (local storage) */
+    network->createLayers(0, nlayers-1, nfeatures, nclasses, weights_init, weights_open_init, weights_class_init);
     
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
@@ -547,141 +548,145 @@ int main (int argc, char *argv[])
         braid_Drive(core_train);
         braid_GetObjective(core_train, &objective);
         // write_vector("gradient.dat", gradient, ndesign);
+        
 
+        double train_loss  = app_train->loss;
+        double train_accur = app_train->accuracy;
+        printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, app_train->loss, app_train->accuracy);
 
-        /* Get primal and adjoint residual norms */
-        nreq = -1;
-        braid_GetRNorms(core_train, &nreq, &rnorm);
-        braid_GetRNormAdjoint(core_train, &rnorm_adj);
+        // /* Get primal and adjoint residual norms */
+        // nreq = -1;
+        // braid_GetRNorms(core_train, &nreq, &rnorm);
+        // braid_GetRNormAdjoint(core_train, &rnorm_adj);
 
-        /* Reduce gradient on MASTER_NODE (in-place communication)*/
-        if (myid == MASTER_NODE) 
-        {
-            MPI_Reduce(MPI_IN_PLACE, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        }
-        else
-        {
-            MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        }
+        // /* Reduce gradient on MASTER_NODE (in-place communication)*/
+        // if (myid == MASTER_NODE) 
+        // {
+        //     MPI_Reduce(MPI_IN_PLACE, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        // }
+        // else
+        // {
+        //     MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
+        // }
 
         /* --- Validation data: Get accuracy --- */
 
-        braid_SetObjectiveOnly(core_val, 1);
-        braid_SetPrintLevel( core_val,   0);
-        braid_Drive(core_val);
+        // braid_SetObjectiveOnly(core_val, 1);
+        // braid_SetPrintLevel( core_val,   0);
+        // braid_Drive(core_val);
 
 
-        /* --- Optimization control and output ---*/
+        // /* --- Optimization control and output ---*/
 
-        /* Compute and communicate the norm */
-        mygnorm = 0.0;
-        if (myid == MASTER_NODE) {
-            mygnorm = vec_normsq(ndesign, gradient);
-        } 
-        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        gnorm = sqrt(gnorm);
+        // /* Compute and communicate the norm */
+        // mygnorm = 0.0;
+        // if (myid == MASTER_NODE) {
+        //     mygnorm = vec_normsq(ndesign, gradient);
+        // } 
+        // MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // gnorm = sqrt(gnorm);
 
-        /* Communicate loss and accuracy. This is actually not needed, except for printing output. Remove it. */
-        double train_loss, train_accur, val_accur;
-        MPI_Allreduce(&app_train->loss, &train_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app_train->accuracy, &train_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app_val->accuracy, &val_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        /* Output */
-        if (myid == MASTER_NODE)
-        {
+        // /* Communicate loss and accuracy. This is actually not needed, except for printing output. Remove it. */
+        // double train_loss, train_accur, val_accur;
+        // MPI_Allreduce(&app_train->loss, &train_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // MPI_Allreduce(&app_train->accuracy, &train_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // MPI_Allreduce(&app_val->accuracy, &val_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // /* Output */
+        // if (myid == MASTER_NODE)
+        // {
    
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
-            fflush(optimfile);
-        }
+        //     printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
+        //     fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
+        //     fflush(optimfile);
+        // }
 
-        /* Check optimization convergence */
-        if (  gnorm < gtol )
-        {
-            if (myid == MASTER_NODE) 
-            {
-                printf("Optimization has converged. \n");
-                printf("Be happy and go home!       \n");
-            }
-            break;
-        }
+        // /* Check optimization convergence */
+        // if (  gnorm < gtol )
+        // {
+        //     if (myid == MASTER_NODE) 
+        //     {
+        //         printf("Optimization has converged. \n");
+        //         printf("Be happy and go home!       \n");
+        //     }
+        //     break;
+        // }
 
 
-        /* --- Design update --- */
+        // /* --- Design update --- */
 
-        stepsize = stepsize_init;
-        /* Compute search direction on first processor */
-        if (myid == MASTER_NODE)
-        {
-            /* Update the L-BFGS memory */
-            if (iter > 0) 
-            {
-                hessian->updateMemory(iter, design, design0, gradient, gradient0);
-            }
-            /* Compute descent direction */
-            hessian->computeDescentDir(iter, gradient, descentdir);
+        // stepsize = stepsize_init;
+        // /* Compute search direction on first processor */
+        // if (myid == MASTER_NODE)
+        // {
+        //     /* Update the L-BFGS memory */
+        //     if (iter > 0) 
+        //     {
+        //         hessian->updateMemory(iter, design, design0, gradient, gradient0);
+        //     }
+        //     /* Compute descent direction */
+        //     hessian->computeDescentDir(iter, gradient, descentdir);
 
-            /* Store design and gradient into *0 vectors */
-            vec_copy(ndesign, design, design0);
-            vec_copy(ndesign, gradient, gradient0);
+        //     /* Store design and gradient into *0 vectors */
+        //     vec_copy(ndesign, design, design0);
+        //     vec_copy(ndesign, gradient, gradient0);
 
-            /* Compute wolfe condition */
-            wolfe = vecdot(ndesign, gradient, descentdir);
+        //     /* Compute wolfe condition */
+        //     wolfe = vecdot(ndesign, gradient, descentdir);
 
-            /* Update the global design using the initial stepsize */
-            for (int id = 0; id < ndesign; id++)
-            {
-                design[id] -= stepsize * descentdir[id];
-            }
-        }
+        //     /* Update the global design using the initial stepsize */
+        //     for (int id = 0; id < ndesign; id++)
+        //     {
+        //         design[id] -= stepsize * descentdir[id];
+        //     }
+        // }
 
-        /* Broadcast the new design and wolfe condition to all processors */
-        MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        // /* Broadcast the new design and wolfe condition to all processors */
+        // MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        // MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
 
-        /* --- Backtracking linesearch --- */
-        for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
-        {
-            /* Compute new objective function value for current trial step */
-            braid_SetPrintLevel(core_train, 0);
-            braid_SetObjectiveOnly(core_train, 1);
-            braid_Drive(core_train);
-            braid_GetObjective(core_train, &ls_objective);
+        // /* --- Backtracking linesearch --- */
+        // for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
+        // {
+        //     /* Compute new objective function value for current trial step */
+        //     braid_SetPrintLevel(core_train, 0);
+        //     braid_SetObjectiveOnly(core_train, 1);
+        //     braid_Drive(core_train);
+        //     braid_GetObjective(core_train, &ls_objective);
 
-            double test = objective - ls_param * stepsize * wolfe;
-            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
-            /* Test the wolfe condition */
-            if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
-            {
-                /* Success, use this new design */
-                break;
-            }
-            else
-            {
-                /* Test for line-search failure */
-                if (ls_iter == ls_maxiter - 1)
-                {
-                    if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
-                    break;
-                }
+        //     double test = objective - ls_param * stepsize * wolfe;
+        //     if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
+        //     /* Test the wolfe condition */
+        //     if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
+        //     {
+        //         /* Success, use this new design */
+        //         break;
+        //     }
+        //     else
+        //     {
+        //         /* Test for line-search failure */
+        //         if (ls_iter == ls_maxiter - 1)
+        //         {
+        //             if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+        //             break;
+        //         }
 
-                /* Decrease the stepsize */
-                stepsize = stepsize * ls_factor;
+        //         /* Decrease the stepsize */
+        //         stepsize = stepsize * ls_factor;
 
-                /* Compute new design using new stepsize */
-                if (myid == MASTER_NODE)
-                {
-                    /* Go back a portion of the step */
-                    for (int id = 0; id < ndesign; id++)
-                    {
-                        design[id] += stepsize * descentdir[id];
-                    }
-                }
-                MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        //         /* Compute new design using new stepsize */
+        //         if (myid == MASTER_NODE)
+        //         {
+        //             /* Go back a portion of the step */
+        //             for (int id = 0; id < ndesign; id++)
+        //             {
+        //                 design[id] += stepsize * descentdir[id];
+        //             }
+        //         }
+        //         MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
  
-            }
+        //     }
  
-        }
+        // }
  
         /* Print some statistics */
         StopTime = MPI_Wtime();

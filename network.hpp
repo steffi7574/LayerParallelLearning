@@ -10,17 +10,19 @@ class Network
    protected:
       int     nlayers_global;       /* Total number of Layers of the network */
       int     nlayers_local;        /* Number of Layers in this network block */
-      int     startlayerID;         /* ID of first layer in this network block */
-      int     endlayerID;           /* ID of last layer in this network block */
       int     nchannels;            /* Width of the network */
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
+      double  gamma_tik;            /* Parameter for Tikhonov-regularization */
       double  gamma_ddt;            /* Parameter for ddt-regularization */
+      double  gamma_class;          /* Parameter for Classification-regularization */
 
-      int     ndesign;              /* Number of design variables */
-      double* design;               /* Vector of all design variables (weights & biases at all layers) */
-      double* gradient;             /* Gradient */
+      int     ndesign;              /* Number of design variables (local) */
+      double* design;               /* Local vector of design variables*/
+      double* gradient;             /* Local Gradient */
+      double (*activ_ptr)(double x);    /* Activation function pointer */
+      double (*dactiv_ptr)(double x);   /* Derivative of activation function */
 
    public: 
       Layer** layers;               /* Array of network layers */
@@ -28,16 +30,9 @@ class Network
 
       Network();
       Network(int    nLayers,
-              int    StartLayerID, 
-              int    EndLayerID, 
               int    nChannels, 
-              int    nFeatures,
-              int    nClasses,
               int    Activation,
               double deltaT,
-              double Weight_init,
-              double Weight_open_init,
-              double Classification_init,
               double Gamma_tik, 
               double Gamma_ddt,
               double Gamma_class);
@@ -63,6 +58,14 @@ class Network
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();
 
+
+      void createLayers(int    StartLayerID, 
+                        int    EndLayerID, 
+                        int    nFeatures,
+                        int    nClasses,
+                        double Weight_init,
+                        double Weight_open_init,
+                        double Classification_init);
 
 //       /**
 //        * Forward propagation through the network. Evaluates loss and accuracy at last layer. 

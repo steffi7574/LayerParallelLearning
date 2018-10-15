@@ -79,6 +79,20 @@ int Network::getnChannels() { return nchannels; }
 
 int Network::getnLayers() { return nlayers_global; }
 
+double Network::getDT() { return dt; }
+
+int Network::getLocalID(int ilayer) 
+{
+    int idx = ilayer - startlayerID;
+    if (idx < 0 || idx > nlayers_global-1) 
+    {
+           printf("\n\nERROR! Something went wrong with local storage of layers! \n");
+           printf("ilayer %d, startlayerID %d\n\n", ilayer, startlayerID);
+    }
+
+    return idx;
+}
+
 double Network::getLoss() { return loss; }
 
 double Network::getAccuracy() { return accuracy; }
@@ -93,8 +107,8 @@ double* Network::getGradient() { return gradient; }
 
 
 
-void Network::createLayers(int    startlayerID, 
-                           int    endlayerID, 
+void Network::createLayers(int    StartLayerID, 
+                           int    EndLayerID, 
                            int    nFeatures,
                            int    nClasses,
                            double Weight_init,
@@ -102,6 +116,8 @@ void Network::createLayers(int    startlayerID,
                            double Classification_init)
 {
 
+    startlayerID = StartLayerID;
+    endlayerID   = EndLayerID;
     nlayers_local = endlayerID - startlayerID + 1;
 
 
@@ -113,6 +129,7 @@ void Network::createLayers(int    startlayerID,
         exit(1);
     }
 
+    printf("creating layers startid %d endid %d, nlayer_local %d\n", startlayerID, endlayerID, nlayers_local);
 
    /* --- Create the layers --- */
     layers  = new Layer*[nlayers_local];
@@ -120,7 +137,7 @@ void Network::createLayers(int    startlayerID,
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
-        int storeID = ilayer - startlayerID;
+        int storeID = getLocalID(ilayer);
         if (ilayer == 0)  // Opening layer
         {
             if (Weight_open_init == 0.0)

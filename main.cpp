@@ -378,7 +378,7 @@ int main (int argc, char *argv[])
 
 
     /* Create a network */
-    network = new Network(nlayers, nchannels, activation, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class);
+    network = new Network(nlayers+1, nchannels, activation, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class);
 
     /* Initialize xbraid's app structure */
     app_train = (my_App *) malloc(sizeof(my_App));
@@ -406,19 +406,9 @@ int main (int argc, char *argv[])
 
     /* Init XBraid for validation data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
+    // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
 
-    /* Get xbraid's grid distribution */
-    int ilower, iupper;
-    _braid_GetDistribution(core_train, &ilower, &iupper);
-    ilower -= 1;
-    iupper -= 1;
-    if (ilower <= 0) ilower = 0;
-    printf("%d: %d %d\n", myid, ilower, iupper);
-
-    /* Allocate and initialize the network layers (local storage) */
-    network->createLayers(0, nlayers-1, nfeatures, nclasses, weights_init, weights_open_init, weights_class_init);
     
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
@@ -443,6 +433,14 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
     braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
+
+    /* Get xbraid's grid distribution */
+    int ilower, iupper;
+    _braid_GetDistribution(core_train, &ilower, &iupper);
+    printf("%d: %d %d\n", myid, ilower, iupper);
+
+    /* Allocate and initialize the network layers (local design storage) */
+    network->createLayers(ilower, iupper, nfeatures, nclasses, weights_init, weights_open_init, weights_class_init);
 
     /* Initialize optimization parameters */
     ls_param    = 1e-4;

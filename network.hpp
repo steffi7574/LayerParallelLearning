@@ -18,6 +18,9 @@ class Network
       double  gamma_ddt;            /* Parameter for ddt-regularization */
       double  gamma_class;          /* Parameter for Classification-regularization */
 
+      int     startlayerID;         /* ID of the first layer on that processor */
+      int     endlayerID;           /* ID of the last layer on that processor */
+
       int     ndesign;              /* Number of design variables (local) */
       double* design;               /* Local vector of design variables*/
       double* gradient;             /* Local Gradient */
@@ -38,9 +41,17 @@ class Network
               double Gamma_class);
       ~Network();
 
-      /* Get dimensions */
+      /* Get number of channels */
       int getnChannels();
+
+      /* Get global number of layers */
       int getnLayers();
+
+      /* Get initial time step size */
+      double getDT();
+
+      /* Get local storage index of the a layer */
+      int getLocalID(int ilayer);
 
       /* Return value of the loss function */
       double getLoss();

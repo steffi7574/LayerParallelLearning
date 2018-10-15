@@ -3,6 +3,7 @@
 
 #include "braid.h"
 #include "network.hpp"
+#include "layer.hpp"
 #pragma once
 
 /* Define the app structure */
@@ -22,8 +23,15 @@ typedef struct _braid_App_struct
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   double **state;            /* Network state at one layer, dimensions: nexamples * nchannels */
+   double **state;           /* Network state at one layer, dimensions: nexamples * nchannels */
+
+   Layer* layer;
 } my_Vector;
+
+
+/* Compute time step index from given time */
+int GetTimeStepIndex(braid_App app, 
+                     double    t);
 
 
 int 

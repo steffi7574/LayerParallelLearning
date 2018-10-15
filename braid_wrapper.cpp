@@ -2,6 +2,13 @@
 // #include "codi.hpp"
 // #include "lib.hpp"
 
+int GetTimeStepIndex(braid_App app, 
+                     double    t)
+{
+
+    int ts = t / app->network->getDT();
+    return ts;
+}
 
 int 
 my_Step(braid_App        app,
@@ -10,7 +17,7 @@ my_Step(braid_App        app,
         braid_Vector     u,
         braid_StepStatus status)
 {
-    int    ts;
+    int    ts_start, ts_stop;
     double tstart, tstop;
     double deltaT;
 
@@ -18,26 +25,33 @@ my_Step(braid_App        app,
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    braid_StepStatusGetTIndex(status, &ts);
-    deltaT = tstop - tstart;
+    // braid_StepStatusGetTIndex(status, &ts);
+    ts_start = GetTimeStepIndex(app, tstart); 
+    ts_stop  = GetTimeStepIndex(app, tstop); 
+    deltaT   = tstop - tstart;
 
-    printf("%d: step from %d\n", app->myid, ts);
+    printf("%d: step %d,%f -> %d, %f \n", app->myid, ts_start, tstart, ts_stop, tstop);
+
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
-        if (ts == 0)
+        if (ts_start == 0)
         {
-            app->network->layers[0]->setExample(app->examples[iex]);
+            u->layer->setExample(app->examples[iex]);
         }
         else
         {
-            app->network->layers[ts]->setDt(deltaT);
+            u->layer->setDt(deltaT);
         }
 
         /* Apply the layer */
-        app->network->layers[ts]->applyFWD(u->state[iex]);
+        u->layer->applyFWD(u->state[iex]);
     }
+
+    /* Move the layer pointer of u forward to that of tstop */
+    int storeID = app->network->getLocalID(ts_stop);
+    u->layer = app->network->layers[storeID];
 
     // /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
@@ -67,8 +81,20 @@ my_Init(braid_App     app,
         }
     }
 
-    *u_ptr = u;
 
+    /* Initialize the design pointers (if adjoint: nonphysical time t=-1.0) */
+    if (t >=0)
+    {
+        int ilayer  = GetTimeStepIndex(app, t);
+        int storeID = app->network->getLocalID(ilayer);
+        printf("INIT at %f (ilayer %d, storeID %d)\n",t, ilayer, storeID );
+
+        /* Store a pointer to the layer design */
+        u->layer = app->network->layers[storeID];
+    }
+
+
+    *u_ptr = u;
     return 0;
 }
 
@@ -93,6 +119,7 @@ my_Clone(braid_App     app,
             v->state[iex][ic] = u->state[iex][ic];
         }
     }
+    v->layer = u->layer;
 
     *v_ptr = v;
 
@@ -201,6 +228,8 @@ my_BufPack(braid_App           app,
         }
     }
 
+    /* Send a layer through MPI */
+
     braid_BufferStatusSetSize( bstatus,  nchannels*nexamples*sizeof(double));
  
    return 0;
@@ -235,6 +264,8 @@ my_BufUnpack(braid_App           app,
            u->state[iex][ic] = dbuffer[iex * nchannels + ic];
         }
     }
+
+    /* Receive and initialize a layer. Set the sendflag */
  
     *u_ptr = u;
     return 0;

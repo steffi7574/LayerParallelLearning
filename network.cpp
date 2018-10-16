@@ -8,7 +8,9 @@ Network::Network()
    dt             = 0.0;
    loss           = 0.0;
    accuracy       = 0.0;
+   gamma_tik      = 0.0;
    gamma_ddt      = 0.0;
+   gamma_class    = 0.0;
    gradient       = NULL;
    design         = NULL;
    layers         = NULL;
@@ -16,13 +18,11 @@ Network::Network()
 
 Network::Network(int    nLayersGlobal,
                  int    nChannels, 
-                 int    Activation,
                  double deltaT,
                  double Gamma_tik, 
                  double Gamma_ddt,
                  double Gamma_class)
 {
-
 
     /* Initilizize */
     nlayers_global   = nLayersGlobal;
@@ -34,28 +34,6 @@ Network::Network(int    nLayersGlobal,
     gamma_ddt        = Gamma_ddt;
     gamma_class      = Gamma_class;
 
-
-    /* Set the activation function */
-    switch ( Activation )
-    {
-       case TANH:
-          activ_ptr  = &Network::tanh_act;
-          dactiv_ptr = &Network::dtanh_act;
-          break;
-       case RELU:
-           activ_ptr  = &Network::ReLu_act;
-           dactiv_ptr = &Network::dReLu_act;
-          break;
-       case SMRELU:
-           activ_ptr  = &Network::SmoothReLu_act;
-           dactiv_ptr = &Network::dSmoothReLu_act;
-          break;
-       default:
-          printf("ERROR: You should specify an activation function!\n");
-          printf("GO HOME AND GET SOME SLEEP!");
-    }
-
- 
 }             
 
   
@@ -111,6 +89,7 @@ void Network::createLayers(int    StartLayerID,
                            int    EndLayerID, 
                            int    nFeatures,
                            int    nClasses,
+                           int    Activation,
                            double Weight_init,
                            double Weight_open_init,
                            double Classification_init)
@@ -147,14 +126,14 @@ void Network::createLayers(int    StartLayerID,
             }
             else
             {
-               layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, activ_ptr, dactiv_ptr, gamma_tik);
+               layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, Activation, gamma_tik);
                printf("Creating OpenDense-Layer at %d local %d\n", ilayer, storeID);
             }
             ndesign += layers[storeID]->getnDesign();
         }
         else if (ilayer < nlayers_global-1) // Intermediate layer
         {
-            layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, activ_ptr, dactiv_ptr, gamma_tik);
+            layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, gamma_tik);
             ndesign += layers[storeID]->getnDesign();
             printf("Creating Dense-Layer at %d local %d\n", ilayer, storeID);
         }
@@ -300,71 +279,3 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     }
 } 
 
-double Network::ReLu_act(double x)
-{
-    return std::max(0.0, x);
-}
-
-
-double Network::dReLu_act(double x)
-{
-    double diff;
-    if (x >= 0.0) diff = 1.0;
-    else         diff = 0.0;
-
-    return diff;
-}
-
-
-double Network::SmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-    double c   = eta / 4.;
-
-    if (-eta < x && x < eta)
-    {
-        /* Quadratic Activation */
-        return a*pow(x,2) + b*x + c;
-    }
-    else
-    {
-        /* ReLu Activation */
-        return Network::ReLu_act(x);
-    }
-}
-
-double Network::dSmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-
-    if (-eta < x && x < eta)
-    {
-        return 2.*a*x + b;
-    }
-    else
-    {
-        return Network::dReLu_act(x);
-    }
-
-}
-
-
-double Network::tanh_act(double x)
-{
-    return tanh(x);
-}
-
-double Network::dtanh_act(double x)
-{
-    double diff = 1.0 - pow(tanh(x),2);
-
-    return diff;
-}

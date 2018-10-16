@@ -24,17 +24,13 @@ class Network
       int     ndesign;              /* Number of design variables (local) */
       double* design;               /* Local vector of design variables*/
       double* gradient;             /* Local Gradient */
-      double (*activ_ptr)(double x);    /* Activation function pointer */
-      double (*dactiv_ptr)(double x);   /* Derivative of activation function */
 
    public: 
       Layer** layers;               /* Array of network layers */
-      enum activation{TANH, RELU, SMRELU}; /* Available activation functions */
 
       Network();
       Network(int    nLayers,
               int    nChannels, 
-              int    Activation,
               double deltaT,
               double Gamma_tik, 
               double Gamma_ddt,
@@ -74,6 +70,7 @@ class Network
                         int    EndLayerID, 
                         int    nFeatures,
                         int    nClasses,
+                        int    Activation,
                         double Weight_init,
                         double Weight_open_init,
                         double Classification_init);
@@ -108,17 +105,6 @@ class Network
                              double regul_bar);
 
 
-      /* ReLu Activation and derivative */
-      static double ReLu_act(double x);
-      static double dReLu_act(double x);
-        
-      /* Smooth ReLu activation: Uses a quadratic approximation around zero (range: default 0.1) */
-      static double SmoothReLu_act(double x);
-      static double dSmoothReLu_act(double x);
-
-      /* tanh Activation and derivative */
-      static double tanh_act(double x);
-      static double dtanh_act(double x);
 
 };
 

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 #include <math.h>
 #include "linalg.hpp"
 
@@ -26,22 +27,22 @@ class Layer
       double* weights_bar;                 /* Derivative of the Weight matrix*/
       double* bias;                        /* Bias */
       double* bias_bar;                    /* Derivative of bias */
-      double  (*activation)(double x);     /* the activation function */
-      double  (*dactivation)(double x);    /* derivative of activation function */
       double  gamma;                       /* Parameter for Tikhonov regularization of weights and bias */
+      int     activ;
 
       double *update;                      /* Auxilliary for computing fwd update */
       double *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
+      enum activation{TANH, RELU, SMRELU};  /* Available activation functions */
+
       Layer();
       Layer(int     idx,
             int     dimI,
             int     dimO,
             int     dimB,
             double  deltaT,
-            double (*Activ)(double x),
-            double (*dActiv)(double x),
+            int     Activ,
             double  Gamme);
 
       Layer(int idx, 
@@ -70,6 +71,10 @@ class Layer
 
         /* Prints to screen */
       void print_data(double* data_Out);
+
+      /* Activation function and derivative */
+      double activation(double x);
+      double dactivation(double x);
 
       /**
        * Initialize the layer primal and adjoint weights and biases
@@ -143,6 +148,18 @@ class Layer
       virtual int prediction(double* data_Out,
                              double* label);
 
+      /* ReLu Activation and derivative */
+      double ReLu_act(double x);
+      double dReLu_act(double x);
+        
+      /* Smooth ReLu activation: Uses a quadratic approximation around zero (range: default 0.1) */
+      double SmoothReLu_act(double x);
+      double dSmoothReLu_act(double x);
+
+      /* tanh Activation and derivative */
+      double tanh_act(double x);
+      double dtanh_act(double x);
+
 };
 
 /**
@@ -157,8 +174,7 @@ class DenseLayer : public Layer {
                  int     dimI,
                  int     dimO,
                  double  deltaT,
-                 double (*Activ)(double x),
-                 double (*dActiv)(double x),
+                 int     activation,
                  double  Gamma);     
       ~DenseLayer();
 
@@ -181,8 +197,7 @@ class OpenDenseLayer : public DenseLayer {
   public:
       OpenDenseLayer(int     dimI,
                      int     dimO,
-                     double (*Activ)(double x),
-                     double (*dActiv)(double x),
+                     int     activation,
                      double  Gamma);     
       ~OpenDenseLayer();
 

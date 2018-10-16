@@ -26,9 +26,6 @@ Network::Network(int    nLayers,
                  double Gamma_ddt,
                  double Gamma_class)
 {
-    double (*activ_ptr)(double x);
-    double (*dactiv_ptr)(double x);
-
     /* Sanity check */
     if (nFeatures > nChannels ||
         nClasses  > nChannels)
@@ -46,25 +43,6 @@ Network::Network(int    nLayers,
     gamma_ddt = Gamma_ddt;
 
 
-    /* Set the activation function */
-    switch ( Activation )
-    {
-       case TANH:
-          activ_ptr  = &Network::tanh_act;
-          dactiv_ptr = &Network::dtanh_act;
-          break;
-       case RELU:
-           activ_ptr  = &Network::ReLu_act;
-           dactiv_ptr = &Network::dReLu_act;
-          break;
-       case SMRELU:
-           activ_ptr  = &Network::SmoothReLu_act;
-           dactiv_ptr = &Network::dSmoothReLu_act;
-          break;
-       default:
-          printf("ERROR: You should specify an activation function!\n");
-          printf("GO HOME AND GET SOME SLEEP!");
-    }
 
     /* --- Create the layers --- */
     layers  = new Layer*[nlayers];
@@ -76,13 +54,13 @@ Network::Network(int    nLayers,
     }
     else
     {
-       layers[0] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+       layers[0] = new OpenDenseLayer(nFeatures, nChannels, Activation, Gamma_tik);
     }
     ndesign += layers[0]->getnDesign();
     /* intermediate layers */
     for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
     {
-       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+       layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, Activation, Gamma_tik);
        ndesign += layers[ilayer]->getnDesign();
     }
     /* end layer */
@@ -239,71 +217,3 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     }
 } 
 
-double Network::ReLu_act(double x)
-{
-    return std::max(0.0, x);
-}
-
-
-double Network::dReLu_act(double x)
-{
-    double diff;
-    if (x >= 0.0) diff = 1.0;
-    else         diff = 0.0;
-
-    return diff;
-}
-
-
-double Network::SmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-    double c   = eta / 4.;
-
-    if (-eta < x && x < eta)
-    {
-        /* Quadratic Activation */
-        return a*pow(x,2) + b*x + c;
-    }
-    else
-    {
-        /* ReLu Activation */
-        return Network::ReLu_act(x);
-    }
-}
-
-double Network::dSmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-
-    if (-eta < x && x < eta)
-    {
-        return 2.*a*x + b;
-    }
-    else
-    {
-        return Network::dReLu_act(x);
-    }
-
-}
-
-
-double Network::tanh_act(double x)
-{
-    return tanh(x);
-}
-
-double Network::dtanh_act(double x)
-{
-    double diff = 1.0 - pow(tanh(x),2);
-
-    return diff;
-}

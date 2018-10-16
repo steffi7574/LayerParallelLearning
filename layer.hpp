@@ -18,6 +18,7 @@ class Layer
       int dim_In;                          /* Dimension of incoming data */
       int dim_Out;                         /* Dimension of outgoing data */
       int dim_Bias;                        /* Dimension of the bias vector */
+      int nweights;                        /* Number of weights */
       int ndesign;                         /* Total number of design variables */
 
       int     index;                       /* Number of the layer */

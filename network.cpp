@@ -1,4 +1,5 @@
 #include "network.hpp"
+#include<assert.h>
 
 Network::Network()
 {

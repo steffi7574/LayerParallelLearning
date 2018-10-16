@@ -341,6 +341,7 @@ int main (int argc, char *argv[])
         }
     }
 
+    // nlayers = nlayers -1;
 
     /*--- INITIALIZATION ---*/
 
@@ -402,7 +403,10 @@ int main (int argc, char *argv[])
 
     /* Initializze adjoint XBraid for training data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
+    // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
+
+    /* Turn on full storage (needed for objective function evaluation and adjoint solve) */
+    braid_SetStorage(core_train, 0);
 
     /* Init XBraid for validation data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
@@ -541,16 +545,35 @@ int main (int argc, char *argv[])
         /* --- Training data: Get objective and compute gradient ---*/ 
 
         /* Solve with braid */
-        braid_SetObjectiveOnly(core_train, 0);
+        // braid_SetObjectiveOnly(core_train, 0);
         braid_SetPrintLevel(core_train, 1);
         braid_Drive(core_train);
-        braid_GetObjective(core_train, &objective);
+        // braid_GetObjective(core_train, &objective);
         // write_vector("gradient.dat", gradient, ndesign);
         
 
-        double train_loss  = app_train->loss;
-        double train_accur = app_train->accuracy;
-        printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, app_train->loss, app_train->accuracy);
+        /* Evaluat objective function (loop over every time point) */
+        braid_BaseVector ubase;
+        braid_Vector     u;
+        double accur_train, regul_tik;
+        double loss_train  = 0.0;
+        double success     = 0.0;
+        objective = 0.0;
+        for (int ilayer = 0; ilayer <= nlayers; ilayer++)
+        {
+            /* Get braid vector at this time step */
+            _braid_UGetVectorRef(core_train, 0, ilayer, &ubase);
+
+            /* Evaluate objective function at this layer */
+            if (ubase != NULL) // this is only true on one processor (the one that stores u)
+            {
+                u = ubase->userVector;
+
+                objective += evalObjectiveT(app_train, u, ilayer, &loss_train, &accur_train);
+            }
+        }
+
+        printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, loss_train, accur_train);
 
         // /* Get primal and adjoint residual norms */
         // nreq = -1;

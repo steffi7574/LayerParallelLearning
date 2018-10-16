@@ -69,6 +69,8 @@ int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
 int Layer::getnDesign() { return ndesign; }
 
+int Layer::getIndex() { return index; }
+
 void Layer::print_data(double* data)
 {
     printf("DATA: ");

@@ -30,7 +30,8 @@ my_Step(braid_App        app,
     ts_stop  = GetTimeStepIndex(app, tstop); 
     deltaT   = tstop - tstart;
 
-    printf("%d: step %d,%f -> %d, %f \n", app->myid, ts_start, tstart, ts_stop, tstop);
+    int storeID = app->network->getLocalID(ts_stop);
+
 
 
     /* apply the layer for all examples */
@@ -49,9 +50,13 @@ my_Step(braid_App        app,
         u->layer->applyFWD(u->state[iex]);
     }
 
+    printf("%d: step %d,%f -> %d, %f layer %d->%d state %1.14e %1.14e\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), app->network->layers[storeID]->getIndex(), u->state[0][0], u->state[1][1]);
+    // printf("Step %f->%f ilayer %d state %1.14e %1.14e\n", tstart, tstop, ts, u->state[0][0], u->state[1][1]);
+
+
     /* Move the layer pointer of u forward to that of tstop */
-    int storeID = app->network->getLocalID(ts_stop);
     u->layer = app->network->layers[storeID];
+
 
     // /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
@@ -332,6 +337,49 @@ my_ObjectiveT(braid_App              app,
 }
 
 
+double
+evalObjectiveT(braid_App   app,
+              braid_Vector u, 
+              int          ilayer,
+              double       *loss_ptr,
+              double       *accuracy_ptr)
+{
+    int    success   = 0;
+    double loss      = 0.0;
+    double accuracy  = 0.0;
+    double regul_tik;
+    double objective;
+
+     /* Tikhonov */
+    regul_tik = u->layer->evalTikh();
+
+    /* TODO: DDT-REGULARIZATION */
+
+    /* At last layer: Classification */ 
+    if (ilayer == app->network->getnLayers()-1)
+    {
+        for (int iex = 0; iex < app->nexamples; iex++)
+        {
+            /* Apply classification */
+            u->layer->applyFWD(u->state[iex]);
+            /* Evaluate Loss */
+            loss     += u->layer->evalLoss(u->state[iex], app->labels[iex]);
+            success  += u->layer->prediction(u->state[iex], app->labels[iex]);
+        }
+        loss     = 1. / app->nexamples * loss;
+        accuracy = 100.0 * (double) success / app->nexamples;
+        // printf("%d: Eval loss at %d: %1.14e\n", app->myid, ilayer, loss);
+    }
+  
+    /* Return */
+    objective     = loss + regul_tik;
+    *accuracy_ptr = accuracy;
+    *loss_ptr     = loss;
+
+    return objective;
+}          
+
+
 int
 my_ObjectiveT_diff(braid_App            app,
                   braid_Vector          u,
@@ -430,3 +478,6 @@ my_ResetGradient(braid_App app)
 
     return 0;
 }
+
+
+

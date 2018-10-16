@@ -126,3 +126,12 @@ my_Step_diff(braid_App         app,
 
 int 
 my_ResetGradient(braid_App app);
+
+
+
+double
+evalObjectiveT(braid_App   app,
+              braid_Vector u, 
+              int          ilayer,
+              double       *loss_ptr,
+              double       *accuracy_ptr);

@@ -143,10 +143,12 @@ void Network::createLayers(int    StartLayerID,
             if (Weight_open_init == 0.0)
             {
                layers[storeID]  = new OpenExpandZero(nFeatures, nchannels);
+               printf("Creating OpenExpandZero-Layer at %d local %d\n", ilayer, storeID);
             }
             else
             {
                layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, activ_ptr, dactiv_ptr, gamma_tik);
+               printf("Creating OpenDense-Layer at %d local %d\n", ilayer, storeID);
             }
             ndesign += layers[storeID]->getnDesign();
         }
@@ -154,11 +156,13 @@ void Network::createLayers(int    StartLayerID,
         {
             layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, activ_ptr, dactiv_ptr, gamma_tik);
             ndesign += layers[storeID]->getnDesign();
+            printf("Creating Dense-Layer at %d local %d\n", ilayer, storeID);
         }
         else // Classification layer 
         {
             layers[storeID] = new ClassificationLayer(nlayers_global-1, nchannels, nClasses, gamma_class);
             ndesign += layers[storeID]->getnDesign();
+            printf("Creating Classification-Layer at %d local %d\n", ilayer, storeID);
         }
     }
 

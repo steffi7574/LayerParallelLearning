@@ -68,6 +68,9 @@ class Layer
       int getDimBias();
       int getnDesign();
 
+      /* Get the layer index (i.e. the time step) */
+      int getIndex();
+
         /* Prints to screen */
       void print_data(double* data_Out);
 

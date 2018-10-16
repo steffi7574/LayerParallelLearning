@@ -8,6 +8,7 @@ Layer::Layer()
    dim_Out      = 0;
    dim_Bias     = 0;
    ndesign      = 0;
+   nweights     = 0;
 
    index        = 0;
    dt           = 0.0;
@@ -36,6 +37,7 @@ Layer::Layer(int     idx,
    dim_Out     = dimO;
    dim_Bias    = dimB;
    ndesign     = dimI * dimO + dimB;
+   nweights    = dimI * dimO;
    dt          = deltaT;
    activation  = Activ;
    dactivation = dActiv;
@@ -90,7 +92,6 @@ void Layer::initialize(double* design_ptr,
     weights_bar = gradient_ptr;
     
     /* Bias memory locations is a shift by number of weights */
-    int nweights = dim_Out * dim_In;
     bias         = design_ptr + nweights;    
     bias_bar     = gradient_ptr + nweights;
 
@@ -308,6 +309,7 @@ OpenExpandZero::OpenExpandZero(int dimI,
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
+    nweights = 0;
 }
 
 
@@ -346,6 +348,7 @@ OpenConvLayer::OpenConvLayer(int dimI,
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
+    nweights = 0;
     dim_Bias = 0;
     
     nconv = dim_Out/dim_In;
@@ -603,7 +606,8 @@ ConvLayer::ConvLayer(int     idx,
 {
    csize = csize_in;
    nconv = nconv_in;
-   ndesign = csize*csize*nconv;
+   nweights = csize*csize*nconv;
+   ndesign = nweights + 1; // must add one to account for the bias
 }
    
 ConvLayer::~ConvLayer() {}
@@ -663,12 +667,14 @@ double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sq
          int wght_idx =  transpose  
                        ? i*csize*csize + (t+fcsize)*csize + (s+fcsize)
                        : i*csize*csize + (s+fcsize)*csize + (t+fcsize);
-         if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt))
+         // JBS: I think this line is wrong, changed to below:  if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt))
+         if( ((j+s) >= 0) && ((j+s) < img_size_sqrt) && ((k+t) >= 0) && ((k+t) < img_size_sqrt))
          {
             val += state[idx + offset]*weights[wght_idx];
          }
       }
    }
+
    return val;
 }
 

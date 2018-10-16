@@ -30,27 +30,23 @@ my_Step(braid_App        app,
     ts_stop  = GetTimeStepIndex(app, tstop); 
     deltaT   = tstop - tstart;
 
+    /* Set time step size */
+    u->layer->setDt(deltaT);
+
+    /* Get local storage ID */
     int storeID = app->network->getLocalID(ts_stop);
-
-
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
-        if (ts_start == 0)
-        {
-            u->layer->setExample(app->examples[iex]);
-        }
-        else
-        {
-            u->layer->setDt(deltaT);
-        }
+        /* On fist layer, set example */
+        if (app->examples !=NULL) u->layer->setExample(app->examples[iex]);
 
         /* Apply the layer */
         u->layer->applyFWD(u->state[iex]);
     }
 
-    // printf("%d: step %d,%f -> %d, %f layer %d->%d using %1.14e->%1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), app->network->layers[storeID]->getIndex(), u->layer->getWeights()[63], app->network->layers[storeID]->getWeights()[63], u->state[1][1], u->layer->getnDesign());
+    printf("%d: step %d,%f -> %d, %f layer %d->%d using %1.14e->%1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), app->network->layers[storeID]->getIndex(), u->layer->getWeights()[63], app->network->layers[storeID]->getWeights()[63], u->state[1][1], u->layer->getnDesign());
 
     /* Free the layer, if it has just been send to this processor */
     if (u->sendflag > 0.0)
@@ -450,6 +446,9 @@ evalObjectiveT(braid_App   app,
     /* At last layer: Classification */ 
     if (ilayer == app->network->getnLayers()-1)
     {
+        /* Sanity check */
+        if (app->labels == NULL) printf("\n\n%d: ERROR! This should not happen! %d\n\n", app->myid, ilayer);
+
         // printf("%d: Eval loss at %d: %1.14e %1.14e\n", app->myid, u->layer->getIndex(), loss, u->state[3][3]);
         // printf("%d: using %1.14e\n", app->myid, u->layer->getWeights()[3]);
         

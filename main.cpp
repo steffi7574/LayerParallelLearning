@@ -405,14 +405,15 @@ int main (int argc, char *argv[])
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
 
-    /* Turn on full storage (needed for objective function evaluation and adjoint solve) */
-    braid_SetStorage(core_train, 0);
 
     /* Init XBraid for validation data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
 
+    /* Store all points (needed for objective function evaluation and adjoint solve) */
+    braid_SetStorage(core_train, 0);
+    // braid_SetStorage(core_val, 0);
     
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
@@ -544,6 +545,8 @@ int main (int argc, char *argv[])
 
         /* --- Training data: Get objective and compute gradient ---*/ 
 
+        // _braid_SetVerbosity(core_train, 1);
+
         /* Solve with braid */
         // braid_SetObjectiveOnly(core_train, 0);
         braid_SetPrintLevel(core_train, 1);
@@ -573,11 +576,20 @@ int main (int argc, char *argv[])
             }
         }
 
+        nreq = -1;
+        braid_GetRNorms(core_train, &nreq, &rnorm);
+
+        /* Collect objective function for all processors */
+        MPI_Allreduce(&objective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
         printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, loss_train, accur_train);
 
-        // /* Get primal and adjoint residual norms */
-        // nreq = -1;
-        // braid_GetRNorms(core_train, &nreq, &rnorm);
+
+
+
+
+
+        // /* Get primal residual norms */
         // braid_GetRNormAdjoint(core_train, &rnorm_adj);
 
         // /* Reduce gradient on MASTER_NODE (in-place communication)*/

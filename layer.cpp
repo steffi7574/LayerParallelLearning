@@ -144,12 +144,14 @@ void Layer::initialize(double* design_ptr,
     /* Initialize */
     for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        // weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        weights[i]     = factor * i * index ;
         weights_bar[i] = 0.0;
     }
     for (int i = 0; i < ndesign - nweights; i++)
     {
-        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        // bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        bias[i]     = factor * i * index;
         bias_bar[i] = 0.0;
     }
 }                   

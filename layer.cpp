@@ -55,6 +55,12 @@ Layer::~Layer()
 
 void Layer::setDt(double DT) { dt = DT; }
 
+double Layer::getDt() { return dt; }
+
+double Layer::getGamma() { return gamma; }
+
+int Layer::getActivation() { return activ; }
+
 double* Layer::getWeights() { return weights; }
 double* Layer::getBias()    { return bias; }
 

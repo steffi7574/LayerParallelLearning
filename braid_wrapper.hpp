@@ -26,6 +26,8 @@ typedef struct _braid_Vector_struct
    double **state;           /* Network state at one layer, dimensions: nexamples * nchannels */
 
    Layer* layer;
+   /* If adjoint: Flag that determines if the primal has just been received, i.e. should be free'd after usage (flag > 0) */
+   double sendflag;  
 } my_Vector;
 
 

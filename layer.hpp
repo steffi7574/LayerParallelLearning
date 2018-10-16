@@ -55,6 +55,12 @@ class Layer
       /* Set time step size */
       void setDt(double DT);
 
+      /* Some Get..() functions */
+      double getDt();
+      double getGamma();
+      int    getActivation();
+
+
       /* Get pointer to the weights bias*/
       double* getWeights();
       double* getBias();

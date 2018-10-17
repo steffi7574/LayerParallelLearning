@@ -410,6 +410,9 @@ int main (int argc, char *argv[])
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
     // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
 
+    /* Store primal core in the app */
+    app_train->primalcore = core_train;
+    app_val->primalcore   = core_val;
 
     /* Store all points (needed for objective function evaluation and adjoint solve) */
     braid_SetStorage(core_train, 0);
@@ -586,7 +589,32 @@ int main (int argc, char *argv[])
 
 
 
+        printf("\n\n SOLVE ADJOINT WITH XBRAID\n\n");
+        braid_Core core_adj;
 
+        braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+
+        /* Tell XBraid to use reverted processor ranks */
+        braid_SetRevertedRanks(core_adj, 1);
+        /* Store all points */
+        braid_SetStorage(core_adj, 0);
+
+
+        braid_SetMaxLevels(core_adj, braid_maxlevels);
+        braid_SetPrintLevel( core_adj, braid_printlevel);
+        braid_SetCFactor(core_adj, -1, braid_cfactor);
+        braid_SetAccessLevel(core_adj, braid_accesslevel);
+        braid_SetMaxIter(core_adj, braid_maxiter);
+        braid_SetSkip(core_adj, braid_setskip);
+        if (braid_fmg){
+            braid_SetFMG(core_adj);
+        }
+        braid_SetNRelax(core_adj, -1, braid_nrelax);
+        braid_SetAbsTol(core_adj, braid_abstol);
+
+
+        /* RUN */
+        braid_Drive(core_adj);
 
 
         // /* Get primal residual norms */

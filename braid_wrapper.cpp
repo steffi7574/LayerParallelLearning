@@ -99,7 +99,9 @@ my_Init(braid_App     app,
         u->layer = app->network->layers[storeID];
     }
 
+    u->primal = NULL;
     u->sendflag = -1.0;
+    
 
 
     *u_ptr = u;
@@ -128,6 +130,7 @@ my_Clone(braid_App     app,
         }
     }
     v->layer    = u->layer;
+    u->primal   = u->primal;
     v->sendflag = u->sendflag;
 
     *v_ptr = v;
@@ -147,6 +150,7 @@ my_Free(braid_App    app,
         delete [] u->state[iex];
     }
     delete [] u->state;
+    u->primal = NULL;
     free(u);
 
    return 0;
@@ -357,6 +361,7 @@ my_BufUnpack(braid_App           app,
         tmplayer->getBiasBar()[i] = dbuffer[idx];   idx++;
     }
     u->layer = tmplayer;
+    u->primal = NULL;
     u->sendflag = 1.0;
 
  
@@ -575,3 +580,58 @@ my_ResetGradient(braid_App app)
 
 
 
+
+int 
+my_Step_Adj(braid_App        app,
+            braid_Vector     ustop,
+            braid_Vector     fstop,
+            braid_Vector     u,
+            braid_StepStatus status){}
+
+int
+my_Init_Adj(braid_App     app,
+            double        t,
+            braid_Vector *u_ptr)
+{
+
+    braid_Vector     u;
+    braid_BaseVector uprimal;
+    int finegrid       = 0;
+    int ilayer         = GetTimeStepIndex(app, t);
+    int primaltimestep = app->network->getnLayers() - ilayer;
+
+
+    /* Initialize the adjoint state with zero */
+    my_Init(app, t, &u);
+
+    /* Set a pointer to the primal variables */
+    _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
+    u->primal = uprimal->userVector->state;
+    u->sendflag = -1.0;
+
+
+   printf("%d: Init %d, using primal %1.14e\n", app->myid, ilayer, u->primal[3][3]);
+
+    *u_ptr = u;
+    return 0;
+}
+
+
+int
+my_BufSize_Adj(braid_App           app,
+               int                 *size_ptr,
+               braid_BufferStatus  bstatus){}
+
+
+int
+my_BufPack_Adj(braid_App           app,
+               braid_Vector        u,
+               void               *buffer,
+               braid_BufferStatus  bstatus){}
+
+
+int
+my_BufUnpack_Adj(braid_App           app,
+                 void               *buffer,
+                 braid_Vector       *u_ptr,
+                 braid_BufferStatus  bstatus){}

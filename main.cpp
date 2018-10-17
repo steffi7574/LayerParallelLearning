@@ -414,10 +414,6 @@ int main (int argc, char *argv[])
     app_train->primalcore = core_train;
     app_val->primalcore   = core_val;
 
-    /* Store all points (needed for objective function evaluation and adjoint solve) */
-    braid_SetStorage(core_train, 0);
-    // braid_SetStorage(core_val, 0);
-    
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);
@@ -549,13 +545,11 @@ int main (int argc, char *argv[])
         /* --- Training data: Get objective and compute gradient ---*/ 
 
         // _braid_SetVerbosity(core_train, 1);
+        braid_SetPrintLevel(core_train, 1);
 
         /* Solve with braid */
-        // braid_SetObjectiveOnly(core_train, 0);
-        braid_SetPrintLevel(core_train, 1);
+        braid_SetStorage(core_train, 0);
         braid_Drive(core_train);
-        // braid_GetObjective(core_train, &objective);
-        // write_vector("gradient.dat", gradient, ndesign);
         
 
         /* Evaluat objective function (loop over every time point) */

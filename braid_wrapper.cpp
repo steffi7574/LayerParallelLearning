@@ -586,7 +586,53 @@ my_Step_Adj(braid_App        app,
             braid_Vector     ustop,
             braid_Vector     fstop,
             braid_Vector     u,
-            braid_StepStatus status){}
+            braid_StepStatus status)
+{
+    int    ts_start, ts_stop;
+    double tstart, tstop;
+    double deltaT;
+    int    finegrid  = 0;
+    int    ilayer, primaltimestep, storeID;
+    int    nexamples = app->nexamples;
+   
+    /* Get the time-step size and current time index*/
+    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    ts_start       = GetTimeStepIndex(app, tstart); 
+    ts_stop        = GetTimeStepIndex(app, tstop); 
+    deltaT         = tstop - tstart;
+    primaltimestep = app->network->getnLayers()-1 - ts_stop;
+    storeID        = app->network->getLocalID(ts_stop);
+
+
+    /* Add costfunction derivative */
+    // if (tstop = finalT) : derivative of classification (also applybwd!)
+    // derivative of tikhonov regularization
+
+
+    /* Take one step backwards */
+    u->layer->setDt(deltaT);
+    // u->layer->applyBWD(u->primal, u->state); // this updates the weights_bar in the layer
+
+    /* Set new layer to that of t_stop */
+    u->layer = app->network->layers[storeID];
+
+    /* Free primal value if it has just been send to this processor */
+    if (u->sendflag > 0.0)
+    {
+       delete u->primal;
+    }
+
+    /* Set new primal state from the core */
+    braid_BaseVector uprimal;
+    _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep , &uprimal);
+    u->primal   = uprimal->userVector->state;
+    u->sendflag = -1.0;
+
+    /* no refinement */
+    braid_StepStatusSetRFactor(status, 1);
+
+    return 0;
+}
 
 int
 my_Init_Adj(braid_App     app,
@@ -598,7 +644,7 @@ my_Init_Adj(braid_App     app,
     braid_BaseVector uprimal;
     int finegrid       = 0;
     int ilayer         = GetTimeStepIndex(app, t);
-    int primaltimestep = app->network->getnLayers() - ilayer;
+    int primaltimestep = app->network->getnLayers()-1 - ilayer;
 
 
     /* Initialize the adjoint state with zero */
@@ -606,11 +652,18 @@ my_Init_Adj(braid_App     app,
 
     /* Set a pointer to the primal variables */
     _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
-    u->primal = uprimal->userVector->state;
+    if (uprimal != NULL)
+    {
+        u->primal = uprimal->userVector->state;
+    }
+    else
+    {
+        printf("WHY IS IT GIVING NULL? It shouldn't! %f %d\n", t, primaltimestep);
+    }
     u->sendflag = -1.0;
 
 
-   printf("%d: Init %d, using primal %1.14e\n", app->myid, ilayer, u->primal[3][3]);
+   printf("%d: Init %d, using primal %d,%1.14e\n", app->myid, ilayer, primaltimestep, u->primal[3][3]);
 
     *u_ptr = u;
     return 0;

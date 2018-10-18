@@ -83,7 +83,8 @@ int main (int argc, char *argv[])
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
 
     struct rusage r_usage;
-    double StartTime, StopTime, UsedTime, myMB, globalMB; 
+    double StartTime, StopTime, myMB, globalMB; 
+    double UsedTime = 0.0;
     char  optimfilename[255];
     FILE *optimfile;   
     char* activname;
@@ -594,7 +595,9 @@ int main (int argc, char *argv[])
         gnorm = sqrt(gnorm);
 
         /* Communicate loss and accuracy. This is actually not needed, except for printing output. Remove it. */
-        double train_loss, train_accur, val_accur;
+        double train_loss = 0.0;
+        double train_accur = 0.0;
+        double val_accur = 0.0;
         MPI_Allreduce(&app_train->loss, &train_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app_train->accuracy, &train_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&app_val->accuracy, &val_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

@@ -640,10 +640,10 @@ updateWeightDerivative(double* state, double * update_bar,
       for(int t = -fcsize; t <= fcsize; t++)
       {
          int wght_idx = i*csize*csize + (s+fcsize)*csize + (t+fcsize);
-         if(    ((i+s) >= 0)
-             && ((i+s) < img_size_sqrt) 
-             && ((j+t) >= 0) 
-             && ((j+t) < img_size_sqrt))
+         if(    ((j+s) >= 0)
+             && ((j+s) < img_size_sqrt) 
+             && ((k+t) >= 0) 
+             && ((k+t) < img_size_sqrt))
          {
             int offset = s*img_size_sqrt + t;
 

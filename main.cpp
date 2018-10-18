@@ -543,6 +543,7 @@ int main (int argc, char *argv[])
     }
 
 
+#if 0
     /* --- OPTIMIZATION --- */
     StartTime = MPI_Wtime();
     StopTime  = 0.0;
@@ -714,6 +715,7 @@ int main (int argc, char *argv[])
             printf("\n");
         }
     }
+#endif
 
 
 
@@ -724,48 +726,57 @@ int main (int argc, char *argv[])
  *       ydot = (dfdx)  xdot
  * choosing xdot to be a vector of all ones, ybar = 1.0;
  * ==================================================================================*/
-    // if (size == 1)
-    // {
-    //      printf("\n\n ============================ \n");
-    //      printf(" Adjoint dot test: \n\n");
+    if (size == 1)
+    {
+         int nconv_size = 5;
 
-    //     // read_vector("design.dat", design, ndesign);
-         
-    //     /* Propagate through braid */
-    //     braid_SetObjectiveOnly(core_train, 0);
-    //     braid_Drive(core_train);
-    //     braid_GetObjective(core_train, &objective);
-    //     write_vector("gradient.dat", gradient, ndesign);
-    //     double obj0 = objective;
+         printf("\n\n ============================ \n");
+         printf(" Adjoint dot test: \n\n");
+         printf("   ndesign   = %d (calc = %d)\n",ndesign,
+                                                  nchannels*nclasses+nclasses // class layer
+                                                  +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*nchannels/nfeatures)); // con layers
+         printf("   nchannels = %d\n",nchannels);
+         printf("   nlayers   = %d\n",nlayers); 
+         printf("   conv_size = %d\n",nconv_size);
+         printf("   nclasses  = %d\n\n",nclasses);
 
-    //     /* Sum up xtx */
-    //     double xtx = 0.0;
-    //     for (int i = 0; i < ndesign; i++)
-    //     {
-    //         xtx += gradient[i];
-    //     }
+        // read_vector("design.dat", design, ndesign);
+      
+        /* Propagate through braid */
+        braid_SetObjectiveOnly(core_train, 0);
+        braid_Drive(core_train);
+        braid_GetObjective(core_train, &objective);
+        // write_vector("gradient.dat", gradient, ndesign);
+        double obj0 = objective;
 
-    //     /* perturb into direction "only ones" */
-    //     double EPS = 1e-7;
-    //     for (int i = 0; i < ndesign; i++)
-    //     {
-    //         design[i] += EPS;
-    //     }
+        /* Sum up xtx */
+        double xtx = 0.0;
+        for (int i = 0; i < ndesign; i++)
+        {
+            xtx += gradient[i];
+        }
 
-    //     /* New objective function evaluation */
-    //     braid_SetObjectiveOnly(core_train, 1);
-    //     braid_Drive(core_train);
-    //     braid_GetObjective(core_train, &objective);
-    //     double obj1 = objective;
+        /* perturb into direction "only ones" */
+        double EPS = 1e-7;
+        for (int i = 0; i < ndesign; i++)
+        {
+            design[i] += EPS;
+        }
 
-    //     /* Finite differences */
-    //     double yty = (obj1 - obj0)/EPS;
+        /* New objective function evaluation */
+        braid_SetObjectiveOnly(core_train, 1);
+        braid_Drive(core_train);
+        braid_GetObjective(core_train, &objective);
+        double obj1 = objective;
+
+        /* Finite differences */
+        double yty = (obj1 - obj0)/EPS;
 
 
-    //     /* Print adjoint dot test result */
-    //     printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+        /* Print adjoint dot test result */
+        printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
 
-    // }
+    }
 
 /** =======================================
  * Full finite differences 

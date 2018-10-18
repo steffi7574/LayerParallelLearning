@@ -2,6 +2,8 @@
 #include <assert.h>
 #include "layer.hpp"
 
+#include <iostream>
+
 Layer::Layer()
 {
    dim_In       = 0;
@@ -653,24 +655,62 @@ updateWeightDerivative(double* state, double * update_bar,
    }
 }
 
-double ConvLayer::apply_conv(double* state, int i, int j, int k, int img_size_sqrt,bool transpose)
+double ConvLayer::apply_conv(double* state, 
+                             int con_index,  /* input image index */
+                             int j,          /* pixel index */
+                             int k,          /* pixel index */
+                             int img_size_sqrt,
+                             bool transpose)
 {
    double val = 0.0;
-   int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   int center_index = con_index*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
    int fcsize = floor(csize/2.0);
+
+   double * weights_local = weights;
+/*
+   // for testing
+   if(false)
+   {
+      weights_local = new double[csize*csize];
+      double value = 0.1;
+      for(int s = -fcsize; s <= fcsize; s++) {
+         for(int t = -fcsize; t <= fcsize; t++) {
+            int wght_idx =  (t+fcsize)*csize + (s+fcsize);
+            weights_local[wght_idx] = value;
+            value += 0.1;
+         }
+      }
+   }
+*/
    
    for(int s = -fcsize; s <= fcsize; s++)
    {
       for(int t = -fcsize; t <= fcsize; t++)
       {
-         int offset = s*img_size_sqrt + t;
-         int wght_idx =  transpose  
-                       ? i*csize*csize + (t+fcsize)*csize + (s+fcsize)
-                       : i*csize*csize + (s+fcsize)*csize + (t+fcsize);
-         // JBS: I think this line is wrong, changed to below:  if( ((i+s) >= 0) && ((i+s) < img_size_sqrt) && ((j+t) >= 0) && ((j+t) < img_size_sqrt))
-         if( ((j+s) >= 0) && ((j+s) < img_size_sqrt) && ((k+t) >= 0) && ((k+t) < img_size_sqrt))
+         int offset = transpose 
+                      ? -s*img_size_sqrt - t
+                      :  s*img_size_sqrt + t;
+         int wght_idx =  ( s+fcsize)*csize + ( t+fcsize); // + con_index*csize*csize;
+
+         // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
+         if(not transpose) {
+           if(   ((j+s) >= 0) 
+              && ((j+s) < img_size_sqrt) 
+              && ((k+t) >= 0) 
+              && ((k+t) < img_size_sqrt))
+           {
+              val += state[center_index + offset]*weights_local[wght_idx];
+           }
+         }
+         else
          {
-            val += state[idx + offset]*weights[wght_idx];
+           if(    ((j-s) >= 0) 
+               && ((j-s) < img_size_sqrt) 
+               && ((k-t) >= 0) 
+               && ((k-t) < img_size_sqrt))
+           {
+              val += state[center_index + offset]*weights_local[wght_idx];
+           }
          }
       }
    }
@@ -692,8 +732,9 @@ void ConvLayer::applyFWD(double* state)
       {
          for(int k = 0; k < img_size_sqrt; k++)
          {
-             update[i*img_size + j*img_size_sqrt + k] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[0];
-             
+            int state_index = i*img_size + j*img_size_sqrt + k;
+
+            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[0];
          }
       }
    }
@@ -710,7 +751,7 @@ void ConvLayer::applyBWD(double* state,
                          double* state_bar)
 {
    /* state_bar is the adjoint of the state variable, it contains the 
-      old time adjoint informationk, and is modified on the way out to
+      old time adjoint information, and is modified on the way out to
       contain the update. */
 
    /* Okay, for my own clarity:
@@ -766,13 +807,13 @@ void ConvLayer::applyBWD(double* state,
       {
          for(int k = 0; k < img_size_sqrt; k++)
          {
-             int m = i*img_size + j*img_size_sqrt + k;
+             int state_index = i*img_size + j*img_size_sqrt + k;
 
              /* compute the affine transformation */
-             update[m]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[0];
+             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[0];
 
              /* derivative of the update, this is the contribution from old time */
-             update_bar[m] = dt * dactivation(update[m]) * state_bar[m];
+             update_bar[state_index] = dt * dactivation(update[state_index]) * state_bar[state_index];
          }
       }
    }
@@ -785,16 +826,16 @@ void ConvLayer::applyBWD(double* state,
       {
          for(int k = 0; k < img_size_sqrt; k++)
          {
-            int m = i*img_size + j*img_size_sqrt + k;
+            int state_index = i*img_size + j*img_size_sqrt + k;
 
             // bias derivative
-            bias_bar[0] += update_bar[m];
+            bias_bar[0] += update_bar[state_index];
 
             // weight derivative (updates weight_bar)
             updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
 
             // next adjoint step
-            state_bar[m] = apply_conv(state,i,j,k,img_size_sqrt,transpose);
+            state_bar[state_index] = state_bar[state_index] + apply_conv(update_bar, i, j, k, img_size_sqrt,transpose);
          }
       }
 

@@ -28,9 +28,8 @@ typedef struct _braid_Vector_struct
 {
    double **state;   /* Network state at one layer, dimensions: nexamples * nchannels */
 
-   double** primal;   /* If adjoint core: Pointer to the primal state, else: NULL */
+   Layer* layer;     /* Pointer to layer information (local design part) */
 
-   Layer* layer;     /* Pointer to layer information */
    /* Flag that determines if the layer and state have just been received and thus should be free'd after usage (flag > 0) */
    double sendflag;  
 } my_Vector;
@@ -40,6 +39,8 @@ typedef struct _braid_Vector_struct
 int GetTimeStepIndex(braid_App app, 
                      double    t);
 
+int GetPrimalIndex(braid_App app,
+                   int       ts);
 
 int 
 my_Step(braid_App        app,

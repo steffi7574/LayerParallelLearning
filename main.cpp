@@ -608,6 +608,7 @@ int main (int argc, char *argv[])
 
 
         /* RUN */
+        // _braid_SetVerbosity(core_adj, 1);
         braid_Drive(core_adj);
 
 

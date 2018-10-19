@@ -744,7 +744,7 @@ int main (int argc, char *argv[])
 #if 1
     if (size == 1)
     {
-         int nconv_size = 5;
+         int nconv_size = 3;
 
          printf("\n\n ============================ \n");
          printf(" Adjoint dot test: \n\n");

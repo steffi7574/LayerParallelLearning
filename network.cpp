@@ -116,7 +116,7 @@ Network::Network(int    nLayers,
           for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
           {
              // TODO: Fix
-             int convolution_size = 5;
+             int convolution_size = 3;
              layers[ilayer] = new ConvLayer(ilayer, nChannels, nChannels,
                                             convolution_size,nChannels/nFeatures, 
                                             deltaT, activ_ptr, dactiv_ptr, Gamma_tik);

@@ -421,8 +421,8 @@ void OpenConvLayerMNIST::applyBWD(double* state,
    {
       for (int ii = 0; ii < dim_In; ii++)
       {
-         update_bar[ii + dim_In*img] =  (1.0 - pow(tanh(example[ii]),2))*state_bar[ii + dim_In*img];
-         state_bar[ii + dim_In*img] = 0.0;
+         state_bar[ii + dim_In*img] =  (1.0 - pow(tanh(example[ii]),2))*state_bar[ii + dim_In*img];
+         // state_bar[ii + dim_In*img] = 0.0;
       }
    }
 

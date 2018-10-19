@@ -345,6 +345,7 @@ void OpenExpandZero::applyBWD(double* state,
    }
 }                           
 
+
 OpenConvLayer::OpenConvLayer(int dimI,
                              int dimO) : Layer(0, dimI, dimO, 1)
 {
@@ -388,6 +389,48 @@ void OpenConvLayer::applyBWD(double* state,
       state_bar[ii] = 0.0;
    }
 }                           
+
+
+OpenConvLayerMNIST::OpenConvLayerMNIST(int dimI, int dimO) : OpenConvLayer(dimI, dimO) {}
+
+
+OpenConvLayerMNIST::~OpenConvLayerMNIST(){}
+
+
+void OpenConvLayerMNIST::applyFWD(double* state)
+{
+   // replicate the image data
+   for(int img = 0; img < nconv; img++)
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         // The MNIST data is integer from [0, 255], so we rescale it to floats
+         // over the range[0,6]
+         //
+         // Also, rescale tanh so that it appropriately activates over the x-range of [0,6]
+         state[ii+dim_In*img] = tanh( (6.0*example[ii]/255.0) - 3.0) + 1;
+      }
+   }
+}
+
+void OpenConvLayerMNIST::applyBWD(double* state,
+                                  double* state_bar)
+{
+   // Derivative of step
+   for(int img = 0; img < nconv; img++)
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         update_bar[ii + dim_In*img] =  (1.0 - pow(tanh(example[ii]),2))*state_bar[ii + dim_In*img];
+         state_bar[ii + dim_In*img] = 0.0;
+      }
+   }
+
+   // Derivative of affine transformation
+   // This is "0" because we have no bias or weights
+}
+
+
 
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,

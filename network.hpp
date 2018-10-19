@@ -37,7 +37,8 @@ class Network
               double Gamma_tik, 
               double Gamma_ddt,
               double Gamma_class,
-              int    networkType);
+              int    networkType,
+              int    type_openlayer);
       ~Network();
 
       /* Get dimensions */

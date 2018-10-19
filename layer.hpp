@@ -337,8 +337,8 @@ class ConvLayer : public Layer {
 
 
 /**
- * Opening Layer using a convolution C of size MxM 
- * Layer transformation: y = sigma(W(C) y_ex + b)  for examples y_ex \in \R^dimI
+ * Opening Layer for use with convolutional layers.  Examples are replicated.
+ * Layer transformation: y = ([I; I; ... I] y_ex)
  */
 class OpenConvLayer : public Layer {
 
@@ -348,10 +348,32 @@ class OpenConvLayer : public Layer {
 
   public:
       OpenConvLayer(int     dimI,
-                     int     dimO);
+                    int     dimO);
       ~OpenConvLayer();
 
       void setExample(double* example_ptr);
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar);
+};
+
+/** 
+ * Opening Layer for use with convolutional layers.  Examples are replicated
+ * and then have an activation function applied.
+ *
+ * This layer is specially designed for MNIST
+ *
+ * Layer transformation: y = sigma([I; I; ... I] y_ex)
+ */
+
+class OpenConvLayerMNIST : public OpenConvLayer {
+
+  public:
+      OpenConvLayerMNIST(int     dimI,
+                         int     dimO);
+      ~OpenConvLayerMNIST();
 
       void applyFWD(double* state);
 

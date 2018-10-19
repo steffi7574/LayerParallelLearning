@@ -26,7 +26,8 @@ Network::Network(int    nLayers,
                  double Gamma_tik, 
                  double Gamma_ddt,
                  double Gamma_class,
-                 int    networkType)
+                 int    networkType,
+                 int    type_openlayer)
 {
     double (*activ_ptr)(double x);
     double (*dactiv_ptr)(double x);
@@ -89,8 +90,13 @@ Network::Network(int    nLayers,
           break;
        case CONVOLUTIONAL:
           /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
+          if (type_openlayer == 0)
           {
              layers[0] = new OpenConvLayer(nFeatures, nChannels);
+          }
+          else if (type_openlayer == 1)
+          {
+             layers[0] = new OpenConvLayerMNIST(nFeatures, nChannels);
           }
           break;
     }

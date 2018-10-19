@@ -37,6 +37,7 @@ int main (int argc, char *argv[])
     double   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
     int      networkType;             /**< Use a dense or convolutional network */
+    int      type_openlayer;          /**< Type of opening layer for Convolutional layer, 0: replicate, 1: tuned for MNIST */ 
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
     int      ndesign;             /**< Number of design variables */
@@ -131,6 +132,7 @@ int main (int argc, char *argv[])
     weights_open_init  = 0.001;
     weights_init       = 0.0;
     weights_class_init = 0.001;
+    type_openlayer     = 0;
     hessian_approx     = USE_LBFGS;
     lbfgs_stages       = 20;
 
@@ -321,6 +323,23 @@ int main (int argc, char *argv[])
         {
            weights_open_init = atof(co->value);
         }
+        else if ( strcmp(co->key, "type_openlayer") == 0 )
+        {
+            if (strcmp(co->value, "replicate") == 0 )
+            {
+                type_openlayer = 0; 
+            }
+            else if ( strcmp(co->value, "activate") == 0 )
+            {
+                type_openlayer = 1; 
+            }
+            else
+            {
+                printf("Invalid type_openlayer!\n");
+                MPI_Finalize();
+                return(0);
+            }
+        }
         else if ( strcmp(co->key, "weights_init") == 0 )
         {
            weights_init = atof(co->value);
@@ -401,7 +420,7 @@ int main (int argc, char *argv[])
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, 
                           weights_init, weights_open_init, weights_class_init,  
                           gamma_tik, gamma_ddt, gamma_class,
-                          networkType);
+                          networkType, type_openlayer);
 
 
     /* Initialize xbraid's app structure */
@@ -507,6 +526,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                nlayers             %d \n", nlayers);
         fprintf(optimfile, "#                T                   %f \n", T);
         fprintf(optimfile, "#                Activation          %s \n", activname);
+        fprintf(optimfile, "#                type openlayer      %d \n", type_openlayer);
         fprintf(optimfile, "# XBraid setup:  max levels          %d \n", braid_maxlevels);
         fprintf(optimfile, "#                coasening           %d \n", braid_cfactor);
         fprintf(optimfile, "#                max. braid iter     %d \n", braid_maxiter);

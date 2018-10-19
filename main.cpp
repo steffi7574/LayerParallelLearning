@@ -356,26 +356,26 @@ int main (int argc, char *argv[])
     sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
     /* Read training data */
-    if (myid == 0)      train_examples = new double* [ntraining];
-    if (myid == size-1) train_labels   = new double* [ntraining];
+    train_examples = new double* [ntraining];
+    train_labels   = new double* [ntraining];
     for (int ix = 0; ix<ntraining; ix++)
     {
-        if (myid == 0)      train_examples[ix] = new double[nfeatures];
-        if (myid == size-1) train_labels[ix]   = new double[nclasses];
+        train_examples[ix] = new double[nfeatures];
+        train_labels[ix]   = new double[nclasses];
     }
-    if (myid == 0)      read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
-    if (myid == size-1) read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
+    read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
+    read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
 
     /* Read validation data */
-    if (myid == 0)      val_examples = new double* [nvalidation];
-    if (myid == size-1) val_labels   = new double* [nvalidation];
+    val_examples = new double* [nvalidation];
+    val_labels   = new double* [nvalidation];
     for (int ix = 0; ix<nvalidation; ix++)
     {
-        if (myid == 0)      val_examples[ix] = new double[nfeatures];
-        if (myid == size-1) val_labels[ix]   = new double[nclasses];
+        val_examples[ix] = new double[nfeatures];
+        val_labels[ix]   = new double[nclasses];
     }
-    if (myid == 0)      read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
-    if (myid == size-1) read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
+    read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
 
     /* Create a network */
@@ -893,18 +893,18 @@ int main (int argc, char *argv[])
 
     for (int ix = 0; ix<ntraining; ix++)
     {
-        if (myid == 0)      delete [] train_examples[ix];
-        if (myid == size-1) delete [] train_labels[ix];
+        delete [] train_examples[ix];
+        delete [] train_labels[ix];
     }
-    if (myid == 0)      delete [] train_examples;
-    if (myid == size-1) delete [] train_labels;
+    delete [] train_examples;
+    delete [] train_labels;
     for (int ix = 0; ix<nvalidation; ix++)
     {
-        if (myid == 0)      delete [] val_examples[ix];
-        if (myid == size-1) delete [] val_labels[ix];
+        delete [] val_examples[ix];
+        delete [] val_labels[ix];
     }
-    if (myid == 0)      delete [] val_examples;
-    if (myid == size-1) delete [] val_labels;
+    delete [] val_examples;
+    delete [] val_labels;
 
     if (myid == MASTER_NODE)
     {

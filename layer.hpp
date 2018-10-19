@@ -303,7 +303,7 @@ class ConvLayer : public Layer {
                     double* state_bar);
 
       double apply_conv(double* state,        // state vector to apply convolution to 
-                      int     i,              // convolution index
+                      int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k,              // column index
                       int     img_size_sqrt,  // sqrt of the image size
@@ -329,7 +329,7 @@ class ConvLayer : public Layer {
       void updateWeightDerivative(
                       double* state,          // state vector
                       double * update_bar,    // combines derivative and adjoint info (see comments)
-                      int     i,              // convolution index
+                      int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k,              // column index
                       int     img_size_sqrt); // sqrt of the image size

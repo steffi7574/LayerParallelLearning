@@ -651,7 +651,7 @@ ConvLayer::ConvLayer(int     idx,
 {
    csize = csize_in;
    nconv = nconv_in;
-   nweights = csize*csize*nconv;
+   nweights = csize*csize*nconv*nconv;
    ndesign = nweights + 1; // must add one to account for the bias
 }
    
@@ -674,86 +674,95 @@ ConvLayer::~ConvLayer() {}
  */
 void ConvLayer::
 updateWeightDerivative(double* state, double * update_bar, 
-                       int i, int j, int k, int img_size_sqrt)
+                       int output_conv,  /* output convolution */
+                       int j,            /* pixel index */
+                       int k,            /* pixel index */
+                       int img_size_sqrt)
 {
-   int idx = i*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
    int fcsize = floor(csize/2.0);
-
-   // weight derivative
-   for(int s = -fcsize; s <= fcsize; s++)
-   {
-      for(int t = -fcsize; t <= fcsize; t++)
+   for(int input_image = 0; input_image < nconv; input_image++) {
+      int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   
+      // weight derivative
+      for(int s = -fcsize; s <= fcsize; s++)
       {
-         int wght_idx = i*csize*csize + (s+fcsize)*csize + (t+fcsize);
-         if(    ((j+s) >= 0)
-             && ((j+s) < img_size_sqrt) 
-             && ((k+t) >= 0) 
-             && ((k+t) < img_size_sqrt))
+         for(int t = -fcsize; t <= fcsize; t++)
          {
-            int offset = s*img_size_sqrt + t;
-
-            weights_bar[wght_idx] += update_bar[idx]*state[idx+offset];
+            int wght_idx = output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+            if(    ((j+s) >= 0)
+                && ((j+s) < img_size_sqrt) 
+                && ((k+t) >= 0) 
+                && ((k+t) < img_size_sqrt))
+            {
+               int offset = s*img_size_sqrt + t;
+   
+               weights_bar[wght_idx] += update_bar[center_index]*state[center_index+offset];
+            }
          }
       }
    }
 }
 
 double ConvLayer::apply_conv(double* state, 
-                             int con_index,  /* input image index */
-                             int j,          /* pixel index */
-                             int k,          /* pixel index */
+                             int output_conv,  /* output convolution */
+                             int j,            /* pixel index */
+                             int k,            /* pixel index */
                              int img_size_sqrt,
                              bool transpose)
 {
    double val = 0.0;
-   int center_index = con_index*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   double * weights_local = weights;
    int fcsize = floor(csize/2.0);
 
-   double * weights_local = weights;
-/*
-   // for testing
-   if(false)
-   {
-      weights_local = new double[csize*csize];
-      double value = 0.1;
-      for(int s = -fcsize; s <= fcsize; s++) {
-         for(int t = -fcsize; t <= fcsize; t++) {
-            int wght_idx =  (t+fcsize)*csize + (s+fcsize);
-            weights_local[wght_idx] = value;
-            value += 0.1;
+   /*
+      // for testing
+      if(false)
+      {
+         weights_local = new double[csize*csize];
+         double value = 0.1;
+         for(int s = -fcsize; s <= fcsize; s++) {
+            for(int t = -fcsize; t <= fcsize; t++) {
+               int wght_idx =  (t+fcsize)*csize + (s+fcsize);
+               weights_local[wght_idx] = value;
+               value += 0.1;
+            }
          }
       }
-   }
-*/
-   
-   for(int s = -fcsize; s <= fcsize; s++)
-   {
-      for(int t = -fcsize; t <= fcsize; t++)
-      {
-         int offset = transpose 
-                      ? -s*img_size_sqrt - t
-                      :  s*img_size_sqrt + t;
-         int wght_idx =  ( s+fcsize)*csize + ( t+fcsize); // + con_index*csize*csize;
+   */
 
-         // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
-         if(not transpose) {
-           if(   ((j+s) >= 0) 
-              && ((j+s) < img_size_sqrt) 
-              && ((k+t) >= 0) 
-              && ((k+t) < img_size_sqrt))
-           {
-              val += state[center_index + offset]*weights_local[wght_idx];
-           }
-         }
-         else
+   /* loop over all the images */
+   for(int input_image = 0; input_image < nconv; input_image++) {
+      int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+      
+      for(int s = -fcsize; s <= fcsize; s++)
+      {
+         for(int t = -fcsize; t <= fcsize; t++)
          {
-           if(    ((j-s) >= 0) 
-               && ((j-s) < img_size_sqrt) 
-               && ((k-t) >= 0) 
-               && ((k-t) < img_size_sqrt))
-           {
-              val += state[center_index + offset]*weights_local[wght_idx];
-           }
+            int offset = transpose 
+                         ? -s*img_size_sqrt - t
+                         :  s*img_size_sqrt + t;
+            int wght_idx =  output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+   
+            // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
+            if(not transpose) {
+              if(   ((j+s) >= 0) 
+                 && ((j+s) < img_size_sqrt) 
+                 && ((k+t) >= 0) 
+                 && ((k+t) < img_size_sqrt))
+              {
+                 val += state[center_index + offset]*weights_local[wght_idx];
+              }
+            }
+            else
+            {
+              if(    ((j-s) >= 0) 
+                  && ((j-s) < img_size_sqrt) 
+                  && ((k-t) >= 0) 
+                  && ((k-t) < img_size_sqrt))
+              {
+                 val += state[center_index + offset]*weights_local[wght_idx];
+              }
+            }
          }
       }
    }

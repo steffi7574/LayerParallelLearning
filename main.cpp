@@ -98,8 +98,6 @@ int main (int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    
-
     /* --- Set DEFAULT parameters of the config file options --- */ 
 
     ntraining          = 5000;
@@ -380,7 +378,6 @@ int main (int argc, char *argv[])
         }
     }
 
-
     /*--- INITIALIZATION ---*/
 
     /* Set the data file names */
@@ -415,7 +412,6 @@ int main (int argc, char *argv[])
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
-
     /* Create the network */
     network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, 
                           weights_init, weights_open_init, weights_class_init,  
@@ -441,7 +437,6 @@ int main (int argc, char *argv[])
     app_val->labels        = val_labels;
     app_val->accuracy      = 0.0;
     app_val->loss          = 0.0;
-
 
     /* Initializze adjoint XBraid for training data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
@@ -754,7 +749,7 @@ int main (int argc, char *argv[])
          printf(" Adjoint dot test: \n\n");
          printf("   ndesign   = %d (calc = %d)\n",ndesign,
                                                   nchannels*nclasses+nclasses // class layer
-                                                  +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*nchannels/nfeatures)); // con layers
+                                                  +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/nfeatures)*(nchannels/nfeatures))); // con layers
          printf("   nchannels = %d\n",nchannels);
          printf("   nlayers   = %d\n",nlayers); 
          printf("   conv_size = %d\n",nconv_size);

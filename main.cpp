@@ -730,6 +730,8 @@ int main (int argc, char *argv[])
             printf("\n");
         }
     }
+
+    // write_vector("design.dat", design, ndesign);
 #endif
 
 
@@ -741,7 +743,7 @@ int main (int argc, char *argv[])
  *       ydot = (dfdx)  xdot
  * choosing xdot to be a vector of all ones, ybar = 1.0;
  * ==================================================================================*/
-#if 1
+#if 0
     if (size == 1)
     {
          int nconv_size = 3;
@@ -756,7 +758,7 @@ int main (int argc, char *argv[])
          printf("   conv_size = %d\n",nconv_size);
          printf("   nclasses  = %d\n\n",nclasses);
 
-        // read_vector("design.dat", design, ndesign);
+         // read_vector("design.dat", design, ndesign);
       
         /* Propagate through braid */
         braid_SetObjectiveOnly(core_train, 0);

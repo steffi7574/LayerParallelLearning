@@ -127,7 +127,7 @@ void Network::createLayers(int    StartLayerID,
             else
             {
                layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, Activation, gamma_tik);
-               printf("Creating OpenDense-Layer at %d local %d\n", ilayer, storeID);
+               printf("Creating OpenDense-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
             }
             ndesign += layers[storeID]->getnDesign();
         }
@@ -135,13 +135,13 @@ void Network::createLayers(int    StartLayerID,
         {
             layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, gamma_tik);
             ndesign += layers[storeID]->getnDesign();
-            printf("Creating Dense-Layer at %d local %d\n", ilayer, storeID);
+            printf("Creating Dense-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
         }
         else // Classification layer 
         {
             layers[storeID] = new ClassificationLayer(nlayers_global-1, nchannels, nClasses, gamma_class);
             ndesign += layers[storeID]->getnDesign();
-            printf("Creating Classification-Layer at %d local %d\n", ilayer, storeID);
+            printf("Creating Classification-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
         }
     }
 
@@ -153,7 +153,7 @@ void Network::createLayers(int    StartLayerID,
     int istart = 0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
-        int storeID = ilayer - startlayerID;
+        int storeID = getLocalID(ilayer);
         if (ilayer == 0)  // Opening layer
         {
             layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Weight_open_init);

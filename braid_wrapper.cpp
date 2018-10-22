@@ -446,7 +446,7 @@ evalObjectiveT(braid_App   app,
     double *aux = new double[nchannels];
 
      /* Tikhonov */
-    // TODO: regul_tik = u->layer->evalTikh();
+    regul_tik = u->layer->evalTikh();
 
     /* TODO: DDT-REGULARIZATION */
 
@@ -696,7 +696,12 @@ my_Init_Adj(braid_App     app,
         }
         printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
  
+
+        /* Derivative of tikhonov regularization */
+        layer->evalTikh_diff(1.0);
+
     }
+
 
     delete [] aux;
 

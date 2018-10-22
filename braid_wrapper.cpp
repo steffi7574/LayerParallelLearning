@@ -6,7 +6,8 @@ int GetTimeStepIndex(braid_App app,
                      double    t)
 {
 
-    int ts = t / app->network->getDT();
+    /* Round to the closes integer */
+    int ts = round(t / app->network->getDT()) ;
     return ts;
 }
 

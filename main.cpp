@@ -582,7 +582,7 @@ int main (int argc, char *argv[])
 
         /* Get the gradient */
         printf("%d: local ndesign %d out of %d\n", myid, ndesign, ndesign_global);
-        MPI_Gather(network->getDesign(), ndesign, MPI_DOUBLE, descentdir, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Gather(network->getGradient(), ndesign, MPI_DOUBLE, descentdir, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
         if (myid == MASTER_NODE) write_vector("gradient.dat", descentdir, ndesign_global);
 
 

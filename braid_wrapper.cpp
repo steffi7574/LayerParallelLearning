@@ -42,6 +42,7 @@ my_Step(braid_App        app,
 
     /* Get local storage ID */
     int storeID = app->network->getLocalID(ts_stop);
+    printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
@@ -53,7 +54,6 @@ my_Step(braid_App        app,
         u->layer->applyFWD(u->state[iex]);
     }
 
-    printf("%d: step %d,%f -> %d, %f layer %d->%d using %1.14e->%1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), app->network->layers[storeID]->getIndex(), u->layer->getWeights()[63], app->network->layers[storeID]->getWeights()[63], u->state[3][3], u->layer->getnDesign());
 
     /* Free the layer, if it has just been send to this processor */
     if (u->sendflag > 0.0)
@@ -283,7 +283,7 @@ my_BufPack(braid_App           app,
     }
     size += (8 + 2*(nweights+nbias))*sizeof(double);
 
-    // printf("%d: send weight %1.14e\n", app->myid, u->layer->getWeights()[63]);
+    // printf("%d: send weight %1.14e\n", app->myid, u->layer->getWeights()[3]);
     braid_BufferStatusSetSize( bstatus, size);
  
    return 0;
@@ -440,13 +440,13 @@ evalObjectiveT(braid_App   app,
     int    success   = 0;
     double loss      = 0.0;
     double accuracy  = 0.0;
-    double regul_tik;
+    double regul_tik = 0.0;
     double objective;
     int    nchannels = app->network->getnChannels();
     double *aux = new double[nchannels];
 
      /* Tikhonov */
-    regul_tik = u->layer->evalTikh();
+    // TODO: regul_tik = u->layer->evalTikh();
 
     /* TODO: DDT-REGULARIZATION */
 
@@ -456,18 +456,14 @@ evalObjectiveT(braid_App   app,
         /* Sanity check */
         if (app->labels == NULL) printf("\n\n%d: ERROR! This should not happen! %d\n\n", app->myid, ilayer);
 
-        // printf("%d: Eval loss at %d: %1.14e %1.14e\n", app->myid, u->layer->getIndex(), loss, u->state[3][3]);
-        // printf("%d: using %1.14e\n", app->myid, u->layer->getWeights()[3]);
-        
         for (int iex = 0; iex < app->nexamples; iex++)
         {
-            /* Copy values into auxiliary vector */
+            /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
             for (int ic = 0; ic < nchannels; ic++)
             {
                 aux[ic] = u->state[iex][ic];
             }
             /* Apply classification on aux */
-            // u->layer->applyFWD(u->state[iex]);
             u->layer->applyFWD(aux);
             /* Evaluate Loss */
             loss     += u->layer->evalLoss(aux, app->labels[iex]);
@@ -475,7 +471,7 @@ evalObjectiveT(braid_App   app,
         }
         loss     = 1. / app->nexamples * loss;
         accuracy = 100.0 * (double) success / app->nexamples;
-        printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[3][3]);
+        printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
     }
   
     /* Return */
@@ -602,7 +598,7 @@ my_Step_Adj(braid_App        app,
     double tstart, tstop;
     double deltaT;
     int    finegrid  = 0;
-    int    ilayer, primaltimestep, storeID;
+    int    primaltimestep;
     braid_BaseVector uprimal;
     int    nexamples = app->nexamples;
    
@@ -614,18 +610,21 @@ my_Step_Adj(braid_App        app,
     primaltimestep = GetPrimalIndex(app, ts_stop); 
 
 
-    /* Get the design from the primal core */
+    /* Get the layer from the primal core */
     _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
     Layer* layer = uprimal->userVector->layer;
 
-    printf("%d: step %d,%f -> %d, %f layer %d \n", app->myid, ts_start, tstart, ts_stop, tstop, layer->getIndex());
 
     /* Take one step backwards */
     layer->setDt(deltaT);
     for (int iex = 0; iex < nexamples; iex++)
     {
+        if (app->examples !=NULL) layer->setExample(app->examples[iex]);
+
         layer->applyBWD(uprimal->userVector->state[iex], u->state[iex]); // this updates the weights_bar in u->primal_vec->layer
     }
+
+    printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
 
     /* Add costfunction derivative */
     // TODO: derivative of tikhonov regularization
@@ -641,21 +640,19 @@ my_Init_Adj(braid_App     app,
             double        t,
             braid_Vector *u_ptr)
 {
+    braid_BaseVector uprimal;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+    double *aux     = new double[nchannels];
 
     int finegrid       = 0;
     int ilayer         = GetTimeStepIndex(app, t);
     int primaltimestep = GetPrimalIndex(app, ilayer);
 
 
-    /* Initialize the adjoint state with zero */
-    printf("%d: Init %d, using primal %d\n", app->myid, ilayer, primaltimestep);
+    printf("%d: Init %d (primaltimestep %d)\n", app->myid, ilayer, primaltimestep);
 
-
-    int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
-
-
-    /* Initialize the state */
+    /* Allocate the adjoint vector and set to zero */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
     u->state = new double*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
@@ -669,7 +666,39 @@ my_Init_Adj(braid_App     app,
     u->layer    = NULL;
     u->sendflag = -1.0;
 
-    /* TODO: Derivative of classification layer ! */
+    /* Adjoint initial (i.e. terminal) condition is derivative of classification layer */
+    if (t==0)
+    {
+        /* Get the primal vector */
+        _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
+        double** primalstate = uprimal->userVector->state;
+        Layer* layer = uprimal->userVector->layer;
+
+        /* Recompute the Classification */
+        for (int iex = 0; iex < app->nexamples; iex++)
+        {
+            /* Copy values into auxiliary vector */
+            for (int ic = 0; ic < nchannels; ic++)
+            {
+                aux[ic] = primalstate[iex][ic];
+            }
+            /* Apply classification on aux */
+            layer->applyFWD(aux);
+        }
+        
+        /* Compute derivative  */
+        double loss_bar = 1./app->nexamples; 
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            layer->evalLoss_diff(aux, u->state[iex], app->labels[iex], loss_bar);
+
+            layer->applyBWD(primalstate[iex], u->state[iex]);
+        }
+        printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
+ 
+    }
+
+    delete [] aux;
 
     *u_ptr = u;
     return 0;
@@ -696,7 +725,6 @@ my_BufPack_Adj(braid_App           app,
                braid_BufferStatus  bstatus)
 {
     int size;
-    double layertype;
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
@@ -730,7 +758,6 @@ my_BufUnpack_Adj(braid_App           app,
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
-    Layer *tmplayer;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));

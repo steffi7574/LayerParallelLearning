@@ -542,6 +542,12 @@ int main (int argc, char *argv[])
         app_train->loss = 0.0;
         app_val->loss   = 0.0;
 
+
+        // /*  Perturb design */
+        // int idx =0;
+        // design[idx] += 1e-7;
+        // printf("PERTURN %d, ndesign %d\n", idx, ndesign);
+
         /* --- Training data: Get objective and compute gradient ---*/ 
 
         // _braid_SetVerbosity(core_train, 1);
@@ -577,7 +583,8 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core_train, &nreq, &rnorm);
 
         /* Collect objective function for all processors */
-        MPI_Allreduce(&objective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        double myobjective = objective;
+        MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, loss_train, accur_train);
 
@@ -611,6 +618,10 @@ int main (int argc, char *argv[])
         // _braid_SetVerbosity(core_adj, 1);
         braid_Drive(core_adj);
 
+        /* Get the gradient */
+        // write_vector("gradient.dat", gradient, ndesign);
+        printf("%d: ndesign %d\n", myid, ndesign);
+        
 
         // /* Get primal residual norms */
         // braid_GetRNormAdjoint(core_train, &rnorm_adj);

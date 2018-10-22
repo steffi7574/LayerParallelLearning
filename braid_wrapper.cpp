@@ -627,7 +627,9 @@ my_Step_Adj(braid_App        app,
     printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
 
     /* Add costfunction derivative */
-    // TODO: derivative of tikhonov regularization
+    layer->evalTikh_diff(1.0);
+
+    /* TODO: Add derivative of DDT regularization */
 
     /* no refinement */
     braid_StepStatusSetRFactor(status, 1);

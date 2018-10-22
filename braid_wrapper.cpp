@@ -43,7 +43,7 @@ my_Step(braid_App        app,
 
     /* Get local storage ID */
     int storeID = app->network->getLocalID(ts_stop);
-    // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
+    printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
@@ -400,7 +400,6 @@ my_Step_Adj(braid_App        app,
     _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
     Layer* layer = uprimal->userVector->layer;
 
-
     /* Take one step backwards */
     layer->setDt(deltaT);
     for (int iex = 0; iex < nexamples; iex++)
@@ -408,12 +407,17 @@ my_Step_Adj(braid_App        app,
         if (app->examples !=NULL) layer->setExample(app->examples[iex]);
 
         layer->applyBWD(uprimal->userVector->state[iex], u->state[iex]); // this updates the weights_bar in u->primal_vec->layer
+        // for (int ic = 0; ic < app->network->getnChannels(); ic++)
+        // {
+        //     printf("%1.14e ", u->state[iex][ic]);
+        // }
+        // printf("\n");
     }
 
-    // printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
+    printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, adj %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], u->state[1][1], layer->getnDesign());
 
     /* Add costfunction derivative */
-    layer->evalTikh_diff(1.0);
+    // layer->evalTikh_diff(1.0);
 
     /* TODO: Add derivative of DDT regularization */
 
@@ -482,12 +486,8 @@ my_Init_Adj(braid_App     app,
 
             layer->applyBWD(primalstate[iex], u->state[iex]);
         }
-        printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
+        printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[1][1]);
  
-
-        /* Derivative of tikhonov regularization */
-        layer->evalTikh_diff(1.0);
-
     }
 
 
@@ -649,3 +649,60 @@ evalObjective(braid_Core core,
     delete [] aux;
 }          
 
+
+void
+evalGradient(braid_Core  core_primal,
+             braid_Core  core_adjoint,
+             braid_App   app)
+{
+
+    braid_BaseVector ubaseprimal, ubaseadjoint;
+    braid_Vector     uprimal, uadjoint;
+
+    for (int ilayer = 0; ilayer < app->network->getnLayers(); ilayer++)
+    {
+        /* Get primal and adjoint vectors */
+        int primaltimestep = GetPrimalIndex(app, ilayer); 
+        _braid_UGetVectorRef(core_primal,  0, primaltimestep, &ubaseprimal);
+        _braid_UGetVectorRef(core_adjoint, 0, ilayer, &ubaseadjoint);
+
+        if (ubaseadjoint != NULL) // this is only true on one processor (the one that stores u)
+        {
+            /* Sanity check */
+            if (ubaseprimal == NULL) printf ("\n\n ERROR in evalGradient! Can't access primal value!\n\n\n");
+            uprimal  = ubaseprimal->userVector;
+            uadjoint = ubaseadjoint->userVector;
+
+            Layer* layer = uprimal->layer;
+
+            /* Prepare the layer */
+            layer->resetBar();
+            layer->setDt(app->network->getDT());
+
+            printf("%d: eval %d using layer %d,%1.14e primal %d,%1.14e adjoint %1.14e grad[0] %1.14e\n", app->myid, ilayer,layer->getIndex(), layer->getWeights()[3], primaltimestep, uprimal->state[1][1], uadjoint->state[1][1],layer->getWeightsBar()[0]);
+            /* Compute the gradient for all examples */
+            for (int iex = 0; iex < app->nexamples; iex++)
+            {
+                /* Opening layer: set example */
+                if (app->examples !=NULL) layer->setExample(app->examples[iex]);
+
+                layer->evalGradient(uprimal->state[iex], uadjoint->state[iex]);
+
+                for (int ic = 0; ic < app->network->getnChannels(); ic++)
+                {
+                    printf("%1.14e ", uadjoint->state[iex][ic]);
+                }
+                printf("\n");
+            }
+            
+            /* Derivative of tikhonov regularization */
+            // layer->evalTikh_diff(1.0);
+           
+           /* TODO: Add derivative of DDT regularization */
+
+        }
+    }
+
+
+
+}         

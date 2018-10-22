@@ -131,13 +131,6 @@ class Layer
       virtual void applyBWD(double* state,
                             double* state_bar) = 0;
 
-
-      /**
-       * Evaluate gradient
-       */
-      virtual void evalGradient(double* state, 
-                                double* state_bar);
-
       /**
        * Evaluates the loss function 
        */
@@ -198,9 +191,6 @@ class DenseLayer : public Layer {
 
       void applyBWD(double* state,
                     double* state_bar);
-
-      void evalGradient(double* state, 
-                        double* state_bar);
 };
 
 
@@ -226,9 +216,6 @@ class OpenDenseLayer : public DenseLayer {
 
       void applyBWD(double* state,
                     double* state_bar);
-
-      void evalGradient(double* state, 
-                        double* state_bar);
 };
 
 
@@ -273,9 +260,6 @@ class ClassificationLayer : public Layer
       
             void applyBWD(double* state,
                           double* state_bar);
-
-            void evalGradient(double* state, 
-                             double* state_bar);
 
             /**
              * Evaluate the loss function 

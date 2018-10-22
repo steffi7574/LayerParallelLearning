@@ -220,10 +220,6 @@ void Layer::evalLoss_diff(double *data_Out,
 int Layer::prediction(double* data, double* label) {return 0;}
 
 
-void Layer::evalGradient(double* state, 
-                         double* state_bar){}
-
-
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
                        int     dimO,
@@ -274,46 +270,16 @@ void DenseLayer::applyBWD(double* state,
    for (int io = 0; io < dim_Out; io++)
    {
       /* Derivative of bias addition */
-    //   bias_bar[0] += update_bar[io];
-
-      /* Derivative of weight application */
-      for (int ii = 0; ii < dim_In; ii++)
-      {
-        //  weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
-         state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
-      }
-   }
-}
-
-
-void DenseLayer::evalGradient(double* state, 
-                         double* state_bar)
-{
-   /* Derivative of the step */
-   for (int io = 0; io < dim_Out; io++)
-   {
-      /* Recompute affine transformation */
-        update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
-        update[io] += bias[0];
-        
-        /* Derivative */
-        update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
-   }
-
-    /* Derivative of linear transformation */
-   for (int io = 0; io < dim_Out; io++)
-   {
-      /* Derivative of bias addition */
       bias_bar[0] += update_bar[io];
 
       /* Derivative of weight application */
       for (int ii = 0; ii < dim_In; ii++)
       {
          weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+         state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
       }
    }
-}                     
-
+}
 
 
 OpenDenseLayer::OpenDenseLayer(int     dimI,
@@ -365,21 +331,6 @@ void OpenDenseLayer::applyBWD(double* state,
       state_bar[io] = 0.0;
    }
 
-}                
-
-void OpenDenseLayer::evalGradient(double* state, 
-                                  double* state_bar)
-{
-   /* Derivative of step */
-   for (int io = 0; io < dim_Out; io++)
-   {
-      /* Recompute affine transformation */
-      update[io]  = vecdot(dim_In, &(weights[io*dim_In]), example);
-      update[io] += bias[0];
-      /* Derivative */
-      update_bar[io] = dactivation(update[io]) * state_bar[io];
-   }
-
    /* Derivative of affine transformation */
    for (int io = 0; io < dim_Out; io++)
    {
@@ -392,7 +343,7 @@ void OpenDenseLayer::evalGradient(double* state,
          weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
       }
    }
-}                              
+}                
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
@@ -511,49 +462,17 @@ void ClassificationLayer::applyBWD(double* state,
     for (int io = 0; io < dim_Out; io++)
     {
        /* Derivative of bias addition */
-        // bias_bar[io] += update_bar[io];
-  
-        /* Derivative of weight application */
-        for (int ii = 0; ii < dim_In; ii++)
-        {
-        //    weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
-           state_bar[ii] += weights[io*dim_In + ii] * update_bar[io];
-        }
-    }   
-}
-
-void ClassificationLayer::evalGradient(double* state, 
-                                       double* state_bar)
-{
-     /* Recompute affine transformation */
-    for (int io = 0; io < dim_Out; io++)
-    {
-        update[io] = vecdot(dim_In, &(weights[io*dim_In]), state);
-        update[io] += bias[io];
-    }        
-
-    /* Derivative of step */
-    for (int io = 0; io < dim_Out; io++)
-    {
-        update_bar[io] = state_bar[io];
-    }
-    
-    /* Derivative of the normalization */
-    normalize_diff(update, update_bar);
-
-    /* Derivatie of affine transformation */
-    for (int io = 0; io < dim_Out; io++)
-    {
-       /* Derivative of bias addition */
         bias_bar[io] += update_bar[io];
   
         /* Derivative of weight application */
         for (int ii = 0; ii < dim_In; ii++)
         {
            weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+           state_bar[ii] += weights[io*dim_In + ii] * update_bar[io];
         }
     }   
-}                              
+}
+
 
 void ClassificationLayer::normalize(double* data)
 {

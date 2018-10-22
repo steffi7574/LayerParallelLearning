@@ -148,8 +148,3 @@ evalObjective(braid_Core  core,
               double     *loss_ptr,
               double     *accuracy_ptr);
 
-
-void
-evalGradient(braid_Core  core_primal,
-             braid_Core  core_adjoint,
-             braid_App   app);

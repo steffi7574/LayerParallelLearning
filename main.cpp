@@ -44,7 +44,7 @@ int main (int argc, char *argv[])
     // double  *design0;             /**< Old design at last iteration */
     // double  *gradient;            /**< Pointer to global gradient vector */
     // double  *gradient0;           /**< Old gradient at last iteration*/
-    // double  *descentdir;          /**< Descent direction for design updates */
+    double  *descentdir;          /**< Descent direction for design updates */
     double   objective;           /**< Optimization objective */
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -479,10 +479,15 @@ int main (int argc, char *argv[])
                 hessian = new Identity(ndesign);
         }
 
-        /* Allocate memory for optimization vars */
+    }
+
+
+    /* Allocate other optimization vars on first processor */
+    if (myid == MASTER_NODE)
+    {
         // design0    = new double [ndesign];
         // gradient0  = new double [ndesign];
-        // descentdir = new double [ndesign];
+        descentdir = new double [ndesign_global];
     }
 
     /* Initialize optimization parameters */
@@ -588,17 +593,13 @@ int main (int argc, char *argv[])
         /* RUN */
         braid_Drive(core_adj);
 
-        /* Get the gradient */
-        write_vector("gradient.dat", network->getGradient(), ndesign);
-        printf("%d: ndesign %d\n", myid, ndesign);
-        
-
         /* Get adjoint residual norms */
         braid_GetRNormAdjoint(core_adj, &rnorm_adj);
 
-
-        /* Collect the gradient on first processor */
+        /* Get the gradient */
         printf("%d: local ndesign %d out of %d\n", myid, ndesign, ndesign_global);
+        MPI_Gather(network->getDesign(), ndesign, MPI_DOUBLE, descentdir, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        if (myid == MASTER_NODE) write_vector("gradient.dat", descentdir, ndesign_global);
 
         // /* Reduce gradient on MASTER_NODE (in-place communication)*/
         // if (myid == MASTER_NODE) 
@@ -896,7 +897,7 @@ int main (int argc, char *argv[])
         delete hessian;
         // delete [] design0;
         // delete [] gradient0;
-        // delete [] descentdir;
+        delete [] descentdir;
     }
 
     for (int ix = 0; ix<ntraining; ix++)

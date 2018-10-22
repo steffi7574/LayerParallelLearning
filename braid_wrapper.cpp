@@ -43,7 +43,7 @@ my_Step(braid_App        app,
 
     /* Get local storage ID */
     int storeID = app->network->getLocalID(ts_stop);
-    printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
+    // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
@@ -371,221 +371,6 @@ my_BufUnpack(braid_App           app,
 }
 
 
-// int 
-// my_ObjectiveT(braid_App              app,
-//               braid_Vector           u,
-//               braid_ObjectiveStatus  ostatus,
-//               double                *objective_ptr)
-// {
-//     int    success = 0;
-//     double regul_tik = 0.0;
-//     double regul_ddt = 0.0;
-//     double loss      = 0.0;
-//     double accuracy  = 0.0;
-
-//     int nlayers   = app->network->getnLayers();
-//     int nexamples = app->nexamples;
-
-//     /* Get the time index*/
-//     int ts;
-//     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-//     int ilayer = ts - 1;
-//     if (ilayer < 0) 
-//     {
-//        *objective_ptr = 0.0;
-//         return 0;
-//     }
-
-//     /* Tikhonov regularization */
-//     regul_tik = app->network->layers[ilayer]->evalTikh();
-
-//     /* ddt-regularization term */
-//     if (ilayer > 1 && ilayer < nlayers - 1) 
-//     {
-//         regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
-//     }
-
- 
-//     /* Evaluate loss and accuracy */
-//     for (int iex = 0; iex < nexamples; iex++)
-//     {
-//         loss += app->network->layers[ilayer]->evalLoss(u->state[iex], app->labels[iex]);
-
-//         success += app->network->layers[ilayer]->prediction(u->state[iex], app->labels[iex]);
-//     }
-//     loss     = 1. / nexamples * loss;
-//     accuracy = 100.0 * (double) success / nexamples;
-
-//     /* Report to app */
-//     if (ilayer == nlayers - 1)
-//     {
-//         app->loss     = loss;
-//         app->accuracy = accuracy;
-//     }
-
-//     /* Compute objective function */
-//     *objective_ptr = loss + regul_tik + regul_ddt;
-
-    
-//     return 0;
-// }
-
-
-double
-evalObjectiveT(braid_App   app,
-              braid_Vector u, 
-              int          ilayer,
-              double       *loss_ptr,
-              double       *accuracy_ptr)
-{
-    int    success   = 0;
-    double loss      = 0.0;
-    double accuracy  = 0.0;
-    double regul_tik = 0.0;
-    double objective;
-    int    nchannels = app->network->getnChannels();
-    double *aux = new double[nchannels];
-
-     /* Tikhonov */
-    regul_tik = u->layer->evalTikh();
-
-    /* TODO: DDT-REGULARIZATION */
-
-    /* At last layer: Classification */ 
-    if (ilayer == app->network->getnLayers()-1)
-    {
-        /* Sanity check */
-        if (app->labels == NULL) printf("\n\n%d: ERROR! This should not happen! %d\n\n", app->myid, ilayer);
-
-        for (int iex = 0; iex < app->nexamples; iex++)
-        {
-            /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
-            for (int ic = 0; ic < nchannels; ic++)
-            {
-                aux[ic] = u->state[iex][ic];
-            }
-            /* Apply classification on aux */
-            u->layer->applyFWD(aux);
-            /* Evaluate Loss */
-            loss     += u->layer->evalLoss(aux, app->labels[iex]);
-            success  += u->layer->prediction(aux, app->labels[iex]);
-        }
-        loss     = 1. / app->nexamples * loss;
-        accuracy = 100.0 * (double) success / app->nexamples;
-        printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
-    }
-  
-    /* Return */
-    objective     = loss + regul_tik;
-    *accuracy_ptr = accuracy;
-    *loss_ptr     = loss;
-
-    delete [] aux;
-
-    return objective;
-}          
-
-
-// int
-// my_ObjectiveT_diff(braid_App            app,
-//                   braid_Vector          u,
-//                   braid_Vector          u_bar,
-//                   braid_Real            f_bar,
-//                   braid_ObjectiveStatus ostatus)
-// {
-//     double loss_bar, regul_tik_bar, regul_ddt_bar;
-//     int nlayers   = app->network->getnLayers();
-//     int nexamples = app->nexamples;
-
-//     /* Get the time index*/
-//     int ts;
-//     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-//     int ilayer = ts - 1;
-//     if (ilayer < 0) 
-//     {
-//         return 0;
-//     }
-
-//     /* Derivative of objective function */
-//     loss_bar      = f_bar;
-//     regul_tik_bar = f_bar;
-//     regul_ddt_bar = f_bar;
-
-//     /* Derivative of loss function evaluation */
-//     loss_bar = 1./nexamples * loss_bar;
-//     for (int iex = 0; iex < nexamples; iex++)
-//     {
-//         app->network->layers[ilayer]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
-//     }
-
-//     /* Derivative of ddt-regularization term */
-//     if (ilayer > 1 && ilayer < nlayers - 1) 
-//     {
-//         app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
-//     }
-
-//     /* Derivative of the tikhonov regularization term */
-//     app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
-
-//     return 0;
-// }
-
-// int
-// my_Step_diff(braid_App         app,
-//              braid_Vector      ustop,     /**< input, u vector at *tstop* */
-//              braid_Vector      u,         /**< input, u vector at *tstart* */
-//              braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
-//              braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
-//              braid_StepStatus  status)
-// {
-//     int    ts;
-//     double tstart, tstop;
-//     double deltaT;
-
-//     int nexamples = app->nexamples;
-   
-//     /* Get the time-step size and current time index*/
-//     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-//     braid_StepStatusGetTIndex(status, &ts);
-//     deltaT = tstop - tstart;
-
-
-//     /* apply the layer backwards for all examples */
-//     for (int iex = 0; iex < nexamples; iex++)
-//     {
-
-//         if (ts == 0)
-//         {
-//             app->network->layers[0]->setExample(app->examples[iex]);
-//         }
-//         else
-//         {
-//             app->network->layers[ts]->setDt(deltaT);
-//         }
-
-//         /* Apply the layer backwards */
-//         app->network->layers[ts]->applyBWD(u->state[iex], u_bar->state[iex]);
-//     }
-
-//     return 0;
-// }
-
-
-// int 
-// my_ResetGradient(braid_App app)
-// {
-//     int nlayers = app->network->getnLayers();
-
-//     /* Reset bar variables of weights and bias at all layers */
-//     for (int ilayer = 0; ilayer < nlayers; ilayer++)
-//     {
-//         app->network->layers[ilayer]->resetBar();
-//     }
-
-//     return 0;
-// }
-
-
 
 
 int 
@@ -625,7 +410,7 @@ my_Step_Adj(braid_App        app,
         layer->applyBWD(uprimal->userVector->state[iex], u->state[iex]); // this updates the weights_bar in u->primal_vec->layer
     }
 
-    printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
+    // printf("%d: step %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
 
     /* Add costfunction derivative */
     layer->evalTikh_diff(1.0);
@@ -653,7 +438,7 @@ my_Init_Adj(braid_App     app,
     int primaltimestep = GetPrimalIndex(app, ilayer);
 
 
-    printf("%d: Init %d (primaltimestep %d)\n", app->myid, ilayer, primaltimestep);
+    // printf("%d: Init %d (primaltimestep %d)\n", app->myid, ilayer, primaltimestep);
 
     /* Allocate the adjoint vector and set to zero */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
@@ -792,4 +577,75 @@ my_BufUnpack_Adj(braid_App           app,
     *u_ptr = u;
     return 0;
 }
+
+
+
+void
+evalObjective(braid_Core core,
+              braid_App   app,
+              double     *objective_ptr,
+              double     *loss_ptr,
+              double     *accuracy_ptr)
+{
+    int    success   = 0;
+    double loss      = 0.0;
+    double accuracy  = 0.0;
+    double regul_tik = 0.0;
+    double objective;
+    int    nchannels = app->network->getnChannels();
+    double *aux = new double[nchannels];
+    braid_BaseVector ubase;
+    braid_Vector     u;
+
+    for (int ilayer = 0; ilayer < app->network->getnLayers(); ilayer++)
+    {
+        /* Get braid vector at this time step */
+        _braid_UGetVectorRef(core, 0, ilayer, &ubase);
+
+        if (ubase != NULL) // this is only true on one processor (the one that stores u)
+        {
+            u = ubase->userVector;
+
+             /* Tikhonov */
+            regul_tik = u->layer->evalTikh();
+
+            /* TODO: DDT-REGULARIZATION */
+
+            /* At last layer: Classification */ 
+            if (ilayer == app->network->getnLayers()-1)
+            {
+                /* Sanity check */
+                if (app->labels == NULL) printf("\n\n%d: ERROR! This should not happen! %d\n\n", app->myid, ilayer);
+
+                for (int iex = 0; iex < app->nexamples; iex++)
+                {
+                    /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
+                    for (int ic = 0; ic < nchannels; ic++)
+                    {
+                        aux[ic] = u->state[iex][ic];
+                    }
+                    /* Apply classification on aux */
+                    u->layer->applyFWD(aux);
+                    /* Evaluate Loss */
+                    loss     += u->layer->evalLoss(aux, app->labels[iex]);
+                    success  += u->layer->prediction(aux, app->labels[iex]);
+                }
+                loss     = 1. / app->nexamples * loss;
+                accuracy = 100.0 * (double) success / app->nexamples;
+                printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
+            }
+        }
+    }
+    /* Collect objective function for all processors */
+    double myobjective = loss + regul_tik;
+    MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+
+    /* Return */
+    *objective_ptr = objective;
+    *accuracy_ptr  = accuracy;
+    *loss_ptr      = loss;
+
+    delete [] aux;
+}          
 

@@ -107,40 +107,6 @@ my_BufUnpack(braid_App           app,
              braid_BufferStatus  bstatus);
 
 
-int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr);
-
-
-int
-my_ObjectiveT_diff(braid_App            app,
-                  braid_Vector          u,
-                  braid_Vector          u_bar,
-                  braid_Real            f_bar,
-                  braid_ObjectiveStatus ostatus);
-
-int
-my_Step_diff(braid_App         app,
-             braid_Vector      ustop,     /**< input, u vector at *tstop* */
-             braid_Vector      u,         /**< input, u vector at *tstart* */
-             braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
-             braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
-             braid_StepStatus  status);
-
-int 
-my_ResetGradient(braid_App app);
-
-
-
-double
-evalObjectiveT(braid_App   app,
-              braid_Vector u, 
-              int          ilayer,
-              double       *loss_ptr,
-              double       *accuracy_ptr);
-
 
 
 int 
@@ -173,4 +139,12 @@ my_BufUnpack_Adj(braid_App           app,
                  void               *buffer,
                  braid_Vector       *u_ptr,
                  braid_BufferStatus  bstatus);
+
+
+void  
+evalObjective(braid_Core  core,
+              braid_App   app,     
+              double     *objective,
+              double     *loss_ptr,
+              double     *accuracy_ptr);
 

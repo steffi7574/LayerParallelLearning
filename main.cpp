@@ -38,12 +38,13 @@ int main (int argc, char *argv[])
     int      activation;              /**< Enumerator for the activation function */
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
-    int      ndesign;             /**< Number of design variables */
-    double  *design;              /**< Pointer to global design vector */
-    double  *design0;             /**< Old design at last iteration */
-    double  *gradient;            /**< Pointer to global gradient vector */
-    double  *gradient0;           /**< Old gradient at last iteration*/
-    double  *descentdir;          /**< Descent direction for design updates */
+    int      ndesign;             /**< Number of local design variables on this processor */
+    int      ndesign_global;      /**< Number of global design variables (sum of local)*/
+    // double  *design;              /**< Pointer to global design vector */
+    // double  *design0;             /**< Old design at last iteration */
+    // double  *gradient;            /**< Pointer to global gradient vector */
+    // double  *gradient0;           /**< Old gradient at last iteration*/
+    // double  *descentdir;          /**< Descent direction for design updates */
     double   objective;           /**< Optimization objective */
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -66,6 +67,7 @@ int main (int argc, char *argv[])
     /* --- PinT --- */
     braid_Core core_train;      /**< Braid core for training data */
     braid_Core core_val;        /**< Braid core for validation data */
+    braid_Core core_adj;        /**< Braid core for adjoint computation */
     my_App  *app_train;         /**< Braid app for training data */
     my_App  *app_val;           /**< Braid app for validation data */
     int      myid;              /**< Processor rank */
@@ -80,6 +82,9 @@ int main (int argc, char *argv[])
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
+
+    braid_BaseVector ubase;
+    double accur_train, loss_train;
 
     struct rusage r_usage;
     double StartTime, StopTime, UsedTime, myMB, globalMB; 
@@ -388,8 +393,6 @@ int main (int argc, char *argv[])
     app_train->nexamples   = ntraining;
     app_train->examples    = train_examples;
     app_train->labels      = train_labels;
-    app_train->accuracy    = 0.0;
-    app_train->loss        = 0.0;
     /* Initialize xbraid's app structure */
     app_val = (my_App *) malloc(sizeof(my_App));
     app_val->myid          = myid;
@@ -397,46 +400,57 @@ int main (int argc, char *argv[])
     app_val->nexamples     = nvalidation;
     app_val->examples      = val_examples;
     app_val->labels        = val_labels;
-    app_val->accuracy      = 0.0;
-    app_val->loss          = 0.0;
 
 
-    /* Initializze adjoint XBraid for training data */
+    /* Initializze XBraid for training data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
-
+    /* Init adjoint core for training data */
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+    braid_SetRevertedRanks(core_adj, 1);
 
     /* Init XBraid for validation data */
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-    // braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
+
 
     /* Store primal core in the app */
     app_train->primalcore = core_train;
     app_val->primalcore   = core_val;
 
+
+    /* Store all points for primal and adjoint */
+    braid_SetStorage(core_train, 0);
+    braid_SetStorage(core_adj, 0);
+
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);
+    braid_SetMaxLevels(core_adj,   braid_maxlevels);
     braid_SetPrintLevel( core_train, braid_printlevel);
     braid_SetPrintLevel( core_val,   braid_printlevel);
+    braid_SetPrintLevel( core_adj,   braid_printlevel);
     braid_SetCFactor(core_train, -1, braid_cfactor);
     braid_SetCFactor(core_val,   -1, braid_cfactor);
+    braid_SetCFactor(core_adj,   -1, braid_cfactor);
     braid_SetAccessLevel(core_train, braid_accesslevel);
     braid_SetAccessLevel(core_val,   braid_accesslevel);
+    braid_SetAccessLevel(core_adj,   braid_accesslevel);
     braid_SetMaxIter(core_train, braid_maxiter);
     braid_SetMaxIter(core_val,   braid_maxiter);
+    braid_SetMaxIter(core_adj,   braid_maxiter);
     braid_SetSkip(core_train, braid_setskip);
     braid_SetSkip(core_val,   braid_setskip);
+    braid_SetSkip(core_adj,   braid_setskip);
     if (braid_fmg){
         braid_SetFMG(core_train);
         braid_SetFMG(core_val);
+        braid_SetFMG(core_adj);
     }
     braid_SetNRelax(core_train, -1, braid_nrelax);
     braid_SetNRelax(core_val,   -1, braid_nrelax);
+    braid_SetNRelax(core_adj,   -1, braid_nrelax);
     braid_SetAbsTol(core_train, braid_abstol);
     braid_SetAbsTol(core_val,   braid_abstol);
-    braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
-    braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
+    braid_SetAbsTol(core_adj,   braid_abstol);
 
     /* Get xbraid's grid distribution */
     int ilower, iupper;
@@ -445,22 +459,11 @@ int main (int argc, char *argv[])
 
     /* Allocate and initialize the network layers (local design storage) */
     network->createLayers(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
-
-    /* Initialize optimization parameters */
-    ls_param    = 1e-4;
-    ls_iter     = 0;
-    gnorm       = 0.0;
-    objective   = 0.0;
-    rnorm       = 0.0;
-    rnorm_adj   = 0.0;
-    stepsize    = stepsize_init;
-
-    /* Get pointers to gradient and design */
     ndesign  = network->getnDesign();
-    design   = network->getDesign();
-    gradient = network->getGradient();
+    MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    
 
-    /* Initialize hessian approximation */
+    /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian;
     if (myid == MASTER_NODE)
     {
@@ -477,12 +480,19 @@ int main (int argc, char *argv[])
         }
 
         /* Allocate memory for optimization vars */
-        design0    = new double [ndesign];
-        gradient0  = new double [ndesign];
-        descentdir = new double [ndesign];
+        // design0    = new double [ndesign];
+        // gradient0  = new double [ndesign];
+        // descentdir = new double [ndesign];
     }
 
-
+    /* Initialize optimization parameters */
+    ls_param    = 1e-4;
+    ls_iter     = 0;
+    gnorm       = 0.0;
+    objective   = 0.0;
+    rnorm       = 0.0;
+    rnorm_adj   = 0.0;
+    stepsize    = stepsize_init;
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
@@ -538,93 +548,57 @@ int main (int argc, char *argv[])
     StopTime  = 0.0;
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
-        /* Reset the app */
-        app_train->loss = 0.0;
-        app_val->loss   = 0.0;
-
 
         // /*  Perturb design */
         // int idx =0;
         // design[idx] += 1e-7;
-        // printf("PERTURN %d, ndesign %d\n", idx, ndesign);
 
         /* --- Training data: Get objective and compute gradient ---*/ 
 
-        // _braid_SetVerbosity(core_train, 1);
-        braid_SetPrintLevel(core_train, 1);
-
         /* Solve with braid */
-        braid_SetStorage(core_train, 0);
+        braid_SetPrintLevel(core_train, 1);
         braid_Drive(core_train);
-        
 
+        /* Get braid residual norm */
+        nreq = -1;
+        braid_GetRNorms(core_train, &nreq, &rnorm);
+        
         /* Evaluat objective function (loop over every time point) */
-        braid_BaseVector ubase;
-        braid_Vector     u;
-        double accur_train, regul_tik;
-        double loss_train  = 0.0;
-        double success     = 0.0;
         objective = 0.0;
         for (int ilayer = 0; ilayer <= nlayers; ilayer++)
         {
             /* Get braid vector at this time step */
             _braid_UGetVectorRef(core_train, 0, ilayer, &ubase);
 
-            /* Evaluate objective function at this layer */
             if (ubase != NULL) // this is only true on one processor (the one that stores u)
             {
-                u = ubase->userVector;
-
-                objective += evalObjectiveT(app_train, u, ilayer, &loss_train, &accur_train);
+                objective += evalObjectiveT(app_train, ubase->userVector, ilayer, &loss_train, &accur_train);
             }
         }
-
-        nreq = -1;
-        braid_GetRNorms(core_train, &nreq, &rnorm);
-
         /* Collect objective function for all processors */
         double myobjective = objective;
         MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
         printf("%d: Objective %1.14e Loss %1.14e Accuracy %1.14e\n", myid, objective, loss_train, accur_train);
 
 
 
         printf("\n\n SOLVE ADJOINT WITH XBRAID\n\n");
-        braid_Core core_adj;
-
-        braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
-
-        /* Tell XBraid to use reverted processor ranks */
-        braid_SetRevertedRanks(core_adj, 1);
-        /* Store all points */
-        braid_SetStorage(core_adj, 0);
-
-
-        braid_SetMaxLevels(core_adj, braid_maxlevels);
-        braid_SetPrintLevel( core_adj, braid_printlevel);
-        braid_SetCFactor(core_adj, -1, braid_cfactor);
-        braid_SetAccessLevel(core_adj, braid_accesslevel);
-        braid_SetMaxIter(core_adj, braid_maxiter);
-        braid_SetSkip(core_adj, braid_setskip);
-        if (braid_fmg){
-            braid_SetFMG(core_adj);
-        }
-        braid_SetNRelax(core_adj, -1, braid_nrelax);
-        braid_SetAbsTol(core_adj, braid_abstol);
 
 
         /* RUN */
-        // _braid_SetVerbosity(core_adj, 1);
         braid_Drive(core_adj);
 
         /* Get the gradient */
-        // write_vector("gradient.dat", gradient, ndesign);
+        write_vector("gradient.dat", network->getGradient(), ndesign);
         printf("%d: ndesign %d\n", myid, ndesign);
         
 
-        // /* Get primal residual norms */
-        // braid_GetRNormAdjoint(core_train, &rnorm_adj);
+        /* Get adjoint residual norms */
+        braid_GetRNormAdjoint(core_adj, &rnorm_adj);
+
+
+        /* Collect the gradient on first processor */
+        printf("%d: local ndesign %d out of %d\n", myid, ndesign, ndesign_global);
 
         // /* Reduce gradient on MASTER_NODE (in-place communication)*/
         // if (myid == MASTER_NODE) 
@@ -920,9 +894,9 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
         delete hessian;
-        delete [] design0;
-        delete [] gradient0;
-        delete [] descentdir;
+        // delete [] design0;
+        // delete [] gradient0;
+        // delete [] descentdir;
     }
 
     for (int ix = 0; ix<ntraining; ix++)

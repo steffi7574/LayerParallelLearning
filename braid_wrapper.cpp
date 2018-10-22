@@ -370,64 +370,64 @@ my_BufUnpack(braid_App           app,
 }
 
 
-int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr)
-{
-    int    success = 0;
-    double regul_tik = 0.0;
-    double regul_ddt = 0.0;
-    double loss      = 0.0;
-    double accuracy  = 0.0;
+// int 
+// my_ObjectiveT(braid_App              app,
+//               braid_Vector           u,
+//               braid_ObjectiveStatus  ostatus,
+//               double                *objective_ptr)
+// {
+//     int    success = 0;
+//     double regul_tik = 0.0;
+//     double regul_ddt = 0.0;
+//     double loss      = 0.0;
+//     double accuracy  = 0.0;
 
-    int nlayers   = app->network->getnLayers();
-    int nexamples = app->nexamples;
+//     int nlayers   = app->network->getnLayers();
+//     int nexamples = app->nexamples;
 
-    /* Get the time index*/
-    int ts;
-    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-    int ilayer = ts - 1;
-    if (ilayer < 0) 
-    {
-       *objective_ptr = 0.0;
-        return 0;
-    }
+//     /* Get the time index*/
+//     int ts;
+//     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
+//     int ilayer = ts - 1;
+//     if (ilayer < 0) 
+//     {
+//        *objective_ptr = 0.0;
+//         return 0;
+//     }
 
-    /* Tikhonov regularization */
-    regul_tik = app->network->layers[ilayer]->evalTikh();
+//     /* Tikhonov regularization */
+//     regul_tik = app->network->layers[ilayer]->evalTikh();
 
-    /* ddt-regularization term */
-    if (ilayer > 1 && ilayer < nlayers - 1) 
-    {
-        regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
-    }
+//     /* ddt-regularization term */
+//     if (ilayer > 1 && ilayer < nlayers - 1) 
+//     {
+//         regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
+//     }
 
  
-    /* Evaluate loss and accuracy */
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        loss += app->network->layers[ilayer]->evalLoss(u->state[iex], app->labels[iex]);
+//     /* Evaluate loss and accuracy */
+//     for (int iex = 0; iex < nexamples; iex++)
+//     {
+//         loss += app->network->layers[ilayer]->evalLoss(u->state[iex], app->labels[iex]);
 
-        success += app->network->layers[ilayer]->prediction(u->state[iex], app->labels[iex]);
-    }
-    loss     = 1. / nexamples * loss;
-    accuracy = 100.0 * (double) success / nexamples;
+//         success += app->network->layers[ilayer]->prediction(u->state[iex], app->labels[iex]);
+//     }
+//     loss     = 1. / nexamples * loss;
+//     accuracy = 100.0 * (double) success / nexamples;
 
-    /* Report to app */
-    if (ilayer == nlayers - 1)
-    {
-        app->loss     = loss;
-        app->accuracy = accuracy;
-    }
+//     /* Report to app */
+//     if (ilayer == nlayers - 1)
+//     {
+//         app->loss     = loss;
+//         app->accuracy = accuracy;
+//     }
 
-    /* Compute objective function */
-    *objective_ptr = loss + regul_tik + regul_ddt;
+//     /* Compute objective function */
+//     *objective_ptr = loss + regul_tik + regul_ddt;
 
     
-    return 0;
-}
+//     return 0;
+// }
 
 
 double
@@ -485,104 +485,104 @@ evalObjectiveT(braid_App   app,
 }          
 
 
-int
-my_ObjectiveT_diff(braid_App            app,
-                  braid_Vector          u,
-                  braid_Vector          u_bar,
-                  braid_Real            f_bar,
-                  braid_ObjectiveStatus ostatus)
-{
-    double loss_bar, regul_tik_bar, regul_ddt_bar;
-    int nlayers   = app->network->getnLayers();
-    int nexamples = app->nexamples;
+// int
+// my_ObjectiveT_diff(braid_App            app,
+//                   braid_Vector          u,
+//                   braid_Vector          u_bar,
+//                   braid_Real            f_bar,
+//                   braid_ObjectiveStatus ostatus)
+// {
+//     double loss_bar, regul_tik_bar, regul_ddt_bar;
+//     int nlayers   = app->network->getnLayers();
+//     int nexamples = app->nexamples;
 
-    /* Get the time index*/
-    int ts;
-    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-    int ilayer = ts - 1;
-    if (ilayer < 0) 
-    {
-        return 0;
-    }
+//     /* Get the time index*/
+//     int ts;
+//     braid_ObjectiveStatusGetTIndex(ostatus, &ts);
+//     int ilayer = ts - 1;
+//     if (ilayer < 0) 
+//     {
+//         return 0;
+//     }
 
-    /* Derivative of objective function */
-    loss_bar      = f_bar;
-    regul_tik_bar = f_bar;
-    regul_ddt_bar = f_bar;
+//     /* Derivative of objective function */
+//     loss_bar      = f_bar;
+//     regul_tik_bar = f_bar;
+//     regul_ddt_bar = f_bar;
 
-    /* Derivative of loss function evaluation */
-    loss_bar = 1./nexamples * loss_bar;
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        app->network->layers[ilayer]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
-    }
+//     /* Derivative of loss function evaluation */
+//     loss_bar = 1./nexamples * loss_bar;
+//     for (int iex = 0; iex < nexamples; iex++)
+//     {
+//         app->network->layers[ilayer]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
+//     }
 
-    /* Derivative of ddt-regularization term */
-    if (ilayer > 1 && ilayer < nlayers - 1) 
-    {
-        app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
-    }
+//     /* Derivative of ddt-regularization term */
+//     if (ilayer > 1 && ilayer < nlayers - 1) 
+//     {
+//         app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
+//     }
 
-    /* Derivative of the tikhonov regularization term */
-    app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
+//     /* Derivative of the tikhonov regularization term */
+//     app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
 
-    return 0;
-}
+//     return 0;
+// }
 
-int
-my_Step_diff(braid_App         app,
-             braid_Vector      ustop,     /**< input, u vector at *tstop* */
-             braid_Vector      u,         /**< input, u vector at *tstart* */
-             braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
-             braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
-             braid_StepStatus  status)
-{
-    int    ts;
-    double tstart, tstop;
-    double deltaT;
+// int
+// my_Step_diff(braid_App         app,
+//              braid_Vector      ustop,     /**< input, u vector at *tstop* */
+//              braid_Vector      u,         /**< input, u vector at *tstart* */
+//              braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
+//              braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
+//              braid_StepStatus  status)
+// {
+//     int    ts;
+//     double tstart, tstop;
+//     double deltaT;
 
-    int nexamples = app->nexamples;
+//     int nexamples = app->nexamples;
    
-    /* Get the time-step size and current time index*/
-    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    braid_StepStatusGetTIndex(status, &ts);
-    deltaT = tstop - tstart;
+//     /* Get the time-step size and current time index*/
+//     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+//     braid_StepStatusGetTIndex(status, &ts);
+//     deltaT = tstop - tstart;
 
 
-    /* apply the layer backwards for all examples */
-    for (int iex = 0; iex < nexamples; iex++)
-    {
+//     /* apply the layer backwards for all examples */
+//     for (int iex = 0; iex < nexamples; iex++)
+//     {
 
-        if (ts == 0)
-        {
-            app->network->layers[0]->setExample(app->examples[iex]);
-        }
-        else
-        {
-            app->network->layers[ts]->setDt(deltaT);
-        }
+//         if (ts == 0)
+//         {
+//             app->network->layers[0]->setExample(app->examples[iex]);
+//         }
+//         else
+//         {
+//             app->network->layers[ts]->setDt(deltaT);
+//         }
 
-        /* Apply the layer backwards */
-        app->network->layers[ts]->applyBWD(u->state[iex], u_bar->state[iex]);
-    }
+//         /* Apply the layer backwards */
+//         app->network->layers[ts]->applyBWD(u->state[iex], u_bar->state[iex]);
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 
-int 
-my_ResetGradient(braid_App app)
-{
-    int nlayers = app->network->getnLayers();
+// int 
+// my_ResetGradient(braid_App app)
+// {
+//     int nlayers = app->network->getnLayers();
 
-    /* Reset bar variables of weights and bias at all layers */
-    for (int ilayer = 0; ilayer < nlayers; ilayer++)
-    {
-        app->network->layers[ilayer]->resetBar();
-    }
+//     /* Reset bar variables of weights and bias at all layers */
+//     for (int ilayer = 0; ilayer < nlayers; ilayer++)
+//     {
+//         app->network->layers[ilayer]->resetBar();
+//     }
 
-    return 0;
-}
+//     return 0;
+// }
 
 
 

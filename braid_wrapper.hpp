@@ -16,9 +16,6 @@ typedef struct _braid_App_struct
     double** examples;   /* Data examples */
     double** labels;     /* Labels for the data examples */
 
-    double   accuracy;   /* Accuracy of the network */
-    double   loss;
-
     braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */
 } my_App;
 

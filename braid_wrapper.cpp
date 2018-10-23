@@ -61,6 +61,7 @@ my_Step(braid_App        app,
     {
         delete [] u->layer->getWeights();
         delete [] u->layer->getWeightsBar();
+        delete u->layer;
     }
     u->sendflag = -1.0;
 
@@ -646,4 +647,5 @@ evalObjective(braid_Core core,
 
     delete [] aux;
 }          
+
 

@@ -144,14 +144,14 @@ void Layer::initialize(double* design_ptr,
     /* Initialize */
     for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        // weights[i]     = factor * i * index ;
+        // weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        weights[i]     = factor * i * index ;
         weights_bar[i] = 0.0;
     }
     for (int i = 0; i < ndesign - nweights; i++)
     {
-        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        // bias[i]     = factor * i * index;
+        // bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        bias[i]     = factor * i * index;
         bias_bar[i] = 0.0;
     }
 }                   
@@ -252,7 +252,8 @@ void DenseLayer::applyFWD(double* state)
 
 
 void DenseLayer::applyBWD(double* state,
-                          double* state_bar)
+                          double* state_bar,
+                          int     compute_gradient)
 {
 
    /* Derivative of the step */
@@ -270,12 +271,12 @@ void DenseLayer::applyBWD(double* state,
    for (int io = 0; io < dim_Out; io++)
    {
       /* Derivative of bias addition */
-      bias_bar[0] += update_bar[io];
+      if (compute_gradient) bias_bar[0] += update_bar[io];
 
       /* Derivative of weight application */
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+         if (compute_gradient) weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
          state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
       }
    }
@@ -317,7 +318,8 @@ void OpenDenseLayer::applyFWD(double* state)
 }
 
 void OpenDenseLayer::applyBWD(double* state,
-                              double* state_bar)
+                              double* state_bar,
+                              int     compute_gradient)
 {
    /* Derivative of step */
    for (int io = 0; io < dim_Out; io++)
@@ -332,16 +334,19 @@ void OpenDenseLayer::applyBWD(double* state,
    }
 
    /* Derivative of affine transformation */
-   for (int io = 0; io < dim_Out; io++)
+   if (compute_gradient) 
    {
-      /* Derivative of bias addition */
-      bias_bar[0] += update_bar[io];
+       for (int io = 0; io < dim_Out; io++)
+       {
+          /* Derivative of bias addition */
+          bias_bar[0] += update_bar[io];
 
-      /* Derivative of weight application */
-      for (int ii = 0; ii < dim_In; ii++)
-      {
-         weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
-      }
+          /* Derivative of weight application */
+          for (int ii = 0; ii < dim_In; ii++)
+          {
+             weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
+          }
+       }
    }
 }                
 
@@ -376,7 +381,8 @@ void OpenExpandZero::applyFWD(double* state)
 }                           
 
 void OpenExpandZero::applyBWD(double* state,
-                              double* state_bar)
+                              double* state_bar,
+                              int     compute_gradient)
 {
    for (int ii = 0; ii < dim_Out; ii++)
    {
@@ -434,7 +440,8 @@ void ClassificationLayer::applyFWD(double* state)
 }                           
       
 void ClassificationLayer::applyBWD(double* state,
-                                   double* state_bar)
+                                   double* state_bar,
+                                   int     compute_gradient)
 {
     /* Recompute affine transformation */
     for (int io = 0; io < dim_Out; io++)
@@ -462,12 +469,12 @@ void ClassificationLayer::applyBWD(double* state,
     for (int io = 0; io < dim_Out; io++)
     {
        /* Derivative of bias addition */
-        bias_bar[io] += update_bar[io];
+        if (compute_gradient) bias_bar[io] += update_bar[io];
   
         /* Derivative of weight application */
         for (int ii = 0; ii < dim_In; ii++)
         {
-           weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+           if (compute_gradient) weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
            state_bar[ii] += weights[io*dim_In + ii] * update_bar[io];
         }
     }   

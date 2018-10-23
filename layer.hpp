@@ -127,9 +127,11 @@ class Layer
        * Backward propagation of an example 
        * In:     data     - current example data
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
+       * In:     compute_gradient - flag to determin if gradient should be computed (i.e. if weights_bar,bias_bar should be updated or not. In general, update is only done on the finest layer-grid.)
        */
       virtual void applyBWD(double* state,
-                            double* state_bar) = 0;
+                            double* state_bar,
+                            int     compute_gradient) = 0;
 
       /**
        * Evaluates the loss function 
@@ -190,7 +192,8 @@ class DenseLayer : public Layer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 
@@ -215,7 +218,8 @@ class OpenDenseLayer : public DenseLayer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 
@@ -237,7 +241,8 @@ class OpenExpandZero : public Layer
             void applyFWD(double* state);
       
             void applyBWD(double* state,
-                          double* state_bar);
+                          double* state_bar,
+                          int     compute_gradient);
 };
 
 
@@ -259,7 +264,8 @@ class ClassificationLayer : public Layer
             void applyFWD(double* state);
       
             void applyBWD(double* state,
-                          double* state_bar);
+                          double* state_bar,
+                          int     compute_gradient);
 
             /**
              * Evaluate the loss function 

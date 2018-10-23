@@ -2,6 +2,7 @@
 #include "layer.hpp"
 #include <algorithm>
 #include <math.h>
+#include <mpi.h>
 #pragma once
 
 
@@ -105,6 +106,8 @@ class Network
                              double regul_bar);
 
 
+       
+      Layer* MPI_CommunicateLayerNeighbours(MPI_Comm comm);
 
 };
 

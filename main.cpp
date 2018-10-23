@@ -393,6 +393,7 @@ int main (int argc, char *argv[])
     app_train->nexamples   = ntraining;
     app_train->examples    = train_examples;
     app_train->labels      = train_labels;
+    app_train->layer       = NULL;
     /* Initialize xbraid's app structure */
     app_val = (my_App *) malloc(sizeof(my_App));
     app_val->myid          = myid;
@@ -400,6 +401,8 @@ int main (int argc, char *argv[])
     app_val->nexamples     = nvalidation;
     app_val->examples      = val_examples;
     app_val->labels        = val_labels;
+    app_val->layer         = NULL;
+
 
 
     /* Initializze XBraid for training data */
@@ -462,6 +465,8 @@ int main (int argc, char *argv[])
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     
+    /* Store neighbouring layer in the app */
+    app_train->layer = app_train->network->MPI_CommunicateLayerNeighbours(MPI_COMM_WORLD);
 
     /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian;
@@ -555,8 +560,8 @@ int main (int argc, char *argv[])
     {
 
         // /*  Perturb design */
-        int idx = ndesign_global-1;
-        app_train->network->getDesign()[idx] += 1e-7;
+        // int idx = ndesign_global-1;
+        // app_train->network->getDesign()[idx] += 1e-7;
 
         /* --- Training data: Get objective and compute gradient ---*/ 
 
@@ -743,6 +748,8 @@ int main (int argc, char *argv[])
 
     /* Clean up */
     delete network;
+    if (app_train->layer != NULL) delete app_train->layer;
+    if (app_val->layer   != NULL) delete app_val->layer;
     braid_Destroy(core_train);
     braid_Destroy(core_val);
     free(app_train);

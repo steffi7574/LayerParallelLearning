@@ -279,3 +279,122 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     }
 } 
 
+
+
+Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
+{
+    int myid, comm_size;
+    int idx;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    MPI_Status status;
+
+    // int nchannels    = getnChannels();
+    int size         = (8 + 2*(nchannels*nchannels+nchannels));
+
+    Layer* recvlayer = NULL;
+
+    /* Allocate a buffer */
+    double* sendbuffer = new double[size];
+    double* recvbuffer = new double[size];
+
+
+    /* All but the last processor send their last layer to the next neighbour on their right */
+    if (myid < comm_size-1)
+    {
+        int lastlayerIDX = getLocalID(endlayerID);
+        Layer* sendlayer = layers[lastlayerIDX];
+        int nweights     = sendlayer->getnDesign() - sendlayer->getDimBias();
+        int nbias        = sendlayer->getnDesign() - sendlayer->getDimIn() * sendlayer->getDimOut();
+
+        /* Pack the layer into a buffer */
+
+        idx = 0;
+        sendbuffer[idx] = sendlayer->getType();       idx++;
+        sendbuffer[idx] = sendlayer->getIndex();      idx++;
+        sendbuffer[idx] = sendlayer->getDimIn();      idx++;
+        sendbuffer[idx] = sendlayer->getDimOut();     idx++;
+        sendbuffer[idx] = sendlayer->getDimBias();    idx++;
+        sendbuffer[idx] = sendlayer->getActivation(); idx++;
+        sendbuffer[idx] = sendlayer->getnDesign();    idx++;
+        sendbuffer[idx] = sendlayer->getGamma();      idx++;
+        for (int i = 0; i < nweights; i++)
+        {
+            sendbuffer[idx] = sendlayer->getWeights()[i];     idx++;
+            sendbuffer[idx] = sendlayer->getWeightsBar()[i];  idx++;
+        }
+        for (int i = 0; i < nbias; i++)
+        {
+            sendbuffer[idx] = sendlayer->getBias()[i];     idx++;
+            sendbuffer[idx] = sendlayer->getBiasBar()[i];  idx++;
+        }
+        /* Set the rest to zero */
+        for (int i = idx; i < size; i++)
+        {
+            sendbuffer[idx] = 0.0;  idx++;
+        }
+
+        /* Send the buffer */
+        int receiver = myid + 1;
+        MPI_Send(sendbuffer, size, MPI_DOUBLE, receiver, 0, comm);
+    }
+
+    
+    /* All but the first processor receive a layer */
+    if (myid > 0)
+    {
+        /* Receive the buffer */
+        int sender = myid - 1;
+        MPI_Recv(recvbuffer, size, MPI_DOUBLE, sender, 0, comm, &status);
+
+        int idx = 0;
+        int layertype = recvbuffer[idx];  idx++;
+        int index     = recvbuffer[idx];  idx++;
+        int dimIn     = recvbuffer[idx];  idx++;
+        int dimOut    = recvbuffer[idx];  idx++;
+        int dimBias   = recvbuffer[idx];  idx++;
+        int activ     = recvbuffer[idx];  idx++;
+        int nDesign   = recvbuffer[idx];  idx++;
+        int gamma     = recvbuffer[idx];  idx++;
+        switch (layertype)
+        {
+            case Layer::OPENZERO:
+                recvlayer = new OpenExpandZero(dimIn, dimOut);
+                break;
+            case Layer::OPENDENSE:
+                recvlayer = new OpenDenseLayer(dimIn, dimOut, activ, gamma);
+                break;
+            case Layer::DENSE:
+                recvlayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gamma);
+                break;
+            case Layer::CLASSIFICATION:
+                recvlayer = new ClassificationLayer(index, dimIn, dimOut, gamma);
+                break;
+            default: 
+                printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 
+        }
+        double *design   = new double[nDesign];
+        double *gradient = new double[nDesign];
+        recvlayer->initialize(design, gradient, 0.0);
+
+        int nweights     = nDesign - dimBias;
+        int nbias        = nDesign - dimIn * dimOut;
+        for (int i = 0; i < nweights; i++)
+        {
+            recvlayer->getWeights()[i]    = recvbuffer[idx]; idx++;
+            recvlayer->getWeightsBar()[i] = recvbuffer[idx]; idx++;
+        }
+        for (int i = 0; i < nbias; i++)
+        {
+            recvlayer->getBias()[i]    = recvbuffer[idx];   idx++;
+            recvlayer->getBiasBar()[i] = recvbuffer[idx];   idx++;
+        }
+
+    }
+
+    /* Free the buffer */
+    delete [] sendbuffer;
+    delete [] recvbuffer;
+
+    return recvlayer;
+}

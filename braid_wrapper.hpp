@@ -11,7 +11,8 @@
 typedef struct _braid_App_struct
 {
     int      myid;       /* Processor rank*/
-    Network* network;    /* Pointer to the DNN Network */
+    Network* network;    /* Pointer to the DNN Network Block (local layer storage) */
+    Layer*   layer;      /* Stores the layer left of the local Network Block */
     int      nexamples;  /* Number of data examples */
     double** examples;   /* Data examples */
     double** labels;     /* Labels for the data examples */

@@ -2,8 +2,11 @@
 
 ## Program:
 * Use Eigen for data management and linear algebra stuff. 
-* Put activation and dactivation into a class / struct 
-* Convolutional network
+* Branch localdesignstorage (distributedcontrol): 
+    - Random initialization of the weights will be different across the proccesors. -> Difficult to compare runs with varying numbers of processors... -> Think!
+    - Generalize MPI communication of layers for ANY Layer type! e.g. via #defines for each layer type or so. 
+* Branch solveadjointwithxbraid:
+    - Include DDT-regularization and its derivative. 
 
 
 # Parameter study: Lessons Learned (n=32)
@@ -32,6 +35,7 @@
 
 * Rule of thumb for initialization: 
     loss(first iteration) = - log(P(GuessTheRightClass))
+
 
 # Read:
 * **Stochastic approximation**: small batches, use SDG, no hessian approx

@@ -20,6 +20,7 @@ Layer::Layer()
 }
 
 Layer::Layer(int     idx,
+             int     Type,
              int     dimI,
              int     dimO,
              int     dimB,
@@ -28,6 +29,7 @@ Layer::Layer(int     idx,
              double  Gamma)
 {
    index       = idx;
+   type        = Type;
    dim_In      = dimI;
    dim_Out     = dimO;
    dim_Bias    = dimB;
@@ -42,9 +44,10 @@ Layer::Layer(int     idx,
  
 // Layer::Layer(0, dimI, dimO, 1)
 Layer::Layer(int idx, 
+             int type,
              int dimI, 
              int dimO, 
-             int dimB) : Layer(idx, dimI, dimO, dimB, 1.0, -1, 0.0) {}         
+             int dimB) : Layer(idx, type, dimI, dimO, dimB, 1.0, -1, 0.0) {}         
 
 Layer::~Layer()
 {
@@ -60,6 +63,8 @@ double Layer::getDt() { return dt; }
 double Layer::getGamma() { return gamma; }
 
 int Layer::getActivation() { return activ; }
+
+int Layer::getType() { return type; }
 
 double* Layer::getWeights() { return weights; }
 double* Layer::getBias()    { return bias; }
@@ -225,7 +230,7 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimO,
                        double  deltaT,
                        int     Activ,
-                       double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, Gamma)
+                       double  Gamma) : Layer(idx, DENSE, dimI, dimO, 1, deltaT, Activ, Gamma)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -288,6 +293,7 @@ OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     Activ,
                                double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, Gamma) 
 {
+    type    = OPENDENSE;
     example = NULL;
 }
 
@@ -352,7 +358,7 @@ void OpenDenseLayer::applyBWD(double* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, dimI, dimO, 1)
+                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 1)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -394,7 +400,7 @@ void OpenExpandZero::applyBWD(double* state,
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,
                                          int    dimO,
-                                         double Gamma) : Layer(idx, dimI, dimO, dimO)
+                                         double Gamma) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO)
 {
     gamma = Gamma;
     /* Allocate the probability vector */

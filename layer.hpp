@@ -28,16 +28,22 @@ class Layer
       double* bias;                        /* Bias */
       double* bias_bar;                    /* Derivative of bias */
       double  gamma;                       /* Parameter for Tikhonov regularization of weights and bias */
-      int     activ;
+      int     activ;                       /* Activaation function (enum element) */
+      int     type;                       /* Type of the layer (enum element) */
 
       double *update;                      /* Auxilliary for computing fwd update */
       double *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
-      enum activation{TANH, RELU, SMRELU};  /* Available activation functions */
+      /* Available activation functions */
+      enum activation{TANH, RELU, SMRELU};  
+
+      /* Available layer types */
+      enum layertype{OPENZERO=0, OPENDENSE=1, DENSE=2, CLASSIFICATION=3};
 
       Layer();
       Layer(int     idx,
+            int     Type,
             int     dimI,
             int     dimO,
             int     dimB,
@@ -46,9 +52,10 @@ class Layer
             double  Gamme);
 
       Layer(int idx, 
-             int dimI, 
-             int dimO, 
-             int dimB);
+            int Type,
+            int dimI, 
+            int dimO, 
+            int dimB);
 
       virtual ~Layer();
 
@@ -59,6 +66,7 @@ class Layer
       double getDt();
       double getGamma();
       int    getActivation();
+      int    getType();
 
 
       /* Get pointer to the weights bias*/

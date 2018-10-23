@@ -219,7 +219,7 @@ my_BufSize(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double) + (8 + 2*(nchannels*nchannels+nchannels))*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(double) + (8 + (nchannels*nchannels+nchannels))*sizeof(double);
     return 0;
 }
 
@@ -232,7 +232,6 @@ my_BufPack(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int size;
-    double layertype;
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
@@ -249,21 +248,10 @@ my_BufPack(braid_App           app,
     }
     size = nchannels*nexamples*sizeof(double);
 
-    /* Store Layer information for reconstructing the layer at different processor */
-    if (u->layer->getIndex() == 0)
-    {
-        /* Encoding an opening layer */
-        layertype = -1.0;
-    }
-    else 
-    {
-        /* Encoding a dense intermediate layer */
-        layertype = 1.0;
-    }
     int nweights = u->layer->getnDesign() - u->layer->getDimBias();
     int nbias    = u->layer->getnDesign() - u->layer->getDimIn() * u->layer->getDimOut();
 
-    dbuffer[idx] = layertype;                 idx++;
+    dbuffer[idx] = u->layer->getType();       idx++;
     dbuffer[idx] = u->layer->getIndex();      idx++;
     dbuffer[idx] = u->layer->getDimIn();      idx++;
     dbuffer[idx] = u->layer->getDimOut();     idx++;
@@ -274,17 +262,15 @@ my_BufPack(braid_App           app,
     for (int i = 0; i < nweights; i++)
     {
         dbuffer[idx] = u->layer->getWeights()[i];     idx++;
-        dbuffer[idx] = u->layer->getWeightsBar()[i];  idx++;
-        // printf("%d: send weights %d %1.14e %1.14e\n", app->myid, idx, dbuffer[idx-2], dbuffer[idx-1]);
+        // dbuffer[idx] = u->layer->getWeightsBar()[i];  idx++;
     }
     for (int i = 0; i < nbias; i++)
     {
         dbuffer[idx] = u->layer->getBias()[i];     idx++;
-        dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
+        // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
     }
-    size += (8 + 2*(nweights+nbias))*sizeof(double);
+    size += (8 + (nweights+nbias))*sizeof(double);
 
-    // printf("%d: send weight %1.14e\n", app->myid, u->layer->getWeights()[3]);
     braid_BufferStatusSetSize( bstatus, size);
  
    return 0;
@@ -335,17 +321,25 @@ my_BufUnpack(braid_App           app,
     int nweights = nDesign - dimBias;
     int nbias    = nDesign - dimIn * dimOut;
 
-    /* TODO: WARNING: THIS ONLY WORKS FOR DENSE LAYER TYPES!!! CHANGE FOR GENERAL LAYER SWITCH */
-    if (layertype < 0)
+    /* layertype decides on which layer should be created */
+    switch (layertype)
     {
-        /* Create an opening layer */
-        tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gamma);
+        case Layer::OPENZERO:
+            tmplayer = new OpenExpandZero(dimIn, dimOut);
+            break;
+        case Layer::OPENDENSE:
+            tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gamma);
+            break;
+        case Layer::DENSE:
+            tmplayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gamma);
+            break;
+        case Layer::CLASSIFICATION:
+            tmplayer = new ClassificationLayer(index, dimIn, dimOut, gamma);
+            break;
+        default: 
+            printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 
     }
-    else
-    {
-        /* Create a dense layer */
-        tmplayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gamma);
-    }
+
     /* Allocate design and gradient */
     double *design   = new double[nDesign];
     double *gradient = new double[nDesign];
@@ -354,18 +348,14 @@ my_BufUnpack(braid_App           app,
     for (int i = 0; i < nweights; i++)
     {
         tmplayer->getWeights()[i]    = dbuffer[idx]; idx++;
-        tmplayer->getWeightsBar()[i] = dbuffer[idx]; idx++;
-        // printf("%d: receive weights %d %1.14e %1.14e\n", app->myid, idx, dbuffer[idx-2], dbuffer[idx-1]);
     }
     for (int i = 0; i < nbias; i++)
     {
         tmplayer->getBias()[i]    = dbuffer[idx];   idx++;
-        tmplayer->getBiasBar()[i] = dbuffer[idx];   idx++;
     }
     u->layer = tmplayer;
     u->sendflag = 1.0;
 
- 
     *u_ptr = u;
     return 0;
 }

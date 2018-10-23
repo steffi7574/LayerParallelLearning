@@ -492,7 +492,7 @@ int main (int argc, char *argv[])
     {
         // design0    = new double [ndesign];
         // gradient0  = new double [ndesign];
-        descentdir = new double [ndesign_global];
+        descentdir = new double[ndesign_global];
     }
 
     /* Initialize optimization parameters */
@@ -587,10 +587,18 @@ int main (int argc, char *argv[])
         braid_GetRNormAdjoint(core_adj, &rnorm_adj);
 
         /* Collect gradient on MASTER_NODE */
-        // printf("%d: local ndesign %d out of %d\n", myid, ndesign, ndesign_global);
-        MPI_Gather(network->getGradient(), ndesign, MPI_DOUBLE, descentdir, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        int* recvcount = new int[size];
+        int* displs    = new int[size];
+        MPI_Gather(&ndesign, 1, MPI_INT, recvcount , 1, MPI_INT, MASTER_NODE, MPI_COMM_WORLD);
+        for (int i=1; i<size; i++)
+        {
+            displs[i] = displs[i-1] + recvcount [i-1];
+        }
+        MPI_Gatherv(network->getGradient(), ndesign, MPI_DOUBLE, descentdir, recvcount , displs, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        delete [] recvcount;
+        delete [] displs;
 
-        if (myid == MASTER_NODE) write_vector("gradient.dat", descentdir, ndesign_global);
+        // if (myid == MASTER_NODE) write_vector("gradient.dat", descentdir, ndesign_global);
 
 
 

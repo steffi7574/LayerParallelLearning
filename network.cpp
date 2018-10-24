@@ -90,10 +90,46 @@ double* Network::getDesign() { return design; }
 double* Network::getGradient() { return gradient; }
 
 
+Layer* Network::createLayer(int    ilayer, 
+                            int    nFeatures,
+                            int    nClasses,
+                            int    Activation,
+                            double Gamma_tik,
+                            double Gamma_ddt,
+                            double Gamma_class,
+                            double Weight_open_init)
+{
+    Layer* layer;
+    if (ilayer == 0)  // Opening layer
+        {
+            if (Weight_open_init == 0.0)
+            {
+               layer  = new OpenExpandZero(nFeatures, nchannels);
+            }
+            else
+            {
+               layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
+            }
+        }
+        else if (ilayer < nlayers_global-1) // Intermediate layer
+        {
+            layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik);
+        }
+        else if (ilayer == nlayers_global-1) // Classification layer 
+        {
+            layer = new ClassificationLayer(ilayer, nchannels, nClasses, Gamma_class);
+        }
+        else
+        {
+            layer = NULL;
+        }
+
+    return layer;
+}                        
 
 
 
-void Network::createLayers(int    StartLayerID, 
+void Network::initialize(int    StartLayerID, 
                            int    EndLayerID, 
                            int    nFeatures,
                            int    nClasses,
@@ -125,32 +161,9 @@ void Network::createLayers(int    StartLayerID,
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
-        if (ilayer == 0)  // Opening layer
-        {
-            if (Weight_open_init == 0.0)
-            {
-               layers[storeID]  = new OpenExpandZero(nFeatures, nchannels);
-            //    printf("Creating OpenExpandZero-Layer at %d local %d\n", ilayer, storeID);
-            }
-            else
-            {
-               layers[storeID] = new OpenDenseLayer(nFeatures, nchannels, Activation, gamma_tik);
-            //    printf("Creating OpenDense-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
-            }
-            ndesign += layers[storeID]->getnDesign();
-        }
-        else if (ilayer < nlayers_global-1) // Intermediate layer
-        {
-            layers[storeID] = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, gamma_tik);
-            ndesign += layers[storeID]->getnDesign();
-            // printf("Creating Dense-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
-        }
-        else // Classification layer 
-        {
-            layers[storeID] = new ClassificationLayer(nlayers_global-1, nchannels, nClasses, gamma_class);
-            ndesign += layers[storeID]->getnDesign();
-            // printf("Creating Classification-Layer at %d local %d\n", layers[storeID]->getIndex(), storeID);
-        }
+        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+        ndesign += layers[storeID]->getnDesign();
+        
     }
 
     /* Allocate memory for network design and gradient variables */

@@ -439,7 +439,7 @@ int main (int argc, char *argv[])
 
     /* Initialize network and layers */
     network = new Network(nlayers+1, nchannels, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class);
-    network->createLayers(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
+    network->initialize(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     /* Receive left neighbouring layer */

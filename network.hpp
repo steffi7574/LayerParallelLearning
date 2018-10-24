@@ -68,7 +68,7 @@ class Network
       int getnDesign();
 
 
-      void createLayers(int    StartLayerID, 
+      void initialize(int    StartLayerID, 
                         int    EndLayerID, 
                         int    nFeatures,
                         int    nClasses,
@@ -77,6 +77,14 @@ class Network
                         double Weight_open_init,
                         double Classification_init);
 
+      Layer* createLayer(int    index, 
+                         int    nfeatures,
+                         int    nclasses,
+                         int    Activation,
+                         double gamma_tik,
+                         double gamma_ddt,
+                         double gamma_class,
+                         double weights_open_init);
      
       /**
        * Regularization for the time-derivative of the layer weights

@@ -443,11 +443,13 @@ ClassificationLayer::ClassificationLayer(int    idx,
     gamma = Gamma;
     /* Allocate the probability vector */
     probability = new double[dimO];
+    tmpstate    = new double[dim_In];
 }
 
 ClassificationLayer::~ClassificationLayer()
 {
     delete [] probability;
+    delete [] tmpstate;
 }
 
 
@@ -648,7 +650,6 @@ void ClassificationLayer::evalClassification(int      nexamples,
                                              double*  loss_ptr, 
                                              double*  accuracy_ptr)
 {
-    double *aux = new double[dim_In];
     double loss, accuracy;
     int    success;
 
@@ -662,13 +663,13 @@ void ClassificationLayer::evalClassification(int      nexamples,
         /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
         for (int ic = 0; ic < dim_In; ic++)
         {
-            aux[ic] = state[iex][ic];
+            tmpstate[ic] = state[iex][ic];
         }
-        /* Apply classification on aux */
-        applyFWD(aux);
+        /* Apply classification on tmpstate */
+        applyFWD(tmpstate);
         /* Evaluate Loss */
-        loss     += crossEntropy(aux, labels[iex]);
-        success  += prediction(aux, labels[iex]);
+        loss     += crossEntropy(tmpstate, labels[iex]);
+        success  += prediction(tmpstate, labels[iex]);
     }
     loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
@@ -678,8 +679,6 @@ void ClassificationLayer::evalClassification(int      nexamples,
     *loss_ptr      = loss;
     *accuracy_ptr  = accuracy;
 
-
-    delete [] aux;
 }       
 
 
@@ -689,30 +688,26 @@ void ClassificationLayer::evalClassification_diff(int      nexamples,
                                                   double** labels, 
                                                   int      compute_gradient)
 {
-    double *aux = new double[dim_In];
-
     /* Recompute the Classification */
     for (int iex = 0; iex < nexamples; iex++)
     {
         /* Copy values into auxiliary vector */
         for (int ic = 0; ic < dim_In; ic++)
         {
-            aux[ic] = primalstate[iex][ic];
+            tmpstate[ic] = primalstate[iex][ic];
         }
-        /* Apply classification on aux */
-        applyFWD(aux);
+        /* Apply classification on tmpstate */
+        applyFWD(tmpstate);
     }
     
     /* Derivative of Loss and classification. This updates adjoint state and gradient, if desired. */
     double loss_bar = 1./nexamples; 
     for (int iex = 0; iex < nexamples; iex++)
     {
-        crossEntropy_diff(aux, adjointstate[iex], labels[iex], loss_bar);
+        crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
 
         applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
     }
-
-    delete [] aux;
 }  
 
 

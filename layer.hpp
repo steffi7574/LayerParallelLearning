@@ -266,7 +266,8 @@ class ClassificationLayer : public Layer
 {
       protected: 
             double* probability;          /* vector of pedicted class probabilities */
-      
+            double* tmpstate;             /* temporarily holding the state */ 
+            
       public:
             ClassificationLayer(int    idx,
                                 int    dimI,

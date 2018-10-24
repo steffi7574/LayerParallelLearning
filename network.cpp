@@ -262,20 +262,26 @@ void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
     int idx;
     MPI_Comm_rank(comm, &myid);
     MPI_Comm_size(comm, &comm_size);
+    MPI_Request sendrequest, recvrequest;
     MPI_Status status;
 
-    Layer* recvlayer = layer_prev;
-
     /* Allocate buffers */
-    int size           = (nchannels*nchannels+nchannels);
-    double* sendbuffer = new double[size];
-    double* recvbuffer = new double[size];
+    int size = (nchannels*nchannels+nchannels);
+    double* sendlast = new double[size];
+    double* recvlast = new double[size];
 
-    /* All but the last processor send their last layer to the next neighbour on their right */
+    /* --- All but the first process receive the last layer from left neighbour --- */
+    if (myid > 0)
+    {
+
+        int sender = myid - 1;
+        MPI_Irecv(recvlast, size, MPI_DOUBLE, sender, 0, comm, &recvrequest);
+
+    }
+
+    /* --- All but the last process sent their last layer to right neighbour --- */
     if (myid < comm_size-1)
     {
-        /* Sent to right neighbour */
-
         int lastlayerIDX = getLocalID(endlayerID);
         Layer* sendlayer = layers[lastlayerIDX];
         int nweights     = sendlayer->getnDesign() - sendlayer->getDimBias();
@@ -285,53 +291,57 @@ void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
         idx = 0;
         for (int i = 0; i < nweights; i++)
         {
-            sendbuffer[idx] = sendlayer->getWeights()[i];   idx++;
+            sendlast[idx] = sendlayer->getWeights()[i];   idx++;
         }
         for (int i = 0; i < nbias; i++)
         {
-            sendbuffer[idx] = sendlayer->getBias()[i];     idx++;
+            sendlast[idx] = sendlayer->getBias()[i];     idx++;
         }
         /* Set the rest to zero */
         for (int i = idx; i < size; i++)
         {
-            sendbuffer[idx] = 0.0;  idx++;
+            sendlast[idx] = 0.0;  idx++;
         }
 
         /* Send the buffer */
         int receiver = myid + 1;
-        MPI_Send(sendbuffer, size, MPI_DOUBLE, receiver, 0, comm);
+        MPI_Isend(sendlast, size, MPI_DOUBLE, receiver, 0, comm, &sendrequest);
 
-        /* receive from right neighbour */
-        // MPI_Irecv (from myid+1)
     }
 
-    
-    /* All but the first processor receive a layer */
-    if (myid > 0)
-    {
+    /* --- TODO: All but the last processor recv the first layer from the right neighbour --- */
+        /* recv from right neighbour */
+        // MPI_Irecv (from myid+1)
+
+
+    /* --- TODO: All but the first processor send their first layer to the left neighbour --- */
         /* send to left neighbour */
         //MPI_Isend (to myid - 1)
 
-        /* Receive from left neighbour */
-        int sender = myid - 1;
-        MPI_Recv(recvbuffer, size, MPI_DOUBLE, sender, 0, comm, &status);
 
-        int nweights     = recvlayer->getnDesign() - recvlayer->getDimBias();
-        int nbias        = recvlayer->getDimBias();
+    /* Wait to finish up communication */
+    if (myid < comm_size - 1 ) MPI_Wait(&sendrequest, &status);
+    if (myid > 1)              MPI_Wait(&recvrequest, &status);
+
+    /* Unpack and store the received layers */
+    if (myid > 0)
+    {
+        int nweights     = layer_prev->getnDesign() - layer_prev->getDimBias();
+        int nbias        = layer_prev->getDimBias();
 
         int idx = 0;
         for (int i = 0; i < nweights; i++)
         {
-            recvlayer->getWeights()[i]    = recvbuffer[idx]; idx++;
+            layer_prev->getWeights()[i] = recvlast[idx]; idx++;
         }
         for (int i = 0; i < nbias; i++)
         {
-            recvlayer->getBias()[i]    = recvbuffer[idx];   idx++;
+            layer_prev->getBias()[i] = recvlast[idx];   idx++;
         }
     }
 
     /* Free the buffer */
-    delete [] sendbuffer;
-    delete [] recvbuffer;
+    delete [] sendlast;
+    delete [] recvlast;
 
 }

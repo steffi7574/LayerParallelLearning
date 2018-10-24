@@ -190,6 +190,16 @@ void Network::initialize(int    StartLayerID,
             layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
         }
     }
+
+    /* Create and initialize left neighbouring layer */
+    int prevID = startlayerID - 1;
+    layer_prev = createLayer(prevID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+    if (layer_prev != NULL)
+    {
+        double *prev_design   = new double[layer_prev->getnDesign()];
+        double *prev_gradient = new double[layer_prev->getnDesign()];
+        layer_prev->initialize(prev_design, prev_gradient, 0.0);
+    }
 }    
 
 
@@ -256,41 +266,26 @@ void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
 
     Layer* recvlayer = layer_prev;
 
-    /* Destroy currently stored layer */
-    if (recvlayer != NULL)
-    {
-        delete [] recvlayer->getWeights();
-        delete recvlayer;
-        recvlayer = NULL;
-    }
-
     /* Allocate buffers */
-    int size           = (8 + (nchannels*nchannels+nchannels));
+    int size           = (nchannels*nchannels+nchannels);
     double* sendbuffer = new double[size];
     double* recvbuffer = new double[size];
 
     /* All but the last processor send their last layer to the next neighbour on their right */
     if (myid < comm_size-1)
     {
+        /* Sent to right neighbour */
+
         int lastlayerIDX = getLocalID(endlayerID);
         Layer* sendlayer = layers[lastlayerIDX];
         int nweights     = sendlayer->getnDesign() - sendlayer->getDimBias();
         int nbias        = sendlayer->getnDesign() - sendlayer->getDimIn() * sendlayer->getDimOut();
 
         /* Pack the layer into a buffer */
-
         idx = 0;
-        sendbuffer[idx] = sendlayer->getType();       idx++;
-        sendbuffer[idx] = sendlayer->getIndex();      idx++;
-        sendbuffer[idx] = sendlayer->getDimIn();      idx++;
-        sendbuffer[idx] = sendlayer->getDimOut();     idx++;
-        sendbuffer[idx] = sendlayer->getDimBias();    idx++;
-        sendbuffer[idx] = sendlayer->getActivation(); idx++;
-        sendbuffer[idx] = sendlayer->getnDesign();    idx++;
-        sendbuffer[idx] = sendlayer->getGamma();      idx++;
         for (int i = 0; i < nweights; i++)
         {
-            sendbuffer[idx] = sendlayer->getWeights()[i];     idx++;
+            sendbuffer[idx] = sendlayer->getWeights()[i];   idx++;
         }
         for (int i = 0; i < nbias; i++)
         {
@@ -305,58 +300,33 @@ void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
         /* Send the buffer */
         int receiver = myid + 1;
         MPI_Send(sendbuffer, size, MPI_DOUBLE, receiver, 0, comm);
+
+        /* receive from right neighbour */
+        // MPI_Irecv (from myid+1)
     }
 
     
     /* All but the first processor receive a layer */
     if (myid > 0)
     {
-        /* Receive the buffer */
+        /* send to left neighbour */
+        //MPI_Isend (to myid - 1)
+
+        /* Receive from left neighbour */
         int sender = myid - 1;
         MPI_Recv(recvbuffer, size, MPI_DOUBLE, sender, 0, comm, &status);
 
-        int idx = 0;
-        int layertype = recvbuffer[idx];  idx++;
-        int index     = recvbuffer[idx];  idx++;
-        int dimIn     = recvbuffer[idx];  idx++;
-        int dimOut    = recvbuffer[idx];  idx++;
-        int dimBias   = recvbuffer[idx];  idx++;
-        int activ     = recvbuffer[idx];  idx++;
-        int nDesign   = recvbuffer[idx];  idx++;
-        int gamma     = recvbuffer[idx];  idx++;
-        /* Create a new layer */
-        switch (layertype)
-        {
-            case Layer::OPENZERO:
-                recvlayer = new OpenExpandZero(dimIn, dimOut);
-                break;
-            case Layer::OPENDENSE:
-                recvlayer = new OpenDenseLayer(dimIn, dimOut, activ, gamma);
-                break;
-            case Layer::DENSE:
-                recvlayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gamma);
-                break;
-            case Layer::CLASSIFICATION:
-                recvlayer = new ClassificationLayer(index, dimIn, dimOut, gamma);
-                break;
-            default: 
-                printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 
-        }
-        double *design   = new double[nDesign];
-        double *gradient = new double[nDesign];
-        recvlayer->initialize(design, gradient, 0.0);
+        int nweights     = recvlayer->getnDesign() - recvlayer->getDimBias();
+        int nbias        = recvlayer->getDimBias();
 
-        int nweights     = nDesign - dimBias;
-        int nbias        = nDesign - dimIn * dimOut;
+        int idx = 0;
         for (int i = 0; i < nweights; i++)
         {
             recvlayer->getWeights()[i]    = recvbuffer[idx]; idx++;
-            recvlayer->getWeightsBar()[i] = 0.0; 
         }
         for (int i = 0; i < nbias; i++)
         {
             recvlayer->getBias()[i]    = recvbuffer[idx];   idx++;
-            recvlayer->getBiasBar()[i] = 0.0;
         }
     }
 

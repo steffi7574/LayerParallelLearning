@@ -206,23 +206,23 @@ void Layer::evalTikh_diff(double regul_bar)
 
 void Layer::setExample(double* example_ptr) {}
 
-double Layer::evalLoss(double *data_Out, 
-                       double *label) { return 0.0; }
 
-
-void Layer::evalLoss_diff(double *data_Out, 
-                          double *data_Out_bar,
-                          double *label,
-                          double  loss_bar) 
+void Layer::evalClassification(int      nexamples, 
+                               double** state,
+                               double** labels, 
+                               double*  loss_ptr, 
+                               double*  accuracy_ptr)
 {
-    /* dfdu = 0.0 */
-    for (int io = 0; io < dim_Out; io++)
-    {
-        data_Out_bar[io] =  0.0;
-    }
+    if (loss_ptr     != NULL) *loss_ptr     = 0.0;
+    if (accuracy_ptr != NULL) *accuracy_ptr = 0.0;
 }
 
-int Layer::prediction(double* data, double* label) {return 0;}
+
+void Layer::evalClassification_diff(int      nexamples, 
+                                    double** primalstate,
+                                    double** adjointstate,
+                                    double** labels, 
+                                    int      compute_gradient) {}                                
 
 
 DenseLayer::DenseLayer(int     idx,
@@ -513,7 +513,7 @@ void ClassificationLayer::normalize_diff(double* data,
     data_bar[i_max] += max_b;
 }                                     
 
-double ClassificationLayer::evalLoss(double *data_Out, 
+double ClassificationLayer::crossEntropy(double *data_Out, 
                                       double *label) 
 {
    double label_pr, exp_sum;
@@ -536,7 +536,7 @@ double ClassificationLayer::evalLoss(double *data_Out,
 }
       
       
-void ClassificationLayer::evalLoss_diff(double *data_Out, 
+void ClassificationLayer::crossEntropy_diff(double *data_Out, 
                                         double *data_Out_bar,
                                         double *label,
                                         double  loss_bar)
@@ -604,6 +604,78 @@ int ClassificationLayer::prediction(double* data_Out,
    return success;
 }
 
+void ClassificationLayer::evalClassification(int      nexamples, 
+                                             double** state,
+                                             double** labels, 
+                                             double*  loss_ptr, 
+                                             double*  accuracy_ptr)
+{
+    double *aux = new double[dim_In];
+    double loss, accuracy;
+    int    success;
+
+    /* Sanity check */
+    if (labels == NULL) printf("\n\n: ERROR: No labels for classification... \n\n");
+
+    loss    = 0.0;
+    success = 0;
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
+        for (int ic = 0; ic < dim_In; ic++)
+        {
+            aux[ic] = state[iex][ic];
+        }
+        /* Apply classification on aux */
+        applyFWD(aux);
+        /* Evaluate Loss */
+        loss     += crossEntropy(aux, labels[iex]);
+        success  += prediction(aux, labels[iex]);
+    }
+    loss     = 1. / nexamples * loss;
+    accuracy = 100.0 * (double) success / nexamples;
+    // printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
+
+    /* Return */
+    *loss_ptr      = loss;
+    *accuracy_ptr  = accuracy;
+
+
+    delete [] aux;
+}       
+
+
+void ClassificationLayer::evalClassification_diff(int      nexamples, 
+                                                  double** primalstate,
+                                                  double** adjointstate,
+                                                  double** labels, 
+                                                  int      compute_gradient)
+{
+    double *aux = new double[dim_In];
+
+    /* Recompute the Classification */
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Copy values into auxiliary vector */
+        for (int ic = 0; ic < dim_In; ic++)
+        {
+            aux[ic] = primalstate[iex][ic];
+        }
+        /* Apply classification on aux */
+        applyFWD(aux);
+    }
+    
+    /* Derivative of Loss and classification. This updates adjoint state and gradient, if desired. */
+    double loss_bar = 1./nexamples; 
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        crossEntropy_diff(aux, adjointstate[iex], labels[iex], loss_bar);
+
+        applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
+    }
+
+    delete [] aux;
+}  
 
 
 double Layer::ReLu_act(double x)

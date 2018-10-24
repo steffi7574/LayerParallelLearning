@@ -172,62 +172,6 @@ void Network::createLayers(int    StartLayerID,
 }    
 
 
-
-
-
-// void Network::applyFWD(int      nexamples,
-//                        double **examples,
-//                        double **labels)
-// {
-//     int success;
-//     double* state = new double[nchannels];
-
-//     /* Propagate the examples */
-//     loss    = 0.0;
-//     success = 0;
-//     for (int iex = 0; iex < nexamples; iex++)
-//     { 
-//         /* Load input data */
-//         layers[0]->setExample(examples[iex]);
-       
-//         /* Propagate through all layers */ 
-//         for (int ilayer = 0; ilayer < nlayers; ilayer++)
-//         {
-//             /* Apply the next layer */
-//             layers[ilayer]->applyFWD(state);
-//         }
-
-//         /* Evaluate loss */
-//         loss += layers[nlayers-1]->evalLoss(state, labels[iex]);
-
-//         /* Test for successful prediction */
-//         success += layers[nlayers-1]->prediction(state, labels[iex]);
-//     }
-        
-//     /* Set loss and accuracy */
-//     loss     = 1. / nexamples * loss;
-//     accuracy = 100.0 * (double) success / nexamples;
-
-//     delete [] state;
-// }
-
-
-// double Network::evalRegularization()
-// {
-//     double regul_tikh  = 0.0;
-//     double regul_ddt   = 0.0;
-
-//     /* Evaluate regularization terms for each layer */
-//     for (int ilayer = 0; ilayer < nlayers; ilayer++)
-//     {
-//         regul_tikh += layers[ilayer]->evalTikh();
-//         if (ilayer > 1 && ilayer < nlayers - 1) regul_ddt += evalRegulDDT(layers[ilayer-1], layers[ilayer]);
-//     }
-
-//     return regul_tikh + regul_ddt;
-// }
-
-
 double Network::evalRegulDDT(Layer* layer_old, 
                              Layer* layer_curr)
 {

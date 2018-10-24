@@ -377,7 +377,8 @@ my_Step_Adj(braid_App        app,
     double deltaT;
     int    finegrid  = 0;
     int    primaltimestep;
-    braid_BaseVector uprimal;
+    braid_BaseVector ubaseprimal;
+    braid_Vector     uprimal;
     int    nexamples = app->nexamples;
 
     /* Update gradient only on the finest grid */
@@ -393,26 +394,26 @@ my_Step_Adj(braid_App        app,
     primaltimestep = GetPrimalIndex(app, ts_stop); 
 
 
-    /* Get the layer from the primal core */
-    _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
-    Layer* layer = uprimal->userVector->layer;
+    /* Get the primal vector from the primal core */
+    _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &ubaseprimal);
+    uprimal = ubaseprimal->userVector;
 
     /* Reset gradient before the update */
-    if (compute_gradient) layer->resetBar();
+    if (compute_gradient) uprimal->layer->resetBar();
 
     /* Take one step backwards, updates adjoint state and gradient, if desired. */
-    layer->setDt(deltaT);
+    uprimal->layer->setDt(deltaT);
     for (int iex = 0; iex < nexamples; iex++)
     {
-        if (app->examples !=NULL) layer->setExample(app->examples[iex]);
+        if (app->examples !=NULL) uprimal->layer->setExample(app->examples[iex]);
 
-        layer->applyBWD(uprimal->userVector->state[iex], u->state[iex], compute_gradient); 
+        uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
     }
 
-    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, layer->getIndex(), layer->getWeights()[3], uprimal->userVector->state[1][1], layer->getWeightsBar()[0], layer->getnDesign());
+    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->userVector->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
 
-    /* Add gradient of costfunction */
-    if (compute_gradient) layer->evalTikh_diff(1.0);
+    /* Derivative of costfunction: tikhonov */
+    if (compute_gradient) uprimal->layer->evalTikh_diff(1.0);
 
     /* TODO: Add derivative of DDT regularization */
 
@@ -432,7 +433,6 @@ my_Init_Adj(braid_App     app,
     int nexamples = app->nexamples;
     double *aux     = new double[nchannels];
 
-    int compute_gradient = 1;
     int finegrid         = 0;
     int ilayer           = GetTimeStepIndex(app, t);
     int primaltimestep   = GetPrimalIndex(app, ilayer);
@@ -462,33 +462,16 @@ my_Init_Adj(braid_App     app,
         double** primalstate = uprimal->userVector->state;
         Layer* layer = uprimal->userVector->layer;
 
-        /* Recompute the Classification */
-        for (int iex = 0; iex < app->nexamples; iex++)
-        {
-            /* Copy values into auxiliary vector */
-            for (int ic = 0; ic < nchannels; ic++)
-            {
-                aux[ic] = primalstate[iex][ic];
-            }
-            /* Apply classification on aux */
-            layer->applyFWD(aux);
-        }
-        
         /* Reset the gradient before updating it */
-        if (compute_gradient) layer->resetBar();
+        layer->resetBar();
 
-        /* Derivative of Loss and classification. This updates adjoint state and gradient, if desired. */
-        double loss_bar = 1./app->nexamples; 
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            layer->evalLoss_diff(aux, u->state[iex], app->labels[iex], loss_bar);
+        /* Derivative of classification */
+        layer->evalClassification_diff(app->nexamples, primalstate, u->state, app->labels, 1);
 
-            layer->applyBWD(primalstate[iex], u->state[iex], compute_gradient);
-        }
-        // printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
+        /* Derivative of tikhonov regularization) */
+        layer->evalTikh_diff(1.0);
  
-        /* Add gradient of costfunction (tikhonov regularization) */
-        if (compute_gradient) layer->evalTikh_diff(1.0);
+       // printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
     }
 
     delete [] aux;
@@ -587,13 +570,10 @@ evalObjective(braid_Core core,
               double     *loss_ptr,
               double     *accuracy_ptr)
 {
-    int    success   = 0;
     double loss      = 0.0;
     double accuracy  = 0.0;
     double regul_tik = 0.0;
     double objective;
-    int    nchannels = app->network->getnChannels();
-    double *aux = new double[nchannels];
     braid_BaseVector ubase;
     braid_Vector     u;
 
@@ -611,29 +591,9 @@ evalObjective(braid_Core core,
 
             /* TODO: DDT-REGULARIZATION */
 
-            /* At last layer: Classification and Loss evaluation */ 
-            if (ilayer == app->network->getnLayers()-1)
-            {
-                /* Sanity check */
-                if (app->labels == NULL) printf("\n\n%d: ERROR! This should not happen! %d\n\n", app->myid, ilayer);
+            /* Classification and Loss evaluation */ 
+            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss, &accuracy);
 
-                for (int iex = 0; iex < app->nexamples; iex++)
-                {
-                    /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
-                    for (int ic = 0; ic < nchannels; ic++)
-                    {
-                        aux[ic] = u->state[iex][ic];
-                    }
-                    /* Apply classification on aux */
-                    u->layer->applyFWD(aux);
-                    /* Evaluate Loss */
-                    loss     += u->layer->evalLoss(aux, app->labels[iex]);
-                    success  += u->layer->prediction(aux, app->labels[iex]);
-                }
-                loss     = 1. / app->nexamples * loss;
-                accuracy = 100.0 * (double) success / app->nexamples;
-                // printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
-            }
         }
     }
     /* Collect objective function from all processors */
@@ -645,7 +605,6 @@ evalObjective(braid_Core core,
     *accuracy_ptr  = accuracy;
     *loss_ptr      = loss;
 
-    delete [] aux;
 }          
 
 

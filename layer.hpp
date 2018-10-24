@@ -142,30 +142,22 @@ class Layer
                             int     compute_gradient) = 0;
 
       /**
-       * Evaluates the loss function 
+       * On classification layer: applies the classification and evaluates loss/accuracy 
        */
-      virtual double evalLoss(double *data_Out,
-                              double *label);
-
-
-      /** 
-       * Derivative of evaluating the loss function 
-       * In: data_Out, can be used to recompute intermediate states
-       *     label for the current example 
-       *     loss_bar: value holding the outer derivative
-       * Out: data_Out_bar holding the derivative of loss wrt data_Out
-       */
-      virtual void evalLoss_diff(double *data_Out, 
-                                 double *data_Out_bar,
-                                 double *label,
-                                 double  loss_bar);
+      virtual void evalClassification(int      nexamples, 
+                                      double** state,
+                                      double** labels, 
+                                      double*  loss_ptr, 
+                                      double*  accuracy_ptr);
 
       /**
-       * Compute class probabilities,
-       * return 1 if predicted class was correct, else 0.
+       * On classification layer: derivative of evalClassification 
        */
-      virtual int prediction(double* data_Out,
-                             double* label);
+      virtual void evalClassification_diff(int      nexamples, 
+                                          double** primalstate,
+                                          double** adjointstate,
+                                          double** labels, 
+                                          int      compute_gradient);
 
       /* ReLu Activation and derivative */
       double ReLu_act(double x);
@@ -275,16 +267,31 @@ class ClassificationLayer : public Layer
                           double* state_bar,
                           int     compute_gradient);
 
+
+             
+            void evalClassification(int      nexamples, 
+                                    double** state,
+                                    double** labels, 
+                                    double*  loss_ptr, 
+                                    double*  accuracy_ptr);
+
+
+            void evalClassification_diff(int      nexamples, 
+                                         double** primalstate,
+                                         double** adjointstate,
+                                         double** labels, 
+                                         int      compute_gradient);
+
             /**
-             * Evaluate the loss function 
+             * Evaluate the cross entropy function 
              */
-            double evalLoss(double *finalstate,
-                            double *label);
+            double crossEntropy(double *finalstate,
+                                double *label);
 
             /** 
-             * Algorithmic derivative of evaluating loss
+             * Algorithmic derivative of evaluating cross entropy loss
              */
-            void evalLoss_diff(double *data_Out, 
+            void crossEntropy_diff(double *data_Out, 
                                double *data_Out_bar,
                                double *label,
                                double  loss_bar);

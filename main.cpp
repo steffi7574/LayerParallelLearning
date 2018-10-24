@@ -86,6 +86,7 @@ int main (int argc, char *argv[])
     double accur_train;         /**< Accuracy on training data */
     double accur_val;           /**< Accuracy on validation data */
     double loss_train;          /**< Loss function on training data */
+    double loss_val;            /**< Loss function on validation data */
 
     int ilower, iupper;         /**< Index of first and last layer stored on this processor */
     struct rusage r_usage;
@@ -97,6 +98,8 @@ int main (int argc, char *argv[])
     double mygnorm, stepsize, ls_objective;
     int nreq = -1;
     int ls_iter;
+    braid_BaseVector ubase;
+    braid_Vector     u;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -570,24 +573,11 @@ int main (int argc, char *argv[])
         braid_SetPrintLevel( core_val, 0);
         braid_Drive(core_val);
         /* Get loss and accuracy */
-        
-        braid_BaseVector ubase;
-        braid_Vector     u;
-        double accur_val;
-        int success;
-        _braid_UGetVectorRef(core_val, 0, app_val->network->getnLayers()-1, &ubase );
+        _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
         if (ubase != NULL) // This is only true on last processor 
         {
             u = ubase->userVector;
-            /* evaluate accuracy */
-            success = 0;
-            for (int iex = 0; iex < app_val->nexamples; iex++)
-            {
-                u->layer->applyFWD(u->state[iex]);
-                success  += u->layer->prediction(u->state[iex], app_val->labels[iex]);
-            }
-            // loss_val  = 1. / app->nexamples * loss;
-            accur_val = 100.0 * (double) success / app_val->nexamples;
+            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val);
         }
 
 
@@ -600,6 +590,7 @@ int main (int argc, char *argv[])
 
         // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
         MPI_Allreduce(&loss_train, &loss_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&loss_val, &loss_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&accur_train, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&accur_val, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 

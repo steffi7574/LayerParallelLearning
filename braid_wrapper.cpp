@@ -41,8 +41,6 @@ my_Step(braid_App        app,
     /* Set time step size */
     u->layer->setDt(deltaT);
 
-    /* Get local storage ID */
-    int storeID = app->network->getLocalID(ts_stop);
     // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
@@ -66,7 +64,7 @@ my_Step(braid_App        app,
     u->sendflag = -1.0;
 
     /* Move the layer pointer of u forward to that of tstop */
-    u->layer = app->network->layers[storeID];
+    u->layer = app->network->getLayer(ts_stop);
 
 
     // /* no refinement */
@@ -101,11 +99,9 @@ my_Init(braid_App     app,
     /* Initialize the design (if adjoint: nonphysical time t=-1.0) */
     if (t >=0 )
     {
-        int ilayer  = GetTimeStepIndex(app, t);
-        int storeID = app->network->getLocalID(ilayer);
-
         /* Store a pointer to the layer design */
-        u->layer = app->network->layers[storeID];
+        int ilayer  = GetTimeStepIndex(app, t);
+        u->layer = app->network->getLayer(ilayer);
     }
     u->sendflag = -1.0;
     

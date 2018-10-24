@@ -77,12 +77,6 @@ double Network::getDT() { return dt; }
 int Network::getLocalID(int ilayer) 
 {
     int idx = ilayer - startlayerID;
-    if (idx < 0 || idx > nlayers_global-1) 
-    {
-           printf("\n\nERROR! Something went wrong with local storage of layers! \n");
-           printf("ilayer %d, startlayerID %d\n\n", ilayer, startlayerID);
-    }
-
     return idx;
 }
 
@@ -134,6 +128,29 @@ Layer* Network::createLayer(int    ilayer,
     return layer;
 }                        
 
+Layer* Network::getLayer(int layerindex)
+{
+    Layer* layer;
+
+    if (layerindex == startlayerID - 1)
+    {
+        layer = layer_left;
+    } 
+    else if (startlayerID <= layerindex && layerindex <= endlayerID)
+    {
+        layer = layers[getLocalID(layerindex)];
+    }
+    else if (layerindex == endlayerID + 1)
+    {
+        layer = layer_right;
+    }
+    else
+    {
+        layer = NULL;
+    }
+
+    return layer;
+}
 
 
 void Network::initialize(int    StartLayerID, 

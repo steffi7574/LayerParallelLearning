@@ -26,10 +26,10 @@ class Network
       double* design;               /* Local vector of design variables*/
       double* gradient;             /* Local Gradient */
 
-   public: 
       Layer** layers;               /* Array of network layers */
       Layer*  layer_left;           /* Copy of last layer of processor to the left */
       Layer*  layer_right;          /* Copy of first layer of processor to the right*/
+   public: 
 
       Network();
       Network(int    nLayers,
@@ -67,6 +67,12 @@ class Network
       /**
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();
+
+      /**
+       * Get the layer at a certain layer index, i.e. a certain time step
+       * Returns NULL, if this layer is not stored on this processor 
+       */
+      Layer* getLayer(int layerindex);
 
 
       void initialize(int    StartLayerID, 

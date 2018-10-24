@@ -225,7 +225,8 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
 
 
 
-Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
+void Network::MPI_CommunicateLayerNeighbours(Layer*   recvlayer,
+                                             MPI_Comm comm)
 {
     int myid, comm_size;
     int idx;
@@ -233,15 +234,19 @@ Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
     MPI_Comm_size(comm, &comm_size);
     MPI_Status status;
 
-    // int nchannels    = getnChannels();
-    int size         = (8 + 2*(nchannels*nchannels+nchannels));
+    /* Destroy currently stored layer */
+    if (recvlayer != NULL)
+    {
+        delete [] recvlayer->getWeights();
+        delete [] recvlayer->getWeightsBar();
+        delete recvlayer;
+        recvlayer = NULL;
+    }
 
-    Layer* recvlayer = NULL;
-
-    /* Allocate a buffer */
+    /* Allocate buffers */
+    int size           = (8 + 2*(nchannels*nchannels+nchannels));
     double* sendbuffer = new double[size];
     double* recvbuffer = new double[size];
-
 
     /* All but the last processor send their last layer to the next neighbour on their right */
     if (myid < comm_size-1)
@@ -300,6 +305,7 @@ Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
         int activ     = recvbuffer[idx];  idx++;
         int nDesign   = recvbuffer[idx];  idx++;
         int gamma     = recvbuffer[idx];  idx++;
+        /* Create a new layer */
         switch (layertype)
         {
             case Layer::OPENZERO:
@@ -340,5 +346,4 @@ Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
     delete [] sendbuffer;
     delete [] recvbuffer;
 
-    return recvlayer;
 }

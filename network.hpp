@@ -76,22 +76,7 @@ class Network
                         double Weight_open_init,
                         double Classification_init);
 
-//       /**
-//        * Forward propagation through the network. Evaluates loss and accuracy at last layer. 
-//        * In: - number of examples
-//        *     - Pointer to input data, is NULL for all but the first processor!
-//        *     - Pointer to data labels, is NULL for all but the last processor!
-//        */
-//       void applyFWD(int     nexamples,
-//                     double **examples,
-//                     double **labels);
-
-
-//       /**
-//        * Returns the regularization term 
-//        */
-//       double evalRegularization();
-      
+     
       /**
        * Regularization for the time-derivative of the layer weights
        */
@@ -106,8 +91,10 @@ class Network
                              double regul_bar);
 
 
-       
-      Layer* MPI_CommunicateLayerNeighbours(MPI_Comm comm);
+        
+      /* Replace the layer with one that is received from the left neighbouring processor */  
+      void MPI_CommunicateLayerNeighbours(Layer* layer,
+                                          MPI_Comm comm);
 
 };
 

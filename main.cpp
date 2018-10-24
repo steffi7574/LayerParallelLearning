@@ -460,7 +460,7 @@ int main (int argc, char *argv[])
     app_val->layer         = NULL;
 
     /* Also store the left neighbouring layer for training app */
-    app_train->layer = app_train->network->MPI_CommunicateLayerNeighbours(MPI_COMM_WORLD);
+    app_train->network->MPI_CommunicateLayerNeighbours(app_train->layer, MPI_COMM_WORLD);
 
     /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian;

@@ -14,6 +14,7 @@ Network::Network()
    gradient       = NULL;
    design         = NULL;
    layers         = NULL;
+   layer_prev     = NULL;
 }
 
 Network::Network(int    nLayersGlobal,
@@ -48,6 +49,13 @@ Network::~Network()
         delete layers[ilayer];
     }
     delete [] layers;
+
+    if (layer_prev != NULL)
+    {
+        delete [] layer_prev->getWeights();
+        delete [] layer_prev->getWeightsBar();
+        delete layer_prev;
+    }
 
     delete [] design;
     delete [] gradient;
@@ -225,8 +233,7 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
 
 
 
-void Network::MPI_CommunicateLayerNeighbours(Layer*   recvlayer,
-                                             MPI_Comm comm)
+void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
 {
     int myid, comm_size;
     int idx;
@@ -234,17 +241,18 @@ void Network::MPI_CommunicateLayerNeighbours(Layer*   recvlayer,
     MPI_Comm_size(comm, &comm_size);
     MPI_Status status;
 
+    Layer* recvlayer = layer_prev;
+
     /* Destroy currently stored layer */
     if (recvlayer != NULL)
     {
         delete [] recvlayer->getWeights();
-        delete [] recvlayer->getWeightsBar();
         delete recvlayer;
         recvlayer = NULL;
     }
 
     /* Allocate buffers */
-    int size           = (8 + 2*(nchannels*nchannels+nchannels));
+    int size           = (8 + (nchannels*nchannels+nchannels));
     double* sendbuffer = new double[size];
     double* recvbuffer = new double[size];
 
@@ -270,12 +278,10 @@ void Network::MPI_CommunicateLayerNeighbours(Layer*   recvlayer,
         for (int i = 0; i < nweights; i++)
         {
             sendbuffer[idx] = sendlayer->getWeights()[i];     idx++;
-            sendbuffer[idx] = sendlayer->getWeightsBar()[i];  idx++;
         }
         for (int i = 0; i < nbias; i++)
         {
             sendbuffer[idx] = sendlayer->getBias()[i];     idx++;
-            sendbuffer[idx] = sendlayer->getBiasBar()[i];  idx++;
         }
         /* Set the rest to zero */
         for (int i = idx; i < size; i++)
@@ -332,14 +338,13 @@ void Network::MPI_CommunicateLayerNeighbours(Layer*   recvlayer,
         for (int i = 0; i < nweights; i++)
         {
             recvlayer->getWeights()[i]    = recvbuffer[idx]; idx++;
-            recvlayer->getWeightsBar()[i] = recvbuffer[idx]; idx++;
+            recvlayer->getWeightsBar()[i] = 0.0; 
         }
         for (int i = 0; i < nbias; i++)
         {
             recvlayer->getBias()[i]    = recvbuffer[idx];   idx++;
-            recvlayer->getBiasBar()[i] = recvbuffer[idx];   idx++;
+            recvlayer->getBiasBar()[i] = 0.0;
         }
-
     }
 
     /* Free the buffer */

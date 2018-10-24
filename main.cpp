@@ -442,6 +442,8 @@ int main (int argc, char *argv[])
     network->createLayers(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    /* Receive left neighbouring layer */
+    network->MPI_RecvLayerNeighbours(MPI_COMM_WORLD);
  
     /* Initialize xbraid's app structure */
     app_train->primalcore  = core_train;
@@ -450,17 +452,13 @@ int main (int argc, char *argv[])
     app_train->nexamples   = ntraining;
     app_train->examples    = train_examples;
     app_train->labels      = train_labels;
-    app_train->layer       = NULL;
     app_val->primalcore    = core_val;
     app_val->myid          = myid;
     app_val->network       = network;
     app_val->nexamples     = nvalidation;
     app_val->examples      = val_examples;
     app_val->labels        = val_labels;
-    app_val->layer         = NULL;
 
-    /* Also store the left neighbouring layer for training app */
-    app_train->network->MPI_CommunicateLayerNeighbours(app_train->layer, MPI_COMM_WORLD);
 
     /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian;
@@ -644,7 +642,7 @@ int main (int argc, char *argv[])
         /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
         MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
-        app_train->network->MPI_CommunicateLayerNeighbours(app_train->layer, MPI_COMM_WORLD);
+        network->MPI_RecvLayerNeighbours(MPI_COMM_WORLD);
 
 
         // /* --- Backtracking linesearch --- */
@@ -845,8 +843,6 @@ int main (int argc, char *argv[])
 
     /* Clean up */
     delete network;
-    if (app_train->layer != NULL) delete app_train->layer;
-    if (app_val->layer   != NULL) delete app_val->layer;
     braid_Destroy(core_train);
     braid_Destroy(core_val);
     free(app_train);

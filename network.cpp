@@ -285,8 +285,8 @@ Layer* Network::MPI_CommunicateLayerNeighbours(MPI_Comm comm)
 {
     int myid, comm_size;
     int idx;
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-    MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+    MPI_Comm_rank(comm, &myid);
+    MPI_Comm_size(comm, &comm_size);
     MPI_Status status;
 
     // int nchannels    = getnChannels();

@@ -8,9 +8,6 @@ Network::Network()
    dt             = 0.0;
    loss           = 0.0;
    accuracy       = 0.0;
-   gamma_tik      = 0.0;
-   gamma_ddt      = 0.0;
-   gamma_class    = 0.0;
    gradient       = NULL;
    design         = NULL;
    layers         = NULL;
@@ -20,10 +17,7 @@ Network::Network()
 
 Network::Network(int    nLayersGlobal,
                  int    nChannels, 
-                 double deltaT,
-                 double Gamma_tik, 
-                 double Gamma_ddt,
-                 double Gamma_class)
+                 double deltaT)
 {
 
     /* Initilizize */
@@ -32,10 +26,6 @@ Network::Network(int    nLayersGlobal,
     dt               = deltaT;
     loss             = 0.0;
     accuracy         = 0.0;
-    gamma_tik        = Gamma_tik;
-    gamma_ddt        = Gamma_ddt;
-    gamma_class      = Gamma_class;
-
 }             
 
   
@@ -114,7 +104,7 @@ Layer* Network::createLayer(int    ilayer,
         }
         else if (ilayer < nlayers_global-1) // Intermediate layer
         {
-            layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik);
+            layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
         }
         else if (ilayer == nlayers_global-1) // Classification layer 
         {
@@ -160,7 +150,10 @@ void Network::initialize(int    StartLayerID,
                            int    Activation,
                            double Weight_init,
                            double Weight_open_init,
-                           double Classification_init)
+                           double Classification_init,
+                           double gamma_tik, 
+                           double gamma_ddt, 
+                           double gamma_class)
 {
 
     startlayerID = StartLayerID;
@@ -237,59 +230,6 @@ void Network::initialize(int    StartLayerID,
     }
 
 }    
-
-
-double Network::evalRegulDDT(Layer* layer_old, 
-                             Layer* layer_curr)
-{
-    double diff;
-    double ddt = 0.0;
-
-    /* Sanity check */
-    if (layer_old->getDimIn()    != nchannels ||
-        layer_old->getDimOut()   != nchannels ||
-        layer_old->getDimBias()  != 1         ||
-        layer_curr->getDimIn()   != nchannels ||
-        layer_curr->getDimOut()  != nchannels ||
-        layer_curr->getDimBias() != 1           )
-        {
-            printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
-            printf("Dimensions don't match. Check and change this routine.\n");
-            exit(1);
-        }
-
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
-    {
-        diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / dt;
-        ddt += pow(diff,2);
-    }
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / dt;
-    ddt += pow(diff,2);
-    
-    return gamma_ddt / 2.0 * ddt;
-}                
-
-void Network::evalRegulDDT_diff(Layer* layer_old, 
-                                Layer* layer_curr,
-                                double regul_bar)
-{
-    double diff;
-    regul_bar = gamma_ddt * regul_bar;
-
-    /* Derivative of the bias-term */
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / pow(dt,2);
-    layer_curr->getBiasBar()[0] += diff * regul_bar;
-    layer_old->getBiasBar()[0]  -= diff * regul_bar;
-
-    /* Derivative of the weights term */
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
-    {
-        diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / pow(dt,2);
-        layer_curr->getWeightsBar()[iw] += diff * regul_bar;
-        layer_old->getWeightsBar()[iw]  -= diff * regul_bar;
-    }
-} 
-
 
 
 void Network::MPI_CommunicateNeighbours(MPI_Comm comm)

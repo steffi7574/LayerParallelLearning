@@ -14,7 +14,8 @@ Layer::Layer()
    weights_bar  = NULL;
    bias         = NULL;
    bias_bar     = NULL;
-   gamma        = 0.0;
+   gamma_tik    = 0.0;
+   gamma_ddt    = 0.0;
    update       = NULL;
    update_bar   = NULL;
 }
@@ -26,7 +27,8 @@ Layer::Layer(int     idx,
              int     dimB,
              double  deltaT,
              int     Activ,
-             double  Gamma)
+             double  gammatik,
+             double  gammaddt)
 {
    index       = idx;
    type        = Type;
@@ -36,7 +38,8 @@ Layer::Layer(int     idx,
    ndesign     = dimI * dimO + dimB;
    dt          = deltaT;
    activ       = Activ;
-   gamma       = Gamma;
+   gamma_tik   = gammatik;
+   gamma_ddt   = gammaddt;
    
    update     = new double[dimO];
    update_bar = new double[dimO];
@@ -47,7 +50,7 @@ Layer::Layer(int idx,
              int type,
              int dimI, 
              int dimO, 
-             int dimB) : Layer(idx, type, dimI, dimO, dimB, 1.0, -1, 0.0) {}         
+             int dimB) : Layer(idx, type, dimI, dimO, dimB, 1.0, -1, 0.0, 0.0) {}
 
 Layer::~Layer()
 {
@@ -60,7 +63,9 @@ void Layer::setDt(double DT) { dt = DT; }
 
 double Layer::getDt() { return dt; }
 
-double Layer::getGamma() { return gamma; }
+double Layer::getGammaTik() { return gamma_tik; }
+
+double Layer::getGammaDDT() { return gamma_ddt; }
 
 int Layer::getActivation() { return activ; }
 
@@ -224,12 +229,12 @@ double Layer::evalTikh()
         tik += pow(bias[i],2);
     }
 
-    return gamma / 2.0 * tik;
+    return gamma_tik / 2.0 * tik;
 }
 
 void Layer::evalTikh_diff(double regul_bar)
 {
-    regul_bar = gamma * regul_bar;
+    regul_bar = gamma_tik * regul_bar;
 
     /* Derivative bias term */
     for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
@@ -241,6 +246,62 @@ void Layer::evalTikh_diff(double regul_bar)
         weights_bar[i] += weights[i] * regul_bar;
     }
 }
+
+
+double Layer::evalRegulDDT(Layer* layer_prev, 
+                           double deltat)
+{
+    double diff;
+    double regul_ddt = 0.0;
+
+    if (layer_prev == NULL) return 0.0;
+
+    /* Sanity check */
+    if (layer_prev->getDimIn()   != dim_In    ||
+        layer_prev->getDimOut()  != dim_Out   ||
+        layer_prev->getDimBias() != dim_Bias   )
+    {
+        printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
+        printf("Dimensions don't match. Check and change this routine.\n");
+        exit(1);
+    }
+
+    int nweights = dim_Out * dim_In;
+    for (int iw = 0; iw < nweights; iw++)
+    {
+        diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
+        regul_ddt += pow(diff,2);
+    }
+    diff       = (getBias()[0] - layer_prev->getBias()[0]) / deltat;
+    regul_ddt += pow(diff,2);
+    
+    return gamma_ddt / 2.0 * regul_ddt;
+}                
+
+void Layer::evalRegulDDT_diff(Layer* layer_prev, 
+                              double deltat,
+                              double regul_bar)
+{
+    double diff;
+    regul_bar = gamma_ddt * regul_bar;
+
+    /* Derivative of the bias-term */
+    diff = (getBias()[0] - layer_prev->getBias()[0]) / pow(deltat,2);
+    getBiasBar()[0]             += diff * regul_bar;
+    layer_prev->getBiasBar()[0] -= diff * regul_bar;
+
+    /* Derivative of the weights term */
+    int nweights = dim_Out * dim_In;
+    for (int iw = 0; iw < nweights; iw++)
+    {
+        diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / pow(deltat,2);
+        getWeightsBar()[iw]             += diff * regul_bar;
+        layer_prev->getWeightsBar()[iw] -= diff * regul_bar;
+    }
+} 
+
+
+
 
 void Layer::setExample(double* example_ptr) {}
 
@@ -268,7 +329,8 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimO,
                        double  deltaT,
                        int     Activ,
-                       double  Gamma) : Layer(idx, DENSE, dimI, dimO, 1, deltaT, Activ, Gamma)
+                       double  gammatik, 
+                       double  gammaddt) : Layer(idx, DENSE, dimI, dimO, 1, deltaT, Activ, gammatik, gammaddt)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -329,7 +391,7 @@ void DenseLayer::applyBWD(double* state,
 OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
                                int     Activ,
-                               double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, Gamma) 
+                               double  gammatik) : DenseLayer(0, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
 {
     type    = OPENDENSE;
     example = NULL;
@@ -341,6 +403,7 @@ void OpenDenseLayer::setExample(double* example_ptr)
 {
     example = example_ptr;
 }
+
 
 void OpenDenseLayer::applyFWD(double* state) 
 {
@@ -411,7 +474,6 @@ void OpenExpandZero::setExample(double* example_ptr)
     example = example_ptr;
 }
 
-
 void OpenExpandZero::applyFWD(double* state)
 {
    for (int ii = 0; ii < dim_In; ii++)
@@ -438,9 +500,9 @@ void OpenExpandZero::applyBWD(double* state,
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,
                                          int    dimO,
-                                         double Gamma) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO)
+                                         double gammatik) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO)
 {
-    gamma = Gamma;
+    gamma_tik = gammatik;
     /* Allocate the probability vector */
     probability = new double[dimO];
     tmpstate    = new double[dim_In];
@@ -451,6 +513,7 @@ ClassificationLayer::~ClassificationLayer()
     delete [] probability;
     delete [] tmpstate;
 }
+
 
 
 void ClassificationLayer::applyFWD(double* state)

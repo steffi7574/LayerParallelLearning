@@ -216,7 +216,7 @@ my_BufSize(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double) + (8 + (nchannels*nchannels+nchannels))*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(double) + (9 + (nchannels*nchannels+nchannels))*sizeof(double);
     return 0;
 }
 
@@ -255,7 +255,8 @@ my_BufPack(braid_App           app,
     dbuffer[idx] = u->layer->getDimBias();    idx++;
     dbuffer[idx] = u->layer->getActivation(); idx++;
     dbuffer[idx] = u->layer->getnDesign();    idx++;
-    dbuffer[idx] = u->layer->getGamma();      idx++;
+    dbuffer[idx] = u->layer->getGammaTik();   idx++;
+    dbuffer[idx] = u->layer->getGammaDDT();   idx++;
     for (int i = 0; i < nweights; i++)
     {
         dbuffer[idx] = u->layer->getWeights()[i];     idx++;
@@ -266,7 +267,7 @@ my_BufPack(braid_App           app,
         dbuffer[idx] = u->layer->getBias()[i];     idx++;
         // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
     }
-    size += (8 + (nweights+nbias))*sizeof(double);
+    size += (9 + (nweights+nbias))*sizeof(double);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -314,7 +315,8 @@ my_BufUnpack(braid_App           app,
     int dimBias   = dbuffer[idx];  idx++;
     int activ     = dbuffer[idx];  idx++;
     int nDesign   = dbuffer[idx];  idx++;
-    int gamma     = dbuffer[idx];  idx++;
+    int gammatik  = dbuffer[idx];  idx++;
+    int gammaddt  = dbuffer[idx];  idx++;
     int nweights = nDesign - dimBias;
     int nbias    = nDesign - dimIn * dimOut;
 
@@ -325,13 +327,13 @@ my_BufUnpack(braid_App           app,
             tmplayer = new OpenExpandZero(dimIn, dimOut);
             break;
         case Layer::OPENDENSE:
-            tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gamma);
+            tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gammatik);
             break;
         case Layer::DENSE:
-            tmplayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gamma);
+            tmplayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gammatik, gammaddt);
             break;
         case Layer::CLASSIFICATION:
-            tmplayer = new ClassificationLayer(index, dimIn, dimOut, gamma);
+            tmplayer = new ClassificationLayer(index, dimIn, dimOut, gammatik);
             break;
         default: 
             printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 
@@ -408,10 +410,19 @@ my_Step_Adj(braid_App        app,
 
     // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->userVector->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
 
+
+    /* TODO: Derivative of DDT-Regularization */
+    // int leftIndex = app->network->getLocalID(ilayer-1);
+    // if (leftIndex == -1) layer_prev = app->layer;
+    // else                 layer_prev = app->network->layers[app->network->GetlocalID(leftID)];
+    // regul_ddt = uprimal->layer->evalRegulDDT(layer_prev, app->network->getDt());
+
+
+
+
     /* Derivative of costfunction: tikhonov */
     if (compute_gradient) uprimal->layer->evalTikh_diff(1.0);
 
-    /* TODO: Add derivative of DDT regularization */
 
     /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
@@ -463,6 +474,7 @@ my_Init_Adj(braid_App     app,
 
         /* Derivative of classification */
         layer->evalClassification_diff(app->nexamples, primalstate, u->state, app->labels, 1);
+
 
         /* Derivative of tikhonov regularization) */
         layer->evalTikh_diff(1.0);
@@ -568,8 +580,10 @@ evalObjective(braid_Core core,
 {
     double loss      = 0.0;
     double accuracy  = 0.0;
-    double regul_tik = 0.0;
+    double regul_tik, regul_ddt;
     double objective;
+    int    leftIndex;
+    Layer* layer_prev;
     braid_BaseVector ubase;
     braid_Vector     u;
 
@@ -580,12 +594,17 @@ evalObjective(braid_Core core,
 
         if (ubase != NULL) // this is only true on one processor (the one that stores u)
         {
+            /* Get vector u */
             u = ubase->userVector;
 
-             /* Tikhonov */
+             /* Tikhonov - Regularization*/
             regul_tik = u->layer->evalTikh();
 
-            /* TODO: DDT-REGULARIZATION */
+            /* TODO: DDT - Regularization */
+            // leftIndex = app->network->getLocalID(ilayer-1);
+            // if (leftIndex == -1) layer_prev = app->layer;
+            // else                 layer_prev = app->network->layers[app->network->GetlocalID(leftID)];
+            // regul_ddt = u->layer->evalRegulDDT(layer_prev, app->network->getDT());
 
             /* Classification and Loss evaluation */ 
             u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss, &accuracy);
@@ -593,7 +612,7 @@ evalObjective(braid_Core core,
         }
     }
     /* Collect objective function from all processors */
-    double myobjective = loss + regul_tik;
+    double myobjective = loss + regul_tik + regul_ddt;
     MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* Return */

@@ -27,9 +27,10 @@ class Layer
       double* weights_bar;                 /* Derivative of the Weight matrix*/
       double* bias;                        /* Bias */
       double* bias_bar;                    /* Derivative of bias */
-      double  gamma;                       /* Parameter for Tikhonov regularization of weights and bias */
+      double  gamma_tik;                   /* Parameter for Tikhonov regularization of weights and bias */
+      double  gamma_ddt;                   /* Parameter for DDT regularization of weights and bias */
       int     activ;                       /* Activaation function (enum element) */
-      int     type;                       /* Type of the layer (enum element) */
+      int     type;                        /* Type of the layer (enum element) */
 
       double *update;                      /* Auxilliary for computing fwd update */
       double *update_bar;                  /* Auxilliary for computing bwd update */
@@ -49,7 +50,8 @@ class Layer
             int     dimB,
             double  deltaT,
             int     Activ,
-            double  Gamme);
+            double  GammaTik,
+            double  GammaDDT);
 
       Layer(int idx, 
             int Type,
@@ -64,7 +66,8 @@ class Layer
 
       /* Some Get..() functions */
       double getDt();
-      double getGamma();
+      double getGammaTik();
+      double getGammaDDT();
       int    getActivation();
       int    getType();
 
@@ -131,6 +134,21 @@ class Layer
        * Derivative of Tikhonov Regularization
        */
       void evalTikh_diff(double regul_bar);
+
+     
+      /**
+       * Regularization for the time-derivative of the layer weights
+       */
+      double evalRegulDDT(Layer* layer_prev,
+                          double deltat);
+
+      /**
+       * Derivative of ddt-regularization term 
+       */
+      void evalRegulDDT_diff(Layer* layer_prev,
+                             double deltat,
+                             double regul_bar);
+
 
       /**
        * In opening layers: set pointer to the current example
@@ -199,7 +217,8 @@ class DenseLayer : public Layer {
                  int     dimO,
                  double  deltaT,
                  int     activation,
-                 double  Gamma);     
+                 double  gammatik, 
+                 double  gammaddt);     
       ~DenseLayer();
 
       void applyFWD(double* state);
@@ -223,7 +242,7 @@ class OpenDenseLayer : public DenseLayer {
       OpenDenseLayer(int     dimI,
                      int     dimO,
                      int     activation,
-                     double  Gamma);     
+                     double  gammatik);     
       ~OpenDenseLayer();
 
       void setExample(double* example_ptr);
@@ -272,7 +291,7 @@ class ClassificationLayer : public Layer
             ClassificationLayer(int    idx,
                                 int    dimI,
                                 int    dimO,
-                                double Gamma);
+                                double gammatik);
             ~ClassificationLayer();
 
             void applyFWD(double* state);
@@ -281,8 +300,6 @@ class ClassificationLayer : public Layer
                           double* state_bar,
                           int     compute_gradient);
 
-
-             
             void evalClassification(int      nexamples, 
                                     double** state,
                                     double** labels, 

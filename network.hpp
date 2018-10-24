@@ -15,9 +15,6 @@ class Network
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
-      double  gamma_tik;            /* Parameter for Tikhonov-regularization */
-      double  gamma_ddt;            /* Parameter for ddt-regularization */
-      double  gamma_class;          /* Parameter for Classification-regularization */
 
       int     startlayerID;         /* ID of the first layer on that processor */
       int     endlayerID;           /* ID of the last layer on that processor */
@@ -34,10 +31,7 @@ class Network
       Network();
       Network(int    nLayers,
               int    nChannels, 
-              double deltaT,
-              double Gamma_tik, 
-              double Gamma_ddt,
-              double Gamma_class);
+              double deltaT);
       ~Network();
 
       /* Get number of channels */
@@ -82,7 +76,10 @@ class Network
                         int    Activation,
                         double Weight_init,
                         double Weight_open_init,
-                        double Classification_init);
+                        double Classification_init,
+                        double gamma_tik, 
+                        double gamma_ddt, 
+                        double gamma_class);
 
       Layer* createLayer(int    index, 
                          int    nfeatures,
@@ -105,7 +102,6 @@ class Network
       void evalRegulDDT_diff(Layer* layer_old, 
                              Layer* layer_curr,
                              double regul_bar);
-
 
         
       /* Replace the layer with one that is received from the left neighbouring processor */  

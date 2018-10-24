@@ -438,11 +438,10 @@ int main (int argc, char *argv[])
     printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
 
     /* Initialize network and layers */
-    network = new Network(nlayers+1, nchannels, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class);
-    network->initialize(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init);
+    network = new Network(nlayers+1, nchannels, T/(double)nlayers);
+    network->initialize(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    /* Receive left neighbouring layer */
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
  
     /* Initialize xbraid's app structure */

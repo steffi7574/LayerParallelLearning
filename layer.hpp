@@ -93,6 +93,19 @@ class Layer
       double activation(double x);
       double dactivation(double x);
 
+
+      /**
+       * Pack weights and bias into a buffer 
+       */
+      void packDesign(double* buffer,
+                      int     size);
+
+      /**
+       * Unpack weights and bias from a buffer 
+       */
+      void unpackDesign(double* buffer);
+
+
       /**
        * Initialize the layer primal and adjoint weights and biases
        * In: pointer to the global design and gradient vector memory 

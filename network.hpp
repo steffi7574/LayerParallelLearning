@@ -28,7 +28,8 @@ class Network
 
    public: 
       Layer** layers;               /* Array of network layers */
-      Layer*  layer_prev;           /* Copy of last layer of left neighbouring processor */
+      Layer*  layer_left;           /* Copy of last layer of processor to the left */
+      Layer*  layer_right;          /* Copy of first layer of processor to the right*/
 
       Network();
       Network(int    nLayers,
@@ -102,7 +103,7 @@ class Network
 
         
       /* Replace the layer with one that is received from the left neighbouring processor */  
-      void MPI_RecvLayerNeighbours(MPI_Comm comm);
+      void MPI_CommunicateNeighbours(MPI_Comm comm);
 
 };
 

@@ -443,7 +443,7 @@ int main (int argc, char *argv[])
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     /* Receive left neighbouring layer */
-    network->MPI_RecvLayerNeighbours(MPI_COMM_WORLD);
+    network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
  
     /* Initialize xbraid's app structure */
     app_train->primalcore  = core_train;
@@ -642,7 +642,7 @@ int main (int argc, char *argv[])
         /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
         MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
-        network->MPI_RecvLayerNeighbours(MPI_COMM_WORLD);
+        network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
 
         // /* --- Backtracking linesearch --- */

@@ -133,6 +133,44 @@ double Layer::dactivation(double x)
 
 }
 
+
+void Layer::packDesign(double* buffer, 
+                       int     size)
+{
+    int nweights = getnDesign() - getDimBias();
+    int nbias    = getnDesign() - getDimIn() * getDimOut();
+    int idx = 0;
+    for (int i = 0; i < nweights; i++)
+    {
+        buffer[idx] = getWeights()[i];   idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        buffer[idx] = getBias()[i];     idx++;
+    }
+    /* Set the rest to zero */
+    for (int i = idx; i < size; i++)
+    {
+        buffer[idx] = 0.0;  idx++;
+    }
+}
+
+void Layer::unpackDesign(double* buffer)
+{
+    int nweights     = getnDesign() - getDimBias();
+    int nbias        = getnDesign() - getDimIn() * getDimOut();
+
+    int idx = 0;
+    for (int i = 0; i < nweights; i++)
+    {
+        getWeights()[i] = buffer[idx]; idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        getBias()[i] = buffer[idx];   idx++;
+    }
+}
+
 void Layer::initialize(double* design_ptr,
                        double* gradient_ptr,
                        double  factor)

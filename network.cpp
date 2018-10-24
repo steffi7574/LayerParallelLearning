@@ -14,7 +14,8 @@ Network::Network()
    gradient       = NULL;
    design         = NULL;
    layers         = NULL;
-   layer_prev     = NULL;
+   layer_left     = NULL;
+   layer_right    = NULL;
 }
 
 Network::Network(int    nLayersGlobal,
@@ -49,16 +50,22 @@ Network::~Network()
         delete layers[ilayer];
     }
     delete [] layers;
-
-    if (layer_prev != NULL)
-    {
-        delete [] layer_prev->getWeights();
-        delete [] layer_prev->getWeightsBar();
-        delete layer_prev;
-    }
-
     delete [] design;
     delete [] gradient;
+
+    if (layer_left != NULL)
+    {
+        delete [] layer_left->getWeights();
+        delete [] layer_left->getWeightsBar();
+        delete layer_left;
+    }
+
+    if (layer_right != NULL)
+    {
+        delete [] layer_right->getWeights();
+        delete [] layer_right->getWeightsBar();
+        delete layer_right;
+    }
 }
 
 int Network::getnChannels() { return nchannels; }
@@ -191,15 +198,27 @@ void Network::initialize(int    StartLayerID,
         }
     }
 
-    /* Create and initialize left neighbouring layer */
-    int prevID = startlayerID - 1;
-    layer_prev = createLayer(prevID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
-    if (layer_prev != NULL)
+    /* Create and initialize left neighbouring layer, if exists */
+    int leftID = startlayerID - 1;
+    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+    if (layer_left != NULL)
     {
-        double *prev_design   = new double[layer_prev->getnDesign()];
-        double *prev_gradient = new double[layer_prev->getnDesign()];
-        layer_prev->initialize(prev_design, prev_gradient, 0.0);
+        double *left_design   = new double[layer_left->getnDesign()];
+        double *left_gradient = new double[layer_left->getnDesign()];
+        layer_left->initialize(left_design, left_gradient, 0.0);
     }
+
+
+    /* Create and initialize right neighbouring layer, if exists */
+    int rightID = endlayerID + 1;
+    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+    if (layer_right != NULL)
+    {
+        double *right_design   = new double[layer_right->getnDesign()];
+        double *right_gradient = new double[layer_right->getnDesign()];
+        layer_right->initialize(right_design, right_gradient, 0.0);
+    }
+
 }    
 
 
@@ -256,92 +275,84 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
 
 
 
-void Network::MPI_RecvLayerNeighbours(MPI_Comm comm)
+void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
 {
     int myid, comm_size;
-    int idx;
     MPI_Comm_rank(comm, &myid);
     MPI_Comm_size(comm, &comm_size);
-    MPI_Request sendrequest, recvrequest;
+    MPI_Request sendlastreq, recvlastreq;
+    MPI_Request sendfirstreq, recvfirstreq;
     MPI_Status status;
 
     /* Allocate buffers */
     int size = (nchannels*nchannels+nchannels);
-    double* sendlast = new double[size];
-    double* recvlast = new double[size];
+    double* sendlast  = new double[size];
+    double* recvlast  = new double[size];
+    double* sendfirst = new double[size];
+    double* recvfirst = new double[size];
 
     /* --- All but the first process receive the last layer from left neighbour --- */
     if (myid > 0)
     {
-
-        int sender = myid - 1;
-        MPI_Irecv(recvlast, size, MPI_DOUBLE, sender, 0, comm, &recvrequest);
-
+        /* Receive from left neighbour */
+        int source = myid - 1;
+        MPI_Irecv(recvlast, size, MPI_DOUBLE, source, 0, comm, &recvlastreq);
     }
 
     /* --- All but the last process sent their last layer to right neighbour --- */
     if (myid < comm_size-1)
     {
-        int lastlayerIDX = getLocalID(endlayerID);
-        Layer* sendlayer = layers[lastlayerIDX];
-        int nweights     = sendlayer->getnDesign() - sendlayer->getDimBias();
-        int nbias        = sendlayer->getnDesign() - sendlayer->getDimIn() * sendlayer->getDimOut();
+        /* Pack the last layer into a buffer */
+        layers[getLocalID(endlayerID)]->packDesign(sendlast, size);
 
-        /* Pack the layer into a buffer */
-        idx = 0;
-        for (int i = 0; i < nweights; i++)
-        {
-            sendlast[idx] = sendlayer->getWeights()[i];   idx++;
-        }
-        for (int i = 0; i < nbias; i++)
-        {
-            sendlast[idx] = sendlayer->getBias()[i];     idx++;
-        }
-        /* Set the rest to zero */
-        for (int i = idx; i < size; i++)
-        {
-            sendlast[idx] = 0.0;  idx++;
-        }
-
-        /* Send the buffer */
+       /* Send to right neighbour */
         int receiver = myid + 1;
-        MPI_Isend(sendlast, size, MPI_DOUBLE, receiver, 0, comm, &sendrequest);
-
+        MPI_Isend(sendlast, size, MPI_DOUBLE, receiver, 0, comm, &sendlastreq);
     }
 
-    /* --- TODO: All but the last processor recv the first layer from the right neighbour --- */
-        /* recv from right neighbour */
-        // MPI_Irecv (from myid+1)
+    /* --- All but the last processor recv the first layer from the right neighbour --- */
+    if (myid < comm_size - 1)
+    {
+        /* Receive from right neighbour */
+        int source = myid + 1;
+        MPI_Irecv(recvfirst, size, MPI_DOUBLE, source, 1, comm, &recvfirstreq);
+    }
 
 
-    /* --- TODO: All but the first processor send their first layer to the left neighbour --- */
-        /* send to left neighbour */
-        //MPI_Isend (to myid - 1)
+    /* --- All but the first processor send their first layer to the left neighbour --- */
+    if (myid > 0)
+    {
+        /* Pack the first layer into a buffer */
+        layers[getLocalID(startlayerID)]->packDesign(sendfirst, size);
+
+        /* Send to left neighbour */
+        int receiver = myid - 1;
+        MPI_Isend(sendfirst, size, MPI_DOUBLE, receiver, 1, comm, &sendfirstreq);
+    }
 
 
     /* Wait to finish up communication */
-    if (myid < comm_size - 1 ) MPI_Wait(&sendrequest, &status);
-    if (myid > 1)              MPI_Wait(&recvrequest, &status);
+    if (myid > 0)              MPI_Wait(&recvlastreq, &status);
+    if (myid < comm_size - 1)  MPI_Wait(&sendlastreq, &status);
+    if (myid < comm_size - 1)  MPI_Wait(&recvfirstreq, &status);
+    if (myid > 0)              MPI_Wait(&sendfirstreq, &status);
 
-    /* Unpack and store the received layers */
+    /* Unpack and store the left received layer */
     if (myid > 0)
     {
-        int nweights     = layer_prev->getnDesign() - layer_prev->getDimBias();
-        int nbias        = layer_prev->getDimBias();
+        layer_left->unpackDesign(recvlast);
+    }
 
-        int idx = 0;
-        for (int i = 0; i < nweights; i++)
-        {
-            layer_prev->getWeights()[i] = recvlast[idx]; idx++;
-        }
-        for (int i = 0; i < nbias; i++)
-        {
-            layer_prev->getBias()[i] = recvlast[idx];   idx++;
-        }
+    /* Unpack and store the right received layer */
+    if (myid < comm_size - 1)
+    {
+        layer_right->unpackDesign(recvfirst);
     }
 
     /* Free the buffer */
     delete [] sendlast;
     delete [] recvlast;
+    delete [] sendfirst;
+    delete [] recvfirst;
 
 }

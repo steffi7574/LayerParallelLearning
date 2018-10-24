@@ -569,6 +569,26 @@ int main (int argc, char *argv[])
 
         braid_SetPrintLevel( core_val, 0);
         braid_Drive(core_val);
+        /* Get loss and accuracy */
+        
+        braid_BaseVector ubase;
+        braid_Vector     u;
+        double accur_val;
+        int success;
+        _braid_UGetVectorRef(core_val, 0, app_val->network->getnLayers()-1, &ubase );
+        if (ubase != NULL) // This is only true on last processor 
+        {
+            u = ubase->userVector;
+            /* evaluate accuracy */
+            success = 0;
+            for (int iex = 0; iex < app_val->nexamples; iex++)
+            {
+                u->layer->applyFWD(u->state[iex]);
+                success  += u->layer->prediction(u->state[iex], app_val->labels[iex]);
+            }
+            // loss_val  = 1. / app->nexamples * loss;
+            accur_val = 100.0 * (double) success / app_val->nexamples;
+        }
 
 
         /* --- Optimization control and output ---*/

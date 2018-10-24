@@ -40,11 +40,11 @@ int main (int argc, char *argv[])
     /* --- Optimization --- */
     int      ndesign;             /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    // double  *design;              /**< Pointer to global design vector */
-    // double  *design0;             /**< Old design at last iteration */
-    // double  *gradient;            /**< Pointer to global gradient vector */
-    // double  *gradient0;           /**< Old gradient at last iteration*/
-    double  *descentdir;          /**< Descent direction for design updates */
+    double  *design;              /**< On root process: Global design vector */
+    double  *gradient;            /**< On root process: Global gradient vector */
+    double  *design0;             /**< On root process: Old design at last iteration */
+    double  *gradient0;           /**< On root process: Old gradient at last iteration*/
+    double  *descentdir;          /**< On root process: Direction for design updates */
     double   objective;           /**< Optimization objective */
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -482,8 +482,10 @@ int main (int argc, char *argv[])
     /* Allocate other optimization vars on first processor */
     if (myid == MASTER_NODE)
     {
-        // design0    = new double [ndesign];
-        // gradient0  = new double [ndesign];
+        gradient   = new double[ndesign_global];
+        design     = new double[ndesign_global];
+        design0    = new double[ndesign_global];
+        gradient0  = new double[ndesign_global];
         descentdir = new double[ndesign_global];
     }
 
@@ -565,8 +567,8 @@ int main (int argc, char *argv[])
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
         /* Get gradient on root process */
-        MPI_GatherVector(network->getGradient(), ndesign, descentdir, MASTER_NODE, MPI_COMM_WORLD);
-        // if (myid == MASTER_NODE) write_vector("gradient.dat", descentdir, ndesign_global);
+        MPI_GatherVector(network->getGradient(), ndesign, gradient, MASTER_NODE, MPI_COMM_WORLD);
+        // if (myid == MASTER_NODE) write_vector("gradient.dat", gradient, ndesign_global);
 
         /* --- Validation data: Get accuracy --- */
 
@@ -614,37 +616,36 @@ int main (int argc, char *argv[])
         }
 
 
-        // /* --- Design update --- */
+        /* --- Design update --- */
 
-        // stepsize = stepsize_init;
-        // /* Compute search direction on first processor */
-        // if (myid == MASTER_NODE)
-        // {
-        //     /* Update the L-BFGS memory */
-        //     if (iter > 0) 
-        //     {
-        //         hessian->updateMemory(iter, design, design0, gradient, gradient0);
-        //     }
-        //     /* Compute descent direction */
-        //     hessian->computeDescentDir(iter, gradient, descentdir);
+        stepsize = stepsize_init;
+        /* Compute search direction on first processor */
+        if (myid == MASTER_NODE)
+        {
+            /* Update the (L-)BFGS memory */
+            hessian->updateMemory(iter, design, design0, gradient, gradient0);
+            /* Compute descent direction */
+            hessian->computeDescentDir(iter, gradient, descentdir);
 
-        //     /* Store design and gradient into *0 vectors */
-        //     vec_copy(ndesign, design, design0);
-        //     vec_copy(ndesign, gradient, gradient0);
+            /* Store design and gradient into *0 vectors */
+            vec_copy(ndesign_global, design, design0);
+            vec_copy(ndesign_global, gradient, gradient0);
 
-        //     /* Compute wolfe condition */
-        //     wolfe = vecdot(ndesign, gradient, descentdir);
+            /* Compute wolfe condition */
+            wolfe = vecdot(ndesign_global, gradient, descentdir);
 
-        //     /* Update the global design using the initial stepsize */
-        //     for (int id = 0; id < ndesign; id++)
-        //     {
-        //         design[id] -= stepsize * descentdir[id];
-        //     }
-        // }
+            /* Update the global design using the initial stepsize */
+            for (int id = 0; id < ndesign_global; id++)
+            {
+                design[id] -= stepsize * descentdir[id];
+            }
+        }
 
-        // /* Broadcast the new design and wolfe condition to all processors */
-        // MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
-        // MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
+        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
+        app_train->network->MPI_CommunicateLayerNeighbours(app_train->layer, MPI_COMM_WORLD);
+
 
         // /* --- Backtracking linesearch --- */
         // for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
@@ -735,7 +736,7 @@ int main (int argc, char *argv[])
         for (int i = 0; i < ndesign_global; i++)
         {
             /* Sum up xtx */
-            xtx += descentdir[i];
+            xtx += gradient[i];
             /* perturb into direction "only ones" */
             app_train->network->getDesign()[i] += EPS;
         }
@@ -854,8 +855,10 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
         delete hessian;
-        // delete [] design0;
-        // delete [] gradient0;
+        delete [] design0;
+        delete [] gradient0;
+        delete [] gradient;
+        delete [] design;
         delete [] descentdir;
     }
 

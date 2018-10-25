@@ -173,24 +173,27 @@ double Network::evalRegulDDT(Layer* layer_old,
     double ddt = 0.0;
 
     /* Sanity check */
-    if (layer_old->getDimIn()    != nchannels ||
-        layer_old->getDimOut()   != nchannels ||
-        layer_old->getDimBias()  != 1         ||
-        layer_curr->getDimIn()   != nchannels ||
-        layer_curr->getDimOut()  != nchannels ||
-        layer_curr->getDimBias() != 1           )
+    if (layer_old->getnDesign()  != layer_curr->getnDesign() ||
+        layer_old->getDimOut()   != layer_curr->getDimOut()  ||
+        layer_old->getDimOut()   != layer_curr->getDimOut()  ||
+        layer_old->getDimBias()  != layer_curr->getDimBias() )
         {
             printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
             printf("Dimensions don't match. Check and change this routine.\n");
             exit(1);
         }
 
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    int nweights = layer_curr->getnDesign() - layer_curr->getDimBias();
+    for (int iw = 0; iw < nweights; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / dt;
         ddt += pow(diff,2);
     }
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / dt;
+    int nbias = layer_curr->getnDesign() - layer_curr->getDimIn() * layer_curr->getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff = (layer_curr->getBias()[ib] - layer_old->getBias()[ib]) / dt;
+    }
     ddt += pow(diff,2);
     
     return gamma_ddt / 2.0 * ddt;
@@ -204,12 +207,17 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     regul_bar = gamma_ddt * regul_bar;
 
     /* Derivative of the bias-term */
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / pow(dt,2);
-    layer_curr->getBiasBar()[0] += diff * regul_bar;
-    layer_old->getBiasBar()[0]  -= diff * regul_bar;
+    int nbias = layer_curr->getnDesign() - layer_curr->getDimIn() * layer_curr->getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff = (layer_curr->getBias()[ib] - layer_old->getBias()[ib]) / pow(dt,2);
+        layer_curr->getBiasBar()[ib] += diff * regul_bar;
+        layer_old->getBiasBar()[ib]  -= diff * regul_bar;
+    }
 
     /* Derivative of the weights term */
-    for (int iw = 0; iw < nchannels * nchannels; iw++)
+    int nweights = layer_curr->getnDesign() - layer_curr->getDimBias();
+    for (int iw = 0; iw < nweights; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / pow(dt,2);
         layer_curr->getWeightsBar()[iw] += diff * regul_bar;

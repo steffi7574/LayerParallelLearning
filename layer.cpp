@@ -337,7 +337,7 @@ void OpenDenseLayer::applyBWD(double* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, dimI, dimO, 1)
+                               int dimO) : Layer(0, dimI, dimO, 0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;

@@ -410,17 +410,15 @@ my_Step_Adj(braid_App        app,
 
     // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->userVector->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
 
+    /* Derivative of DDT-Regularization */
+    if (compute_gradient) 
+    {
+        Layer* prev = app->network->getLayer(primaltimestep - 1); 
+        Layer* next = app->network->getLayer(primaltimestep + 1); 
+        uprimal->layer->evalRegulDDT_diff(prev, next, app->network->getDT());
+    }        
 
-    /* TODO: Derivative of DDT-Regularization */
-    // int leftIndex = app->network->getLocalID(ilayer-1);
-    // if (leftIndex == -1) layer_prev = app->layer;
-    // else                 layer_prev = app->network->layers[app->network->GetlocalID(leftID)];
-    // regul_ddt = uprimal->layer->evalRegulDDT(layer_prev, app->network->getDt());
-
-
-
-
-    /* Derivative of costfunction: tikhonov */
+    /* Derivative of tikhonov */
     if (compute_gradient) uprimal->layer->evalTikh_diff(1.0);
 
 
@@ -578,12 +576,12 @@ evalObjective(braid_Core core,
               double     *loss_ptr,
               double     *accuracy_ptr)
 {
+    double objective = 0.0;
+    double regul     = 0.0;
     double loss      = 0.0;
     double accuracy  = 0.0;
-    double regul_tik, regul_ddt;
-    double objective;
-    int    leftIndex;
-    Layer* layer_prev;
+    double loss_loc  = 0.0; 
+    double accur_loc = 0.0; 
     braid_BaseVector ubase;
     braid_Vector     u;
 
@@ -598,21 +596,20 @@ evalObjective(braid_Core core,
             u = ubase->userVector;
 
              /* Tikhonov - Regularization*/
-            regul_tik = u->layer->evalTikh();
+            regul += u->layer->evalTikh();
 
-            /* TODO: DDT - Regularization */
-            // leftIndex = app->network->getLocalID(ilayer-1);
-            // if (leftIndex == -1) layer_prev = app->layer;
-            // else                 layer_prev = app->network->layers[app->network->GetlocalID(leftID)];
-            // regul_ddt = u->layer->evalRegulDDT(layer_prev, app->network->getDT());
+            /* DDT - Regularization on intermediate layers */
+            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
 
             /* Classification and Loss evaluation */ 
-            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss, &accuracy);
-
+            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc);
+            loss     += loss_loc;
+            accuracy += accur_loc;
         }
     }
+
     /* Collect objective function from all processors */
-    double myobjective = loss + regul_tik + regul_ddt;
+    double myobjective = loss + regul;
     MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* Return */

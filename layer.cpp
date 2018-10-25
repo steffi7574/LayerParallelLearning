@@ -192,14 +192,14 @@ void Layer::initialize(double* design_ptr,
     /* Initialize */
     for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        // weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        weights[i]     = factor * i * index ;
+        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        // weights[i]     = factor * i * index ;
         weights_bar[i] = 0.0;
     }
     for (int i = 0; i < ndesign - nweights; i++)
     {
-        // bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        bias[i]     = factor * i * index;
+        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        // bias[i]     = factor * i * index;
         bias_bar[i] = 0.0;
     }
 }                   
@@ -251,62 +251,87 @@ void Layer::evalTikh_diff(double regul_bar)
 double Layer::evalRegulDDT(Layer* layer_prev, 
                            double deltat)
 {
+    if (layer_prev == NULL) return 0.0;
+
     double diff;
     double regul_ddt = 0.0;
 
-    if (layer_prev == NULL) return 0.0;
-
-    /* Sanity check */
-    if (layer_prev->getnDesign() != ndesign   ||
-        layer_prev->getDimIn()   != dim_In    ||
-        layer_prev->getDimOut()  != dim_Out   ||
-        layer_prev->getDimBias() != dim_Bias   )
+    /* Compute ddt-regularization only if dimensions match  */
+    /* this excludes openinglayer, first layer and classification layer. */
+    if (layer_prev->getnDesign() == ndesign   &&
+        layer_prev->getDimIn()   == dim_In    &&
+        layer_prev->getDimOut()  == dim_Out   &&
+        layer_prev->getDimBias() == dim_Bias   )
     {
-        printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
-        printf("Dimensions don't match. Check and change this routine.\n");
-        exit(1);
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
+            regul_ddt += pow(diff,2);
+        }
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff       = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
+            regul_ddt += pow(diff,2);
+        }
+        regul_ddt = gamma_ddt / 2.0 * regul_ddt;
     }
 
-    int nweights = getnDesign() - getDimBias();
-    for (int iw = 0; iw < nweights; iw++)
-    {
-        diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
-        regul_ddt += pow(diff,2);
-    }
-
-    int nbias = getnDesign() - getDimIn() * getDimOut();
-    for (int ib = 0; ib < nbias; ib++)
-    {
-        diff       = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
-        regul_ddt += pow(diff,2);
-    }
-
-    return gamma_ddt / 2.0 * regul_ddt;
+    return regul_ddt;
 }                
 
 void Layer::evalRegulDDT_diff(Layer* layer_prev, 
-                              double deltat,
-                              double regul_bar)
+                              Layer* layer_next,
+                              double deltat)
 {
-    double diff;
-    regul_bar = gamma_ddt * regul_bar;
 
-    /* Derivative of the bias-term */
-    int nbias = getnDesign() - getDimIn() * getDimOut();
-    for (int ib = 0; ib < nbias; ib++)
+    if (layer_prev == NULL) return;
+    if (layer_next == NULL) return;
+
+    double diff;
+    int regul_bar = gamma_ddt / (deltat*deltat);
+
+    /* Left sided derivative term */
+    if (layer_prev->getnDesign() == ndesign   &&
+        layer_prev->getDimIn()   == dim_In    &&
+        layer_prev->getDimOut()  == dim_Out   &&
+        layer_prev->getDimBias() == dim_Bias   )
     {
-        diff = (getBias()[ib] - layer_prev->getBias()[ib]) / pow(deltat,2);
-        getBiasBar()[ib]             += diff * regul_bar;
-        layer_prev->getBiasBar()[ib] -= diff * regul_bar;
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff              = getBias()[ib] - layer_prev->getBias()[ib];
+            getBiasBar()[ib] += diff * regul_bar;
+        }
+
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff                 = getWeights()[iw] - layer_prev->getWeights()[iw];
+            getWeightsBar()[iw] += diff * regul_bar;
+        }
     }
 
-    /* Derivative of the weights term */
-    int nweights = getnDesign() - getDimBias();
-    for (int iw = 0; iw < nweights; iw++)
+    /* Right sided derivative term */
+    if (layer_next->getnDesign() == ndesign   &&
+        layer_next->getDimIn()   == dim_In    &&
+        layer_next->getDimOut()  == dim_Out   &&
+        layer_next->getDimBias() == dim_Bias   )
     {
-        diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / pow(deltat,2);
-        getWeightsBar()[iw]             += diff * regul_bar;
-        layer_prev->getWeightsBar()[iw] -= diff * regul_bar;
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff              = getBias()[ib] - layer_next->getBias()[ib];
+            getBiasBar()[ib] += diff * regul_bar;
+        }
+
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff                 = getWeights()[iw] - layer_next->getWeights()[iw];
+            getWeightsBar()[iw] += diff * regul_bar;
+        }
     }
 } 
 
@@ -322,8 +347,8 @@ void Layer::evalClassification(int      nexamples,
                                double*  loss_ptr, 
                                double*  accuracy_ptr)
 {
-    if (loss_ptr     != NULL) *loss_ptr     = 0.0;
-    if (accuracy_ptr != NULL) *accuracy_ptr = 0.0;
+    *loss_ptr     = 0.0;
+    *accuracy_ptr = 0.0;
 }
 
 
@@ -414,7 +439,6 @@ void OpenDenseLayer::setExample(double* example_ptr)
     example = example_ptr;
 }
 
-
 void OpenDenseLayer::applyFWD(double* state) 
 {
    /* affine transformation */
@@ -483,6 +507,8 @@ void OpenExpandZero::setExample(double* example_ptr)
 {
     example = example_ptr;
 }
+
+
 
 void OpenExpandZero::applyFWD(double* state)
 {

@@ -90,19 +90,6 @@ class Network
                          double gamma_class,
                          double weights_open_init);
      
-      /**
-       * Regularization for the time-derivative of the layer weights
-       */
-      double evalRegulDDT(Layer* layer_old, 
-                          Layer* layer_curr);            
-
-      /**
-       * Derivative of ddt-regularization term 
-       */
-      void evalRegulDDT_diff(Layer* layer_old, 
-                             Layer* layer_curr,
-                             double regul_bar);
-
         
       /* Replace the layer with one that is received from the left neighbouring processor */  
       void MPI_CommunicateNeighbours(MPI_Comm comm);

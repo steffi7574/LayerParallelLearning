@@ -146,8 +146,8 @@ class Layer
        * Derivative of ddt-regularization term 
        */
       void evalRegulDDT_diff(Layer* layer_prev,
-                             double deltat,
-                             double regul_bar);
+                             Layer* layer_next,
+                             double deltat);
 
 
       /**

@@ -21,7 +21,6 @@ class Network
 
    public: 
       Layer** layers;               /* Array of network layers */
-      enum activation{TANH, RELU, SMRELU}; /* Available activation functions */
       enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
 
       Network();
@@ -90,18 +89,5 @@ class Network
       void evalRegulDDT_diff(Layer* layer_old, 
                              Layer* layer_curr,
                              double regul_bar);
-
-
-      /* ReLu Activation and derivative */
-      static double ReLu_act(double x);
-      static double dReLu_act(double x);
-        
-      /* Smooth ReLu activation: Uses a quadratic approximation around zero (range: default 0.1) */
-      static double SmoothReLu_act(double x);
-      static double dSmoothReLu_act(double x);
-
-      /* tanh Activation and derivative */
-      static double tanh_act(double x);
-      static double dtanh_act(double x);
 };
 

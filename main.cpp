@@ -107,7 +107,7 @@ int main (int argc, char *argv[])
     nchannels          = 8;
     nlayers            = 32;
     T                  = 10.0;
-    activation         = Network::RELU;
+    activation         = Layer::RELU;
     networkType        = Network::DENSE;
     braid_cfactor      = 4;
     braid_maxlevels    = 10;
@@ -204,17 +204,17 @@ int main (int argc, char *argv[])
         {
             if (strcmp(co->value, "tanh") == 0 )
             {
-                activation = Network::TANH;
+                activation = Layer::TANH;
                 activname  = "tanh";
             }
             else if ( strcmp(co->value, "ReLu") == 0 )
             {
-                activation = Network::RELU;
+                activation = Layer::RELU;
                 activname  = "ReLu";
             }
             else if (strcmp(co->value, "SmoothReLu") == 0 )
             {
-                activation = Network::SMRELU;
+                activation = Layer::SMRELU;
                 activname  = "SmoothRelu";
             }
             else

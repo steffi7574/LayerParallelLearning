@@ -14,12 +14,11 @@ Layer::Layer()
 
    index        = 0;
    dt           = 0.0;
+   activ        = -1;
    weights      = NULL;
    weights_bar  = NULL;
    bias         = NULL;
    bias_bar     = NULL;
-   activation   = NULL;
-   dactivation  = NULL;
    gamma        = 0.0;
    update       = NULL;
    update_bar   = NULL;
@@ -30,8 +29,7 @@ Layer::Layer(int     idx,
              int     dimO,
              int     dimB,
              double  deltaT,
-             double (*Activ)(double x),
-             double  (*dActiv)(double x),
+             int     Activ,
              double  Gamma)
 {
    index       = idx;
@@ -41,8 +39,7 @@ Layer::Layer(int     idx,
    ndesign     = dimI * dimO + dimB;
    nweights    = dimI * dimO;
    dt          = deltaT;
-   activation  = Activ;
-   dactivation = dActiv;
+   activ       = Activ;
    gamma       = Gamma;
    
    update     = new double[dimO];
@@ -53,7 +50,7 @@ Layer::Layer(int     idx,
 Layer::Layer(int idx, 
              int dimI, 
              int dimO, 
-             int dimB) : Layer(idx, dimI, dimO, dimB, 1.0, NULL, NULL, 0.0) {}         
+             int dimB) : Layer(idx, dimI, dimO, dimB, 1.0, -1, 0.0) {}         
 
 Layer::~Layer()
 {
@@ -83,6 +80,54 @@ void Layer::print_data(double* data)
         printf("%1.14e ", data[io]);
     }
     printf("\n");
+}
+
+
+double Layer::activation(double x)
+{
+    double y;
+    switch ( activ )
+    {
+       case TANH:
+          y = Layer::tanh_act(x);
+          break;
+       case RELU:
+          y = Layer::ReLu_act(x);
+          break;
+       case SMRELU:
+          y = Layer::SmoothReLu_act(x);
+          break;
+       default:
+          y = -1000000.0;
+          printf("ERROR: You should specify an activation function!\n");
+          printf("GO HOME AND GET SOME SLEEP!");
+          break;
+    }
+    return y;
+}
+
+double Layer::dactivation(double x)
+{
+    double y;
+    switch ( activ)
+    {
+       case TANH:
+          y = Layer::dtanh_act(x);
+          break;
+       case RELU:
+          y = Layer::dReLu_act(x);
+          break;
+       case SMRELU:
+          y = Layer::dSmoothReLu_act(x);
+          break;
+       default:
+          y = -1000000.0;
+          printf("ERROR: You should specify an activation function!\n");
+          printf("GO HOME AND GET SOME SLEEP!");
+          break;
+    }
+    return y;
+
 }
 
 void Layer::initialize(double* design_ptr,
@@ -178,9 +223,8 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimI,
                        int     dimO,
                        double  deltaT,
-                       double (*Activ)(double x),
-                       double (*dActiv)(double x),
-                       double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv, Gamma)
+                       int     Activ,
+                       double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, Gamma)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -243,9 +287,8 @@ void DenseLayer::applyBWD(double* state,
 
 OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
-                               double (*Activ)(double x),
-                               double (*dActiv)(double x), 
-                               double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, dActiv, Gamma) 
+                               int     Activ,
+                               double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, Gamma) 
 {
     example = NULL;
 }
@@ -307,7 +350,7 @@ void OpenDenseLayer::applyBWD(double* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, dimI, dimO, 1)
+                               int dimO) : Layer(0, dimI, dimO, 0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -639,15 +682,83 @@ int ClassificationLayer::prediction(double* data_Out,
 }
 
 
+double Layer::ReLu_act(double x)
+{
+    return std::max(0.0, x);
+}
+
+
+double Layer::dReLu_act(double x)
+{
+    double diff;
+    if (x >= 0.0) diff = 1.0;
+    else         diff = 0.0;
+
+    return diff;
+}
+
+
+double Layer::SmoothReLu_act(double x)
+{
+    /* range of quadratic interpolation */
+    double eta = 0.1;
+    /* Coefficients of quadratic interpolation */
+    double a   = 1./(4.*eta);
+    double b   = 1./2.;
+    double c   = eta / 4.;
+
+    if (-eta < x && x < eta)
+    {
+        /* Quadratic Activation */
+        return a*pow(x,2) + b*x + c;
+    }
+    else
+    {
+        /* ReLu Activation */
+        return Layer::ReLu_act(x);
+    }
+}
+
+double Layer::dSmoothReLu_act(double x)
+{
+    /* range of quadratic interpolation */
+    double eta = 0.1;
+    /* Coefficients of quadratic interpolation */
+    double a   = 1./(4.*eta);
+    double b   = 1./2.;
+
+    if (-eta < x && x < eta)
+    {
+        return 2.*a*x + b;
+    }
+    else
+    {
+        return Layer::dReLu_act(x);
+    }
+
+}
+
+
+double Layer::tanh_act(double x)
+{
+    return tanh(x);
+}
+
+double Layer::dtanh_act(double x)
+{
+    double diff = 1.0 - pow(tanh(x),2);
+
+    return diff;
+}
+
 ConvLayer::ConvLayer(int     idx,
                      int     dimI,
                      int     dimO,
                      int     csize_in,
                      int     nconv_in,
                      double  deltaT,
-                     double (*Activ)(double x),
-                     double (*dActiv)(double x),
-                     double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, dActiv, Gamma)
+                     int     Activ,
+                     double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, Gamma)
 {
    csize = csize_in;
    nconv = nconv_in;
@@ -893,4 +1004,3 @@ void ConvLayer::applyBWD(double* state,
 
    } // end for i
 }
-

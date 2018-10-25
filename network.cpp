@@ -29,9 +29,6 @@ Network::Network(int    nLayers,
                  int    networkType,
                  int    type_openlayer)
 {
-    double (*activ_ptr)(double x);
-    double (*dactiv_ptr)(double x);
-
     /* Sanity check */
     if (nFeatures > nChannels ||
         nClasses  > nChannels)
@@ -52,25 +49,6 @@ Network::Network(int    nLayers,
     gamma_ddt = Gamma_ddt;
 
 
-    /* Set the activation function */
-    switch ( Activation )
-    {
-       case TANH:
-          activ_ptr  = &Network::tanh_act;
-          dactiv_ptr = &Network::dtanh_act;
-          break;
-       case RELU:
-           activ_ptr  = &Network::ReLu_act;
-           dactiv_ptr = &Network::dReLu_act;
-          break;
-       case SMRELU:
-           activ_ptr  = &Network::SmoothReLu_act;
-           dactiv_ptr = &Network::dSmoothReLu_act;
-          break;
-       default:
-          printf("ERROR: You should specify an activation function!\n");
-          printf("GO HOME AND GET SOME SLEEP!");
-    }
 
     /* --- Create the layers --- */
     layers  = new Layer*[nlayers];
@@ -85,7 +63,7 @@ Network::Network(int    nLayers,
           }
           else
           {
-             layers[0] = new OpenDenseLayer(nFeatures, nChannels, activ_ptr, dactiv_ptr, Gamma_tik);
+             layers[0] = new OpenDenseLayer(nFeatures, nChannels, Activation, Gamma_tik);
           }
           break;
        case CONVOLUTIONAL:
@@ -108,7 +86,7 @@ Network::Network(int    nLayers,
        case DENSE:
           for (int ilayer = 1; ilayer < nlayers-1; ilayer++)
           {
-             layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+             layers[ilayer] = new DenseLayer(ilayer, nChannels, nChannels, deltaT, Activation, Gamma_tik);
              ndesign += layers[ilayer]->getnDesign();
           }
           break;
@@ -119,7 +97,7 @@ Network::Network(int    nLayers,
              int convolution_size = 3;
              layers[ilayer] = new ConvLayer(ilayer, nChannels, nChannels,
                                             convolution_size,nChannels/nFeatures, 
-                                            deltaT, activ_ptr, dactiv_ptr, Gamma_tik);
+                                            deltaT, Activation, Gamma_tik);
              ndesign += layers[ilayer]->getnDesign();
           }
           break;
@@ -235,12 +213,10 @@ double Network::evalRegulDDT(Layer* layer_old,
     double ddt = 0.0;
 
     /* Sanity check */
-    if (layer_old->getDimIn()    != nchannels ||
-        layer_old->getDimOut()   != nchannels ||
-        layer_old->getDimBias()  != 1         ||
-        layer_curr->getDimIn()   != nchannels ||
-        layer_curr->getDimOut()  != nchannels ||
-        layer_curr->getDimBias() != 1           )
+    if (layer_old->getnDesign()  != layer_curr->getnDesign() ||
+        layer_old->getDimIn()   != layer_curr->getDimIn()  ||
+        layer_old->getDimOut()   != layer_curr->getDimOut()  ||
+        layer_old->getDimBias()  != layer_curr->getDimBias() )
         {
             printf("ERROR when evaluating ddt-regularization of intermediate Layers.\n"); 
             printf("Dimensions don't match. Check and change this routine.\n");
@@ -248,15 +224,21 @@ double Network::evalRegulDDT(Layer* layer_old,
         }
    
     assert(layer_curr->getnDesign()==layer_old->getnDesign());
-    int nDesign = layer_curr->getnDesign();
+    // int nDesign = layer_curr->getnDesign();
 
-    for (int iw = 0; iw < nDesign; iw++)
+    // for (int iw = 0; iw < nDesign; iw++)
+    int nweights = layer_curr->getnDesign() - layer_curr->getDimBias();
+    for (int iw = 0; iw < nweights; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / dt;
         ddt += pow(diff,2);
     }
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / dt;
-    ddt += pow(diff,2);
+    int nbias = layer_curr->getnDesign() - layer_curr->getDimIn() * layer_curr->getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff = (layer_curr->getBias()[ib] - layer_old->getBias()[ib]) / dt;
+        ddt += pow(diff,2);
+    }
     
     return gamma_ddt / 2.0 * ddt;
 }                
@@ -269,87 +251,24 @@ void Network::evalRegulDDT_diff(Layer* layer_old,
     regul_bar = gamma_ddt * regul_bar;
 
     /* Derivative of the bias-term */
-    diff = (layer_curr->getBias()[0] - layer_old->getBias()[0]) / pow(dt,2);
-    layer_curr->getBiasBar()[0] += diff * regul_bar;
-    layer_old->getBiasBar()[0]  -= diff * regul_bar;
+    int nbias = layer_curr->getnDesign() - layer_curr->getDimIn() * layer_curr->getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff = (layer_curr->getBias()[ib] - layer_old->getBias()[ib]) / pow(dt,2);
+        layer_curr->getBiasBar()[ib] += diff * regul_bar;
+        layer_old->getBiasBar()[ib]  -= diff * regul_bar;
+    }
 
     assert(layer_curr->getnDesign()==layer_old->getnDesign());
-    int nDesign = layer_curr->getnDesign();
+    // int nDesign = layer_curr->getnDesign();
 
     /* Derivative of the weights term */
-    for (int iw = 0; iw < nDesign; iw++)
+    // for (int iw = 0; iw < nDesign; iw++)
+    int nweights = layer_curr->getnDesign() - layer_curr->getDimBias();
+    for (int iw = 0; iw < nweights; iw++)
     {
         diff = (layer_curr->getWeights()[iw] - layer_old->getWeights()[iw]) / pow(dt,2);
         layer_curr->getWeightsBar()[iw] += diff * regul_bar;
         layer_old->getWeightsBar()[iw]  -= diff * regul_bar;
     }
 } 
-
-double Network::ReLu_act(double x)
-{
-    return std::max(0.0, x);
-}
-
-
-double Network::dReLu_act(double x)
-{
-    double diff;
-    if (x >= 0.0) diff = 1.0;
-    else         diff = 0.0;
-
-    return diff;
-}
-
-
-double Network::SmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-    double c   = eta / 4.;
-
-    if (-eta < x && x < eta)
-    {
-        /* Quadratic Activation */
-        return a*pow(x,2) + b*x + c;
-    }
-    else
-    {
-        /* ReLu Activation */
-        return Network::ReLu_act(x);
-    }
-}
-
-double Network::dSmoothReLu_act(double x)
-{
-    /* range of quadratic interpolation */
-    double eta = 0.1;
-    /* Coefficients of quadratic interpolation */
-    double a   = 1./(4.*eta);
-    double b   = 1./2.;
-
-    if (-eta < x && x < eta)
-    {
-        return 2.*a*x + b;
-    }
-    else
-    {
-        return Network::dReLu_act(x);
-    }
-
-}
-
-
-double Network::tanh_act(double x)
-{
-    return tanh(x);
-}
-
-double Network::dtanh_act(double x)
-{
-    double diff = 1.0 - pow(tanh(x),2);
-
-    return diff;
-}

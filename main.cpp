@@ -454,6 +454,7 @@ int main (int argc, char *argv[])
     MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
     network->initialize(weights_open_init, weights_init, weights_class_init);
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+    MPI_GatherVector(network->getDesign(), ndesign, design, MASTER_NODE, MPI_COMM_WORLD);
  
     /* Initialize xbraid's app structure */
     app_train->primalcore  = core_train;
@@ -564,6 +565,7 @@ int main (int argc, char *argv[])
 
         /* Solve state equation with braid */
         nreq = -1;
+        braid_SetPrintLevel(core_train, braid_printlevel);
         braid_Drive(core_train);
         braid_GetRNorms(core_train, &nreq, &rnorm);
         /* Evaluat objective function */
@@ -571,6 +573,7 @@ int main (int argc, char *argv[])
 
         /* Solve adjoint equation with XBraid */
         nreq = -1;
+        braid_SetPrintLevel(core_adj, braid_printlevel);
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
         /* Get gradient on root process */
@@ -654,49 +657,49 @@ int main (int argc, char *argv[])
         network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
 
-        // /* --- Backtracking linesearch --- */
-        // for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
-        // {
-        //     /* Compute new objective function value for current trial step */
-        //     braid_SetPrintLevel(core_train, 0);
-        //     braid_SetObjectiveOnly(core_train, 1);
-        //     braid_Drive(core_train);
-        //     braid_GetObjective(core_train, &ls_objective);
+        /* --- Backtracking linesearch --- */
+        for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
+        {
+            /* Compute new objective function value for current trial step */
+            braid_SetPrintLevel(core_train, 0);
+            braid_Drive(core_train);
+            evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
-        //     double test = objective - ls_param * stepsize * wolfe;
-        //     if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
-        //     /* Test the wolfe condition */
-        //     if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
-        //     {
-        //         /* Success, use this new design */
-        //         break;
-        //     }
-        //     else
-        //     {
-        //         /* Test for line-search failure */
-        //         if (ls_iter == ls_maxiter - 1)
-        //         {
-        //             if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
-        //             break;
-        //         }
+            double test = objective - ls_param * stepsize * wolfe;
+            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
+            /* Test the wolfe condition */
+            if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
+            {
+                /* Success, use this new design */
+                break;
+            }
+            else
+            {
+                /* Test for line-search failure */
+                if (ls_iter == ls_maxiter - 1)
+                {
+                    if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    break;
+                }
 
-        //         /* Decrease the stepsize */
-        //         stepsize = stepsize * ls_factor;
+                /* Decrease the stepsize */
+                stepsize = stepsize * ls_factor;
 
-        //         /* Compute new design using new stepsize */
-        //         if (myid == MASTER_NODE)
-        //         {
-        //             /* Go back a portion of the step */
-        //             for (int id = 0; id < ndesign; id++)
-        //             {
-        //                 design[id] += stepsize * descentdir[id];
-        //             }
-        //         }
-        //         MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                /* Compute new design using new stepsize */
+                if (myid == MASTER_NODE)
+                {
+                    /* Go back a portion of the step */
+                    for (int id = 0; id < ndesign; id++)
+                    {
+                        design[id] += stepsize * descentdir[id];
+                    }
+                }
+                MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
+                network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
  
-        //     }
+            }
  
-        // }
+        }
  
         /* Print some statistics */
         StopTime = MPI_Wtime();

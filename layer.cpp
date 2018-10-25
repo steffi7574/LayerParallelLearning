@@ -257,7 +257,8 @@ double Layer::evalRegulDDT(Layer* layer_prev,
     if (layer_prev == NULL) return 0.0;
 
     /* Sanity check */
-    if (layer_prev->getDimIn()   != dim_In    ||
+    if (layer_prev->getnDesign() != ndesign   ||
+        layer_prev->getDimIn()   != dim_In    ||
         layer_prev->getDimOut()  != dim_Out   ||
         layer_prev->getDimBias() != dim_Bias   )
     {
@@ -266,15 +267,20 @@ double Layer::evalRegulDDT(Layer* layer_prev,
         exit(1);
     }
 
-    int nweights = dim_Out * dim_In;
+    int nweights = getnDesign() - getDimBias();
     for (int iw = 0; iw < nweights; iw++)
     {
         diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
         regul_ddt += pow(diff,2);
     }
-    diff       = (getBias()[0] - layer_prev->getBias()[0]) / deltat;
-    regul_ddt += pow(diff,2);
-    
+
+    int nbias = getnDesign() - getDimIn() * getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff       = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
+        regul_ddt += pow(diff,2);
+    }
+
     return gamma_ddt / 2.0 * regul_ddt;
 }                
 
@@ -286,12 +292,16 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
     regul_bar = gamma_ddt * regul_bar;
 
     /* Derivative of the bias-term */
-    diff = (getBias()[0] - layer_prev->getBias()[0]) / pow(deltat,2);
-    getBiasBar()[0]             += diff * regul_bar;
-    layer_prev->getBiasBar()[0] -= diff * regul_bar;
+    int nbias = getnDesign() - getDimIn() * getDimOut();
+    for (int ib = 0; ib < nbias; ib++)
+    {
+        diff = (getBias()[ib] - layer_prev->getBias()[ib]) / pow(deltat,2);
+        getBiasBar()[ib]             += diff * regul_bar;
+        layer_prev->getBiasBar()[ib] -= diff * regul_bar;
+    }
 
     /* Derivative of the weights term */
-    int nweights = dim_Out * dim_In;
+    int nweights = getnDesign() - getDimBias();
     for (int iw = 0; iw < nweights; iw++)
     {
         diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / pow(deltat,2);

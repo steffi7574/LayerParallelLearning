@@ -92,28 +92,28 @@ Layer* Network::createLayer(int    ilayer,
 {
     Layer* layer;
     if (ilayer == 0)  // Opening layer
+    {
+        if (Weight_open_init == 0.0)
         {
-            if (Weight_open_init == 0.0)
-            {
-               layer  = new OpenExpandZero(nFeatures, nchannels);
-            }
-            else
-            {
-               layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
-            }
-        }
-        else if (ilayer < nlayers_global-1) // Intermediate layer
-        {
-            layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
-        }
-        else if (ilayer == nlayers_global-1) // Classification layer 
-        {
-            layer = new ClassificationLayer(ilayer, nchannels, nClasses, Gamma_class);
+           layer  = new OpenExpandZero(nFeatures, nchannels);
         }
         else
         {
-            layer = NULL;
+           layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
         }
+    }
+    else if (0 < ilayer && ilayer < nlayers_global-1) // Intermediate layer
+    {
+        layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
+    }
+    else if (ilayer == nlayers_global-1) // Classification layer 
+    {
+        layer = new ClassificationLayer(ilayer, nchannels, nClasses, Gamma_class);
+    }
+    else
+    {
+        layer = NULL;
+    }
 
     return layer;
 }                        

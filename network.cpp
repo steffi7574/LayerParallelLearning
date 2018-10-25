@@ -193,8 +193,8 @@ double Network::evalRegulDDT(Layer* layer_old,
     for (int ib = 0; ib < nbias; ib++)
     {
         diff = (layer_curr->getBias()[ib] - layer_old->getBias()[ib]) / dt;
+        ddt += pow(diff,2);
     }
-    ddt += pow(diff,2);
     
     return gamma_ddt / 2.0 * ddt;
 }                

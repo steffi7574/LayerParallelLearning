@@ -437,11 +437,22 @@ int main (int argc, char *argv[])
     _braid_GetDistribution(core_train, &ilower, &iupper);
     printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
 
-    /* Initialize network and layers */
-    network = new Network(nlayers+1, nchannels, T/(double)nlayers);
-    network->initialize(ilower, iupper, nfeatures, nclasses, activation, weights_init, weights_open_init, weights_class_init, gamma_tik, gamma_ddt, gamma_class);
+    /* Create network and layers */
+    network = new Network(nlayers+1,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init);
     ndesign  = network->getnDesign();
     MPI_Allreduce(&ndesign, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
+    if (myid == MASTER_NODE)
+    {
+        design = new double[ndesign_global];
+        for (int i = 0; i < ndesign_global; i++)
+        {
+            design[i] = (double) rand() / ((double) RAND_MAX);
+        }
+    }
+    MPI_ScatterVector(design, network->getDesign(), ndesign, MASTER_NODE, MPI_COMM_WORLD);
+    network->initialize(weights_open_init, weights_init, weights_class_init);
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
  
     /* Initialize xbraid's app structure */
@@ -480,7 +491,6 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
         gradient   = new double[ndesign_global];
-        design     = new double[ndesign_global];
         design0    = new double[ndesign_global];
         gradient0  = new double[ndesign_global];
         descentdir = new double[ndesign_global];

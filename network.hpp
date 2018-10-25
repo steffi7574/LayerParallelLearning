@@ -29,9 +29,19 @@ class Network
    public: 
 
       Network();
-      Network(int    nLayers,
+      Network(int    nLayersGlobal,
+              int    StartLayerID, 
+              int    EndLayerID, 
+              int    nFeatures,
+              int    nClasses,
               int    nChannels, 
-              double deltaT);
+              int    Activation,
+              double deltaT,
+              double gamma_tik, 
+              double gamma_ddt, 
+              double gamma_class,
+              double Weight_open_init);
+     
       ~Network();
 
       /* Get number of channels */
@@ -69,17 +79,9 @@ class Network
       Layer* getLayer(int layerindex);
 
 
-      void initialize(int    StartLayerID, 
-                        int    EndLayerID, 
-                        int    nFeatures,
-                        int    nClasses,
-                        int    Activation,
-                        double Weight_init,
-                        double Weight_open_init,
-                        double Classification_init,
-                        double gamma_tik, 
-                        double gamma_ddt, 
-                        double gamma_class);
+      void initialize(double Weight_open_init,
+                      double Weight_init,
+                      double Classification_init);
 
       Layer* createLayer(int    index, 
                          int    nfeatures,

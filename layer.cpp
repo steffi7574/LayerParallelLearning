@@ -180,7 +180,7 @@ void Layer::initialize(double* design_ptr,
                        double* gradient_ptr,
                        double  factor)
 {
-    /* Set primal and adjoint weights memory locations */
+    /* Set design and gradient memory locations */
     weights     = design_ptr;
     weights_bar = gradient_ptr;
     
@@ -189,17 +189,15 @@ void Layer::initialize(double* design_ptr,
     bias         = design_ptr + nweights;    
     bias_bar     = gradient_ptr + nweights;
 
-    /* Initialize */
+    /* Scale initial design */
     for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        // weights[i]     = factor * i * index ;
+        weights[i]     = factor * weights[i];
         weights_bar[i] = 0.0;
     }
     for (int i = 0; i < ndesign - nweights; i++)
     {
-        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
-        // bias[i]     = factor * i * index;
+        bias[i]     = factor * bias[i];
         bias_bar[i] = 0.0;
     }
 }                   

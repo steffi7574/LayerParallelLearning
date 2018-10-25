@@ -16,16 +16,63 @@ Network::Network()
 }
 
 Network::Network(int    nLayersGlobal,
+                 int    StartLayerID, 
+                 int    EndLayerID, 
+                 int    nFeatures,
+                 int    nClasses,
                  int    nChannels, 
-                 double deltaT)
+                 int    Activation,
+                 double deltaT,
+                 double gamma_tik, 
+                 double gamma_ddt, 
+                 double gamma_class,
+                 double Weight_open_init)
 {
-
     /* Initilizize */
     nlayers_global   = nLayersGlobal;
+    startlayerID     = StartLayerID;
+    endlayerID       = EndLayerID;
+    nlayers_local    = endlayerID - startlayerID + 1;
+
     nchannels        = nChannels;
     dt               = deltaT;
     loss             = 0.0;
     accuracy         = 0.0;
+
+
+    /* Sanity check */
+    if (nFeatures > nchannels ||
+        nClasses  > nchannels)
+    {
+        printf("ERROR! Choose a wider netword!\n");
+        exit(1);
+    }
+
+    printf("creating layers startid %d endid %d, nlayer_local %d\n", startlayerID, endlayerID, nlayers_local);
+
+   /* --- Create the layers --- */
+    layers  = new Layer*[nlayers_local];
+    ndesign = 0;
+    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
+    {
+        /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
+        int storeID = getLocalID(ilayer);
+        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+        ndesign += layers[storeID]->getnDesign();
+        
+    }
+
+    /* Allocate memory for network design and gradient variables */
+    design   = new double[ndesign];
+    gradient = new double[ndesign];
+
+    /* Create left neighbouring layer */
+    int leftID = startlayerID - 1;
+    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+
+    /* Create right neighbrouing layer */
+    int rightID = endlayerID + 1;
+    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
 }             
 
   
@@ -143,74 +190,34 @@ Layer* Network::getLayer(int layerindex)
 }
 
 
-void Network::initialize(int    StartLayerID, 
-                           int    EndLayerID, 
-                           int    nFeatures,
-                           int    nClasses,
-                           int    Activation,
-                           double Weight_init,
-                           double Weight_open_init,
-                           double Classification_init,
-                           double gamma_tik, 
-                           double gamma_ddt, 
-                           double gamma_class)
+void Network::initialize(double Weight_open_init,
+                         double Weight_init,
+                         double Classification_init)
 {
-
-    startlayerID = StartLayerID;
-    endlayerID   = EndLayerID;
-    nlayers_local = endlayerID - startlayerID + 1;
-
-
-    /* Sanity check */
-    if (nFeatures > nchannels ||
-        nClasses  > nchannels)
-    {
-        printf("ERROR! Choose a wider netword!\n");
-        exit(1);
-    }
-
-    printf("creating layers startid %d endid %d, nlayer_local %d\n", startlayerID, endlayerID, nlayers_local);
-
-   /* --- Create the layers --- */
-    layers  = new Layer*[nlayers_local];
-    ndesign = 0;
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
-    {
-        /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
-        int storeID = getLocalID(ilayer);
-        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
-        ndesign += layers[storeID]->getnDesign();
-        
-    }
-
-    /* Allocate memory for network design and gradient variables */
-    design   = new double[ndesign];
-    gradient = new double[ndesign];
+    double factor;
 
     /* Initialize  the layer weights and bias */
     int istart = 0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
-        int storeID = getLocalID(ilayer);
         if (ilayer == 0)  // Opening layer
         {
-            layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Weight_open_init);
-            istart += layers[storeID]->getnDesign();
+            factor = Weight_open_init;
         }
-        else if (ilayer < nlayers_global-1) // Intermediate layer
+        else if (0 < ilayer && ilayer < nlayers_global-1) // Intermediate layer
         {
-            layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Weight_init);
-            istart += layers[storeID]->getnDesign();
+            factor = Weight_init;
         }
         else // Classification layer 
         {
-            layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), Classification_init);
+            factor = Classification_init;
         }
+        int storeID = getLocalID(ilayer);
+        layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), factor);
+        istart += layers[storeID]->getnDesign();
     }
 
     /* Create and initialize left neighbouring layer, if exists */
-    int leftID = startlayerID - 1;
-    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
     if (layer_left != NULL)
     {
         double *left_design   = new double[layer_left->getnDesign()];
@@ -220,8 +227,6 @@ void Network::initialize(int    StartLayerID,
 
 
     /* Create and initialize right neighbouring layer, if exists */
-    int rightID = endlayerID + 1;
-    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
     if (layer_right != NULL)
     {
         double *right_design   = new double[layer_right->getnDesign()];

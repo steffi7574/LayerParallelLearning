@@ -174,7 +174,7 @@ double Network::evalRegulDDT(Layer* layer_old,
 
     /* Sanity check */
     if (layer_old->getnDesign()  != layer_curr->getnDesign() ||
-        layer_old->getDimOut()   != layer_curr->getDimOut()  ||
+        layer_old->getDimIn()   != layer_curr->getDimIn()  ||
         layer_old->getDimOut()   != layer_curr->getDimOut()  ||
         layer_old->getDimBias()  != layer_curr->getDimBias() )
         {

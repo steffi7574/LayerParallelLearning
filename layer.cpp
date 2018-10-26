@@ -763,7 +763,7 @@ ConvLayer::ConvLayer(int     idx,
    csize = csize_in;
    nconv = nconv_in;
    nweights = csize*csize*nconv*nconv;
-   ndesign = nweights + 1; // must add one to account for the bias
+   ndesign = nweights + dimI/nconv; // must add to account for the bias
 }
    
 ConvLayer::~ConvLayer() {}
@@ -897,7 +897,7 @@ void ConvLayer::applyFWD(double* state)
          {
             int state_index = i*img_size + j*img_size_sqrt + k;
 
-            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[0];
+            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[j*img_size_sqrt+k];
          }
       }
    }
@@ -973,7 +973,7 @@ void ConvLayer::applyBWD(double* state,
              int state_index = i*img_size + j*img_size_sqrt + k;
 
              /* compute the affine transformation */
-             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[0];
+             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[j*img_size_sqrt+k];
 
              /* derivative of the update, this is the contribution from old time */
              update_bar[state_index] = dt * dactivation(update[state_index]) * state_bar[state_index];
@@ -992,7 +992,7 @@ void ConvLayer::applyBWD(double* state,
             int state_index = i*img_size + j*img_size_sqrt + k;
 
             // bias derivative
-            bias_bar[0] += update_bar[state_index];
+            bias_bar[j*img_size_sqrt+k] += update_bar[state_index];
 
             // weight derivative (updates weight_bar)
             updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);

@@ -575,6 +575,7 @@ int main (int argc, char *argv[])
         /* Solve adjoint equation with XBraid */
         nreq = -1;
         braid_SetPrintLevel(core_adj, braid_printlevel);
+        evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
         /* Get gradient on root process */
@@ -739,15 +740,26 @@ int main (int argc, char *argv[])
          printf("\n\n ============================ \n");
          printf(" Adjoint dot test: \n\n");
 
-        // read_vector("design.dat", design, ndesign);
+        double obj0 = objective;
+        double EPS = 1e-7;
+
+        read_vector("somedesign.dat", design, ndesign_global);
+        MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+        network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
          
-        /* Propagate through braid */
-        // braid_Drive(core_train);
+        braid_Drive(core_train);
+        evalObjective(core_train, app_train, &obj0, &loss_train, &accur_train);
+
+
+
+        /* Eval gradient */
+        evalObjectiveDiff(core_adj, app_train);
+        braid_Drive(core_adj);
+        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
+ 
 
 
         // write_vector("gradient.dat", gradient, ndesign);
-        double obj0 = objective;
-        double EPS = 1e-7;
 
         double xtx = 0.0;
         for (int i = 0; i < ndesign_global; i++)

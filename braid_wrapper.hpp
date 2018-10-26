@@ -148,3 +148,7 @@ evalObjective(braid_Core  core,
               double     *loss_ptr,
               double     *accuracy_ptr);
 
+
+void
+evalObjectiveDiff(braid_Core core_adj,
+                  braid_App  app);

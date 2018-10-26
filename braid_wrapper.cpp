@@ -620,3 +620,35 @@ evalObjective(braid_Core core,
 }          
 
 
+void
+evalObjectiveDiff(braid_Core core_adj,
+                  braid_App  app)
+{
+
+    braid_BaseVector  ubaseprimal, ubaseadjoint;
+    braid_Vector      uprimal, uadjoint;
+    int warm_restart = _braid_CoreElt(core_adj, warm_restart);
+
+    /* If warm_restart: set adjoint initial condition here. Otherwise it's set in my_Init_Adj */
+    if (warm_restart)
+    {
+        /* Get primal and adjoint state */
+        _braid_UGetVectorRef(app->primalcore, 0, GetPrimalIndex(app, 0), &ubaseprimal);
+        _braid_UGetVectorRef(core_adj, 0, 0, &ubaseadjoint);
+
+        if (ubaseprimal != NULL && ubaseadjoint !=NULL)  // this is the case at first primal and last adjoint time step  
+        {
+            uprimal  = ubaseprimal->userVector;
+            uadjoint = ubaseadjoint->userVector;
+
+            /* Reset the gradient before updating it */
+            uprimal->layer->resetBar();
+
+            /* Derivative of classification */
+            uprimal->layer->evalClassification_diff(app->nexamples, uprimal->state, uadjoint->state, app->labels, 1);
+
+            /* Derivative of tikhonov regularization) */
+            uprimal->layer->evalTikh_diff(1.0);
+        }
+    }
+}              

@@ -3,6 +3,7 @@
 import sys 
 import os
 import copy
+
 from batch_job import submit_job
 from config import *
 from util import *
@@ -18,9 +19,9 @@ datafolder = "data"
 configfile = Config("config.cfg")
 
 # Specify the varying parameters
-gammatik   = [1e-5]
-gammaddt   = [1e-5]
-gammaclass = [1e-1, 1e-5]
+gammatik   = [1e-1,1e-3,1e-5]
+gammaddt   = [1e-1,1e-3,1e-5]
+gammaclass = [1e-1,1e-3,1e-5]
 npt = 2 # number of processors
 
 # Submit a job for each parameter setup
@@ -40,10 +41,10 @@ for itik in range(len(gammatik)):
 
             # Specify jobname 
             jobname =  \
-                      "n1024opt"  +\
-                      "tik"     + str(konfig.gamma_tik)   +\
-                      "ddt"     + str(konfig.gamma_ddt)   +\
-                      "class"   + str(konfig.gamma_class)
+                      "mnist"  +\
+                      "-tik"     + str(konfig.gamma_tik)   +\
+                      "-ddt"     + str(konfig.gamma_ddt)   +\
+                      "-class"   + str(konfig.gamma_class)
 
             # create folder for the job
             if os.path.exists(jobname):
@@ -52,7 +53,7 @@ for itik in range(len(gammatik)):
                os.mkdir(jobname)
 
             # create a link to training and validation data
-            make_link(datafolder,jobname + "/" + datafolder)
+            make_link("/Users/eccyr/Projects/ECRP/Code/xbraid-connets/mnist_converter",jobname + "/" + datafolder)
 
             # Create a config file
             newconfigfile = jobname + ".cfg"
@@ -60,6 +61,5 @@ for itik in range(len(gammatik)):
 
             # submit the job
             os.chdir(jobname)
-            submit_job(jobname, runcommand, npt, "10:00:00", "../main", newconfigfile)
+            submit_job(jobname, runcommand, npt, "10:00:00", "../../main", newconfigfile,False)
             os.chdir("../")
-

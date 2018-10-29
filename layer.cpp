@@ -770,7 +770,7 @@ void ClassificationLayer::evalClassification(int      nexamples,
     }
     loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
-    // printf("%d: Eval loss %d,%1.14e using %1.14e\n", app->myid, ilayer, loss, u->state[1][1]);
+    // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
 
     /* Return */
     *loss_ptr      = loss;
@@ -785,26 +785,23 @@ void ClassificationLayer::evalClassification_diff(int      nexamples,
                                                   double** labels, 
                                                   int      compute_gradient)
 {
-    /* Recompute the Classification */
+    double loss_bar = 1./nexamples; 
+    
     for (int iex = 0; iex < nexamples; iex++)
     {
-        /* Copy values into auxiliary vector */
+        /* Recompute the Classification */
         for (int ic = 0; ic < dim_In; ic++)
         {
             tmpstate[ic] = primalstate[iex][ic];
         }
-        /* Apply classification on tmpstate */
         applyFWD(tmpstate);
-    }
-    
-    /* Derivative of Loss and classification. This updates adjoint state and gradient, if desired. */
-    double loss_bar = 1./nexamples; 
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
 
+        /* Derivative of Loss and classification. */
+        crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
         applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
     }
+    printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
+
 }  
 
 

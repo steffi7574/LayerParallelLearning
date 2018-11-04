@@ -606,10 +606,14 @@ int main (int argc, char *argv[])
         gnorm = sqrt(gnorm);
 
         // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
-        MPI_Allreduce(&loss_train, &loss_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&loss_val, &loss_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&accur_train, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&accur_val, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        double myltrain  = loss_train;
+        double mylval    = loss_val;
+        double myatrain  = accur_train;
+        double myaval    = accur_val;
+        MPI_Allreduce(&myltrain, &loss_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&mylval, &loss_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&myatrain, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&myaval, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Output */
         if (myid == MASTER_NODE)

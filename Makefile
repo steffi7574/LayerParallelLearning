@@ -2,8 +2,10 @@ CC     = mpicc
 CXX    = mpicxx
 
 INC = -I. -I$(BRAID_INC_DIR)
-BRAID_INC_DIR = /Users/eccyr/Projects/ECRP/Code/xbraid-connets/xbraid/braid
-BRAID_LIB_FILE = /Users/eccyr/Projects/ECRP/Code/xbraid-connets/xbraid/braid/libbraid.a
+#BRAID_INC_DIR = /Users/eccyr/Projects/ECRP/Code/xbraid-connets/xbraid/braid
+#BRAID_LIB_FILE = /Users/eccyr/Projects/ECRP/Code/xbraid-connets/xbraid/braid/libbraid.a
+BRAID_INC_DIR = /Users/jacobschroder/joint_repos/braid/braid
+BRAID_LIB_FILE = /Users/jacobschroder/joint_repos/braid/braid/libbraid.a
 
 # set compiler flags
 CPPFLAGS = -g -Wall -pedantic -Wno-write-strings -Wno-delete-non-virtual-dtor -std=c++11

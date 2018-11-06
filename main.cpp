@@ -73,12 +73,15 @@ int main (int argc, char *argv[])
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
     int      braid_maxlevels;   /**< max. levels of temporal refinement */
+    int      braid_mincoarse;   /**< minimum allowed coarse time grid size */
     int      braid_printlevel;  /**< print level of xbraid */
     int      braid_cfactor;     /**< temporal coarsening factor */
+    int      braid_cfactor0;    /**< temporal coarsening factor on level 0 */
     int      braid_accesslevel; /**< braid access level */
     int      braid_maxiter;     /**< max. iterations of xbraid */ 
     int      braid_setskip;     /**< braid: skip work on first level */
     int      braid_fmg;         /**< braid: V-cycle or full multigrid */
+    int      braid_nrelax0;     /**< braid: number of CF relaxation sweeps on level 0*/
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
@@ -110,7 +113,9 @@ int main (int argc, char *argv[])
     activation         = Layer::RELU;
     networkType        = Network::DENSE;
     braid_cfactor      = 4;
+    braid_cfactor0     = 4;
     braid_maxlevels    = 10;
+    braid_mincoarse    = 10;
     braid_maxiter      = 3;
     braid_abstol       = 1e-10;
     braid_abstoladj    = 1e-06;
@@ -118,6 +123,7 @@ int main (int argc, char *argv[])
     braid_accesslevel  = 0;
     braid_setskip      = 0;
     braid_fmg          = 0;
+    braid_nrelax0      = 1;
     braid_nrelax       = 1;
     gamma_tik          = 1e-07;
     gamma_ddt          = 1e-07;
@@ -249,9 +255,17 @@ int main (int argc, char *argv[])
         {
            braid_cfactor = atoi(co->value);
         }
+        else if ( strcmp(co->key, "braid_cfactor0") == 0 )
+        {
+           braid_cfactor0 = atoi(co->value);
+        }
         else if ( strcmp(co->key, "braid_maxlevels") == 0 )
         {
            braid_maxlevels = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_mincoarse") == 0 )
+        {
+           braid_mincoarse = atoi(co->value);
         }
         else if ( strcmp(co->key, "braid_maxiter") == 0 )
         {
@@ -284,6 +298,10 @@ int main (int argc, char *argv[])
         else if ( strcmp(co->key, "braid_nrelax") == 0 )
         {
            braid_nrelax = atoi(co->value);
+        }
+        else if ( strcmp(co->key, "braid_nrelax0") == 0 )
+        {
+           braid_nrelax0 = atoi(co->value);
         }
         else if ( strcmp(co->key, "gamma_tik") == 0 )
         {
@@ -449,8 +467,12 @@ int main (int argc, char *argv[])
     /* Set Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);
+    braid_SetMinCoarse(core_train, braid_mincoarse);
+    braid_SetMinCoarse(core_val, braid_mincoarse);
     braid_SetPrintLevel( core_train, braid_printlevel);
     braid_SetPrintLevel( core_val,   braid_printlevel);
+    braid_SetCFactor(core_train,  0, braid_cfactor0);
+    braid_SetCFactor(core_val,    0, braid_cfactor0);
     braid_SetCFactor(core_train, -1, braid_cfactor);
     braid_SetCFactor(core_val,   -1, braid_cfactor);
     braid_SetAccessLevel(core_train, braid_accesslevel);
@@ -465,6 +487,8 @@ int main (int argc, char *argv[])
     }
     braid_SetNRelax(core_train, -1, braid_nrelax);
     braid_SetNRelax(core_val,   -1, braid_nrelax);
+    braid_SetNRelax(core_train,  0, braid_nrelax0);
+    braid_SetNRelax(core_val,    0, braid_nrelax0);
     braid_SetAbsTol(core_train, braid_abstol);
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
@@ -513,38 +537,41 @@ int main (int argc, char *argv[])
     {
         sprintf(optimfilename, "%s.dat", "optim");
         optimfile = fopen(optimfilename, "w");
-        fprintf(optimfile, "# Problem setup: ntraining           %d \n", ntraining);
-        fprintf(optimfile, "#                nvalidation         %d \n", nvalidation);
-        fprintf(optimfile, "#                nfeatures           %d \n", nfeatures);
-        fprintf(optimfile, "#                nclasses            %d \n", nclasses);
-        fprintf(optimfile, "#                nchannels           %d \n", nchannels);
-        fprintf(optimfile, "#                nlayers             %d \n", nlayers);
-        fprintf(optimfile, "#                T                   %f \n", T);
-        fprintf(optimfile, "#                Activation          %s \n", activname);
-        fprintf(optimfile, "#                type openlayer      %d \n", type_openlayer);
-        fprintf(optimfile, "# XBraid setup:  max levels          %d \n", braid_maxlevels);
-        fprintf(optimfile, "#                coasening           %d \n", braid_cfactor);
-        fprintf(optimfile, "#                max. braid iter     %d \n", braid_maxiter);
-        fprintf(optimfile, "#                abs. tol            %1.e \n", braid_abstol);
-        fprintf(optimfile, "#                abs. toladj         %1.e \n", braid_abstoladj);
-        fprintf(optimfile, "#                print level         %d \n", braid_printlevel);
-        fprintf(optimfile, "#                access level        %d \n", braid_accesslevel);
-        fprintf(optimfile, "#                skip?               %d \n", braid_setskip);
-        fprintf(optimfile, "#                fmg?                %d \n", braid_fmg);
-        fprintf(optimfile, "#                nrelax              %d \n", braid_nrelax);
-        fprintf(optimfile, "# Optimization:  gamma_tik           %1.e \n", gamma_tik);
-        fprintf(optimfile, "#                gamma_ddt           %1.e \n", gamma_ddt);
-        fprintf(optimfile, "#                gamma_class         %1.e \n", gamma_class);
-        fprintf(optimfile, "#                stepsize            %f \n", stepsize_init);
-        fprintf(optimfile, "#                max. optim iter     %d \n", maxoptimiter);
-        fprintf(optimfile, "#                gtol                %1.e \n", gtol);
-        fprintf(optimfile, "#                max. ls iter        %d \n", ls_maxiter);
-        fprintf(optimfile, "#                ls factor           %f \n", ls_factor);
-        fprintf(optimfile, "#                weights_init        %f \n", weights_init);
-        fprintf(optimfile, "#                weights_open_init   %f \n", weights_open_init);
-        fprintf(optimfile, "#                weights_class_init  %f \n", weights_class_init) ;
-        fprintf(optimfile, "#                hessian_approx      %d \n", hessian_approx);
-        fprintf(optimfile, "#                lbfgs_stages        %d \n", lbfgs_stages);
+        fprintf(optimfile, "# Problem setup: ntraining            %d \n", ntraining);
+        fprintf(optimfile, "#                nvalidation          %d \n", nvalidation);
+        fprintf(optimfile, "#                nfeatures            %d \n", nfeatures);
+        fprintf(optimfile, "#                nclasses             %d \n", nclasses);
+        fprintf(optimfile, "#                nchannels            %d \n", nchannels);
+        fprintf(optimfile, "#                nlayers              %d \n", nlayers);
+        fprintf(optimfile, "#                T                    %f \n", T);
+        fprintf(optimfile, "#                Activation           %s \n", activname);
+        fprintf(optimfile, "#                type openlayer       %d \n", type_openlayer);
+        fprintf(optimfile, "# XBraid setup:  max levels           %d \n", braid_maxlevels);
+        fprintf(optimfile, "#                min coarse           %d \n", braid_mincoarse);
+        fprintf(optimfile, "#                coasening            %d \n", braid_cfactor);
+        fprintf(optimfile, "#                coasening (level 0)  %d \n", braid_cfactor0);
+        fprintf(optimfile, "#                max. braid iter      %d \n", braid_maxiter);
+        fprintf(optimfile, "#                abs. tol             %1.e \n", braid_abstol);
+        fprintf(optimfile, "#                abs. toladj          %1.e \n", braid_abstoladj);
+        fprintf(optimfile, "#                print level          %d \n", braid_printlevel);
+        fprintf(optimfile, "#                access level         %d \n", braid_accesslevel);
+        fprintf(optimfile, "#                skip?                %d \n", braid_setskip);
+        fprintf(optimfile, "#                fmg?                 %d \n", braid_fmg);
+        fprintf(optimfile, "#                nrelax (level 0)     %d \n", braid_nrelax0);
+        fprintf(optimfile, "#                nrelax               %d \n", braid_nrelax);
+        fprintf(optimfile, "# Optimization:  gamma_tik            %1.e \n", gamma_tik);
+        fprintf(optimfile, "#                gamma_ddt            %1.e \n", gamma_ddt);
+        fprintf(optimfile, "#                gamma_class          %1.e \n", gamma_class);
+        fprintf(optimfile, "#                stepsize             %f \n", stepsize_init);
+        fprintf(optimfile, "#                max. optim iter      %d \n", maxoptimiter);
+        fprintf(optimfile, "#                gtol                 %1.e \n", gtol);
+        fprintf(optimfile, "#                max. ls iter         %d \n", ls_maxiter);
+        fprintf(optimfile, "#                ls factor            %f \n", ls_factor);
+        fprintf(optimfile, "#                weights_init         %f \n", weights_init);
+        fprintf(optimfile, "#                weights_open_init    %f \n", weights_open_init);
+        fprintf(optimfile, "#                weights_class_init   %f \n", weights_class_init) ;
+        fprintf(optimfile, "#                hessian_approx       %d \n", hessian_approx);
+        fprintf(optimfile, "#                lbfgs_stages         %d \n", lbfgs_stages);
         fprintf(optimfile, "\n");
     }
 

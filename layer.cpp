@@ -19,20 +19,24 @@ Layer::Layer()
    weights_bar  = NULL;
    bias         = NULL;
    bias_bar     = NULL;
-   gamma        = 0.0;
+   gamma_tik    = 0.0;
+   gamma_ddt    = 0.0;
    update       = NULL;
    update_bar   = NULL;
 }
 
 Layer::Layer(int     idx,
+             int     Type,
              int     dimI,
              int     dimO,
              int     dimB,
              double  deltaT,
              int     Activ,
-             double  Gamma)
+             double  gammatik,
+             double  gammaddt)
 {
    index       = idx;
+   type        = Type;
    dim_In      = dimI;
    dim_Out     = dimO;
    dim_Bias    = dimB;
@@ -40,7 +44,8 @@ Layer::Layer(int     idx,
    nweights    = dimI * dimO;
    dt          = deltaT;
    activ       = Activ;
-   gamma       = Gamma;
+   gamma_tik   = gammatik;
+   gamma_ddt   = gammaddt;
    
    update     = new double[dimO];
    update_bar = new double[dimO];
@@ -48,9 +53,10 @@ Layer::Layer(int     idx,
  
 // Layer::Layer(0, dimI, dimO, 1)
 Layer::Layer(int idx, 
+             int type,
              int dimI, 
              int dimO, 
-             int dimB) : Layer(idx, dimI, dimO, dimB, 1.0, -1, 0.0) {}         
+             int dimB) : Layer(idx, type, dimI, dimO, dimB, 1.0, -1, 0.0, 0.0) {}
 
 Layer::~Layer()
 {
@@ -60,6 +66,16 @@ Layer::~Layer()
 
 
 void Layer::setDt(double DT) { dt = DT; }
+
+double Layer::getDt() { return dt; }
+
+double Layer::getGammaTik() { return gamma_tik; }
+
+double Layer::getGammaDDT() { return gamma_ddt; }
+
+int Layer::getActivation() { return activ; }
+
+int Layer::getType() { return type; }
 
 double* Layer::getWeights() { return weights; }
 double* Layer::getBias()    { return bias; }
@@ -71,6 +87,8 @@ int Layer::getDimIn()   { return dim_In;   }
 int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
 int Layer::getnDesign() { return ndesign; }
+
+int Layer::getIndex() { return index; }
 
 void Layer::print_data(double* data)
 {
@@ -130,11 +148,49 @@ double Layer::dactivation(double x)
 
 }
 
+
+void Layer::packDesign(double* buffer, 
+                       int     size)
+{
+    int nweights = getnDesign() - getDimBias();
+    int nbias    = getnDesign() - getDimIn() * getDimOut();
+    int idx = 0;
+    for (int i = 0; i < nweights; i++)
+    {
+        buffer[idx] = getWeights()[i];   idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        buffer[idx] = getBias()[i];     idx++;
+    }
+    /* Set the rest to zero */
+    for (int i = idx; i < size; i++)
+    {
+        buffer[idx] = 0.0;  idx++;
+    }
+}
+
+void Layer::unpackDesign(double* buffer)
+{
+    int nweights     = getnDesign() - getDimBias();
+    int nbias        = getnDesign() - getDimIn() * getDimOut();
+
+    int idx = 0;
+    for (int i = 0; i < nweights; i++)
+    {
+        getWeights()[i] = buffer[idx]; idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        getBias()[i] = buffer[idx];   idx++;
+    }
+}
+
 void Layer::initialize(double* design_ptr,
                        double* gradient_ptr,
                        double  factor)
 {
-    /* Set primal and adjoint weights memory locations */
+    /* Set design and gradient memory locations */
     weights     = design_ptr;
     weights_bar = gradient_ptr;
     
@@ -142,15 +198,15 @@ void Layer::initialize(double* design_ptr,
     bias         = design_ptr + nweights;    
     bias_bar     = gradient_ptr + nweights;
 
-    /* Initialize */
+    /* Scale initial design */
     for (int i = 0; i < ndesign - dim_Bias; i++)
     {
-        weights[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        weights[i]     = factor * weights[i];
         weights_bar[i] = 0.0;
     }
     for (int i = 0; i < ndesign - nweights; i++)
     {
-        bias[i]     = factor * (double) rand() / ((double) RAND_MAX);
+        bias[i]     = factor * bias[i];
         bias_bar[i] = 0.0;
     }
 }                   
@@ -180,12 +236,12 @@ double Layer::evalTikh()
         tik += pow(bias[i],2);
     }
 
-    return gamma / 2.0 * tik;
+    return gamma_tik / 2.0 * tik;
 }
 
 void Layer::evalTikh_diff(double regul_bar)
 {
-    regul_bar = gamma * regul_bar;
+    regul_bar = gamma_tik * regul_bar;
 
     /* Derivative bias term */
     for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
@@ -198,25 +254,116 @@ void Layer::evalTikh_diff(double regul_bar)
     }
 }
 
+
+double Layer::evalRegulDDT(Layer* layer_prev, 
+                           double deltat)
+{
+    if (layer_prev == NULL) return 0.0;
+
+    double diff;
+    double regul_ddt = 0.0;
+
+    /* Compute ddt-regularization only if dimensions match  */
+    /* this excludes openinglayer, first layer and classification layer. */
+    if (layer_prev->getnDesign() == ndesign   &&
+        layer_prev->getDimIn()   == dim_In    &&
+        layer_prev->getDimOut()  == dim_Out   &&
+        layer_prev->getDimBias() == dim_Bias   )
+    {
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
+            regul_ddt += pow(diff,2);
+        }
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff       = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
+            regul_ddt += pow(diff,2);
+        }
+        regul_ddt = gamma_ddt / 2.0 * regul_ddt;
+    }
+
+    return regul_ddt;
+}                
+
+void Layer::evalRegulDDT_diff(Layer* layer_prev, 
+                              Layer* layer_next,
+                              double deltat)
+{
+
+    if (layer_prev == NULL) return;
+    if (layer_next == NULL) return;
+
+    double diff;
+    int regul_bar = gamma_ddt / (deltat*deltat);
+
+    /* Left sided derivative term */
+    if (layer_prev->getnDesign() == ndesign   &&
+        layer_prev->getDimIn()   == dim_In    &&
+        layer_prev->getDimOut()  == dim_Out   &&
+        layer_prev->getDimBias() == dim_Bias   )
+    {
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff              = getBias()[ib] - layer_prev->getBias()[ib];
+            getBiasBar()[ib] += diff * regul_bar;
+        }
+
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff                 = getWeights()[iw] - layer_prev->getWeights()[iw];
+            getWeightsBar()[iw] += diff * regul_bar;
+        }
+    }
+
+    /* Right sided derivative term */
+    if (layer_next->getnDesign() == ndesign   &&
+        layer_next->getDimIn()   == dim_In    &&
+        layer_next->getDimOut()  == dim_Out   &&
+        layer_next->getDimBias() == dim_Bias   )
+    {
+        int nbias = getnDesign() - getDimIn() * getDimOut();
+        for (int ib = 0; ib < nbias; ib++)
+        {
+            diff              = getBias()[ib] - layer_next->getBias()[ib];
+            getBiasBar()[ib] += diff * regul_bar;
+        }
+
+        int nweights = getnDesign() - getDimBias();
+        for (int iw = 0; iw < nweights; iw++)
+        {
+            diff                 = getWeights()[iw] - layer_next->getWeights()[iw];
+            getWeightsBar()[iw] += diff * regul_bar;
+        }
+    }
+} 
+
+
+
+
 void Layer::setExample(double* example_ptr) {}
 
-double Layer::evalLoss(double *data_Out, 
-                       double *label) { return 0.0; }
 
-
-void Layer::evalLoss_diff(double *data_Out, 
-                          double *data_Out_bar,
-                          double *label,
-                          double  loss_bar) 
+void Layer::evalClassification(int      nexamples, 
+                               double** state,
+                               double** labels, 
+                               double*  loss_ptr, 
+                               double*  accuracy_ptr)
 {
-    /* dfdu = 0.0 */
-    for (int io = 0; io < dim_Out; io++)
-    {
-        data_Out_bar[io] =  0.0;
-    }
+    *loss_ptr     = 0.0;
+    *accuracy_ptr = 0.0;
 }
 
-int Layer::prediction(double* data, double* label) {return 0;}
+
+void Layer::evalClassification_diff(int      nexamples, 
+                                    double** primalstate,
+                                    double** adjointstate,
+                                    double** labels, 
+                                    int      compute_gradient) {}                                
 
 
 DenseLayer::DenseLayer(int     idx,
@@ -224,7 +371,8 @@ DenseLayer::DenseLayer(int     idx,
                        int     dimO,
                        double  deltaT,
                        int     Activ,
-                       double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, Gamma)
+                       double  gammatik, 
+                       double  gammaddt) : Layer(idx, DENSE, dimI, dimO, 1, deltaT, Activ, gammatik, gammaddt)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -251,7 +399,8 @@ void DenseLayer::applyFWD(double* state)
 
 
 void DenseLayer::applyBWD(double* state,
-                          double* state_bar)
+                          double* state_bar,
+                          int     compute_gradient)
 {
 
    /* state_bar is the adjoint of the state variable, it contains the 
@@ -273,12 +422,12 @@ void DenseLayer::applyBWD(double* state,
    for (int io = 0; io < dim_Out; io++)
    {
       /* Derivative of bias addition */
-      bias_bar[0] += update_bar[io];
+      if (compute_gradient) bias_bar[0] += update_bar[io];
 
       /* Derivative of weight application */
       for (int ii = 0; ii < dim_In; ii++)
       {
-         weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+         if (compute_gradient) weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
          state_bar[ii] += weights[io*dim_In + ii] * update_bar[io]; 
       }
    }
@@ -288,8 +437,9 @@ void DenseLayer::applyBWD(double* state,
 OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
                                int     Activ,
-                               double  Gamma) : DenseLayer(0, dimI, dimO, 1.0, Activ, Gamma) 
+                               double  gammatik) : DenseLayer(0, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
 {
+    type    = OPENDENSE;
     example = NULL;
 }
 
@@ -320,7 +470,8 @@ void OpenDenseLayer::applyFWD(double* state)
 }
 
 void OpenDenseLayer::applyBWD(double* state,
-                              double* state_bar)
+                              double* state_bar,
+                              int     compute_gradient)
 {
    /* Derivative of step */
    for (int io = 0; io < dim_Out; io++)
@@ -335,22 +486,25 @@ void OpenDenseLayer::applyBWD(double* state,
    }
 
    /* Derivative of affine transformation */
-   for (int io = 0; io < dim_Out; io++)
+   if (compute_gradient) 
    {
-      /* Derivative of bias addition */
-      bias_bar[0] += update_bar[io];
+       for (int io = 0; io < dim_Out; io++)
+       {
+          /* Derivative of bias addition */
+          bias_bar[0] += update_bar[io];
 
-      /* Derivative of weight application */
-      for (int ii = 0; ii < dim_In; ii++)
-      {
-         weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
-      }
+          /* Derivative of weight application */
+          for (int ii = 0; ii < dim_In; ii++)
+          {
+             weights_bar[io*dim_In + ii] += example[ii] * update_bar[io];
+          }
+       }
    }
 }                
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, dimI, dimO, 0)
+                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 1)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -367,6 +521,7 @@ void OpenExpandZero::setExample(double* example_ptr)
 }
 
 
+
 void OpenExpandZero::applyFWD(double* state)
 {
    for (int ii = 0; ii < dim_In; ii++)
@@ -380,7 +535,8 @@ void OpenExpandZero::applyFWD(double* state)
 }                           
 
 void OpenExpandZero::applyBWD(double* state,
-                              double* state_bar)
+                              double* state_bar,
+                              int     compute_gradient)
 {
    for (int ii = 0; ii < dim_Out; ii++)
    {
@@ -390,7 +546,7 @@ void OpenExpandZero::applyBWD(double* state,
 
 
 OpenConvLayer::OpenConvLayer(int dimI,
-                             int dimO) : Layer(0, dimI, dimO, 1)
+                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 1)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -425,7 +581,8 @@ void OpenConvLayer::applyFWD(double* state)
 }                           
 
 void OpenConvLayer::applyBWD(double* state,
-                             double* state_bar)
+                             double* state_bar,
+                             int     compute_gradient)
 {
    for (int ii = 0; ii < dim_Out; ii++)
    {
@@ -457,7 +614,8 @@ void OpenConvLayerMNIST::applyFWD(double* state)
 }
 
 void OpenConvLayerMNIST::applyBWD(double* state,
-                                  double* state_bar)
+                                  double* state_bar,
+                                  int     compute_gradient)
 {
    // Derivative of step
    for(int img = 0; img < nconv; img++)
@@ -478,17 +636,20 @@ void OpenConvLayerMNIST::applyBWD(double* state,
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,
                                          int    dimO,
-                                         double Gamma) : Layer(idx, dimI, dimO, dimO)
+                                         double gammatik) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO)
 {
-    gamma = Gamma;
+    gamma_tik = gammatik;
     /* Allocate the probability vector */
     probability = new double[dimO];
+    tmpstate    = new double[dim_In];
 }
 
 ClassificationLayer::~ClassificationLayer()
 {
     delete [] probability;
+    delete [] tmpstate;
 }
+
 
 
 void ClassificationLayer::applyFWD(double* state)
@@ -524,7 +685,8 @@ void ClassificationLayer::applyFWD(double* state)
 }                           
       
 void ClassificationLayer::applyBWD(double* state,
-                                   double* state_bar)
+                                   double* state_bar,
+                                   int     compute_gradient)
 {
     /* Recompute affine transformation */
     for (int io = 0; io < dim_Out; io++)
@@ -552,12 +714,12 @@ void ClassificationLayer::applyBWD(double* state,
     for (int io = 0; io < dim_Out; io++)
     {
        /* Derivative of bias addition */
-        bias_bar[io] += update_bar[io];
+        if (compute_gradient) bias_bar[io] += update_bar[io];
   
         /* Derivative of weight application */
         for (int ii = 0; ii < dim_In; ii++)
         {
-           weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
+           if (compute_gradient) weights_bar[io*dim_In + ii] += state[ii] * update_bar[io];
            state_bar[ii] += weights[io*dim_In + ii] * update_bar[io];
         }
     }   
@@ -590,7 +752,7 @@ void ClassificationLayer::normalize_diff(double* data,
     data_bar[i_max] += max_b;
 }                                     
 
-double ClassificationLayer::evalLoss(double *data_Out, 
+double ClassificationLayer::crossEntropy(double *data_Out, 
                                       double *label) 
 {
    double label_pr, exp_sum;
@@ -613,7 +775,7 @@ double ClassificationLayer::evalLoss(double *data_Out,
 }
       
       
-void ClassificationLayer::evalLoss_diff(double *data_Out, 
+void ClassificationLayer::crossEntropy_diff(double *data_Out, 
                                         double *data_Out_bar,
                                         double *label,
                                         double  loss_bar)
@@ -681,6 +843,68 @@ int ClassificationLayer::prediction(double* data_Out,
    return success;
 }
 
+void ClassificationLayer::evalClassification(int      nexamples, 
+                                             double** state,
+                                             double** labels, 
+                                             double*  loss_ptr, 
+                                             double*  accuracy_ptr)
+{
+    double loss, accuracy;
+    int    success;
+
+    /* Sanity check */
+    if (labels == NULL) printf("\n\n: ERROR: No labels for classification... \n\n");
+
+    loss    = 0.0;
+    success = 0;
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
+        for (int ic = 0; ic < dim_In; ic++)
+        {
+            tmpstate[ic] = state[iex][ic];
+        }
+        /* Apply classification on tmpstate */
+        applyFWD(tmpstate);
+        /* Evaluate Loss */
+        loss     += crossEntropy(tmpstate, labels[iex]);
+        success  += prediction(tmpstate, labels[iex]);
+    }
+    loss     = 1. / nexamples * loss;
+    accuracy = 100.0 * (double) success / nexamples;
+    // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
+
+    /* Return */
+    *loss_ptr      = loss;
+    *accuracy_ptr  = accuracy;
+
+}       
+
+
+void ClassificationLayer::evalClassification_diff(int      nexamples, 
+                                                  double** primalstate,
+                                                  double** adjointstate,
+                                                  double** labels, 
+                                                  int      compute_gradient)
+{
+    double loss_bar = 1./nexamples; 
+    
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Recompute the Classification */
+        for (int ic = 0; ic < dim_In; ic++)
+        {
+            tmpstate[ic] = primalstate[iex][ic];
+        }
+        applyFWD(tmpstate);
+
+        /* Derivative of Loss and classification. */
+        crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
+        applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
+    }
+    printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
+
+}  
 
 double Layer::ReLu_act(double x)
 {
@@ -758,7 +982,7 @@ ConvLayer::ConvLayer(int     idx,
                      int     nconv_in,
                      double  deltaT,
                      int     Activ,
-                     double  Gamma) : Layer(idx, dimI, dimO, 1, deltaT, Activ, Gamma)
+                     double  Gamma) : Layer(idx, CONVOLUTION, dimI, dimO, 1, deltaT, Activ, Gamma,Gamma)
 {
    csize = csize_in;
    nconv = nconv_in;
@@ -911,7 +1135,8 @@ void ConvLayer::applyFWD(double* state)
 
 
 void ConvLayer::applyBWD(double* state,
-                         double* state_bar)
+                         double* state_bar,
+                         int     compute_gradient)
 {
    /* state_bar is the adjoint of the state variable, it contains the 
       old time adjoint information, and is modified on the way out to
@@ -992,10 +1217,10 @@ void ConvLayer::applyBWD(double* state,
             int state_index = i*img_size + j*img_size_sqrt + k;
 
             // bias derivative
-            bias_bar[j*img_size_sqrt+k] += update_bar[state_index];
+            if(compute_gradient) bias_bar[j*img_size_sqrt+k] += update_bar[state_index];
 
             // weight derivative (updates weight_bar)
-            updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
+            if(compute_gradient) updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
 
             // next adjoint step
             state_bar[state_index] = state_bar[state_index] + apply_conv(update_bar, i, j, k, img_size_sqrt,transpose);

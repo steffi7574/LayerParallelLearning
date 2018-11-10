@@ -50,7 +50,7 @@ L_BFGS::~L_BFGS()
 
 
 
-void L_BFGS::computeDescentDir(int     k,
+void L_BFGS::computeDescentDir(int     iter,
                                double* currgrad,
                                double* descdir)
 {
@@ -68,18 +68,17 @@ void L_BFGS::computeDescentDir(int     k,
 
 
    /* Set range of the two-loop recursion */
-   imax = k-1;
-   if (k < M)
+   imax = iter-1;
+   if (iter < M)
    {
      imin = 0;
    }
    else
    {
-     imin = k - M;
+     imin = iter - M;
    }
 
    /* Loop backwards through lbfgs memory */
-
    for (int i = imax; i >= imin; i--)
    {
       imemory = i % M;
@@ -117,38 +116,42 @@ void L_BFGS::computeDescentDir(int     k,
 
 
 
-void L_BFGS::updateMemory(int     k,
+void L_BFGS::updateMemory(int     iter,
                           double* xnew,
                           double* xold,
                           double* gradnew,
                           double* gradold)
 {
-   double yTy, yTs;
-   int imemory = (k-1) % M ;
 
-      /* Update BFGS memory for s, y */
-   for (int idir = 0; idir < dimN; idir++)
-   {
-     y[imemory][idir] = gradnew[idir] - gradold[idir];
-     s[imemory][idir] = xnew[idir]    - xold[idir];
-   }
+  /* Update lbfgs memory if iter > 0 */
+  if (iter > 0) 
+  {
+     double yTy, yTs;
+     int imemory = (iter-1) % M ;
 
-   /* Update rho and H0 */
-   yTs = vecdot(dimN, y[imemory], s[imemory]);
-   yTy = vecdot(dimN, y[imemory], y[imemory]);
-   if (yTs == 0.0) 
-   {
-     printf("  Warning: resetting yTs to 1.\n");
-     yTs = 1.0;
-   }
-   if (yTy == 0.0) 
-   {
-     printf("  Warning: resetting yTy to 1.\n");
-     yTy = 1.;
-   }
-   rho[imemory] = 1. / yTs;
-   H0 = yTs / yTy;
-  
+        /* Update BFGS memory for s, y */
+     for (int idir = 0; idir < dimN; idir++)
+     {
+       y[imemory][idir] = gradnew[idir] - gradold[idir];
+       s[imemory][idir] = xnew[idir]    - xold[idir];
+     }
+
+     /* Update rho and H0 */
+     yTs = vecdot(dimN, y[imemory], s[imemory]);
+     yTy = vecdot(dimN, y[imemory], y[imemory]);
+     if (yTs == 0.0) 
+     {
+       printf("  Warning: resetting yTs to 1.\n");
+       yTs = 1.0;
+     }
+     if (yTy == 0.0) 
+     {
+       printf("  Warning: resetting yTy to 1.\n");
+       yTy = 1.;
+     }
+     rho[imemory] = 1. / yTs;
+     H0 = yTs / yTy;
+  }
 }
 
 
@@ -191,7 +194,7 @@ BFGS::~BFGS()
 }
 
 
-void BFGS::updateMemory(int     k,
+void BFGS::updateMemory(int     iter,
                         double* xnew,
                         double* xold,
                         double* gradnew,
@@ -205,7 +208,7 @@ void BFGS::updateMemory(int     k,
     }
 }
 
-void BFGS::computeDescentDir(int     k, 
+void BFGS::computeDescentDir(int     iter, 
                              double* currgrad, 
                              double* descdir)
 {
@@ -213,7 +216,7 @@ void BFGS::computeDescentDir(int     k,
     double b, rho;
 
     /* Steepest descent in first iteration */
-    if (k == 0)
+    if (iter == 0)
     {
       setIdentity();
       matvec(dimN, Hessian, currgrad, descdir);
@@ -231,7 +234,7 @@ void BFGS::computeDescentDir(int     k,
     {
       /* Scale first Hessian approximation */
       yTy = vecdot(dimN, y, y);
-      if (k == 1)
+      if (iter == 1)
       {
         H0  = yTs / yTy;
         for (int i=0; i<dimN; i++)
@@ -279,7 +282,7 @@ Identity::Identity(int N)
 
 Identity::~Identity(){}
 
-void Identity::updateMemory(int     k,
+void Identity::updateMemory(int     iter,
                             double* xnew,
                             double* xold,
                             double* gradnew,
@@ -287,7 +290,7 @@ void Identity::updateMemory(int     k,
 
 
 
-void Identity::computeDescentDir(int     k, 
+void Identity::computeDescentDir(int     iter, 
                                  double* currgrad, 
                                  double* descdir)
 {

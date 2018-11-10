@@ -2,29 +2,42 @@
 #include <stdio.h>
 
 #include "braid.h"
+#include "_braid.h"
 #include "network.hpp"
+#include "layer.hpp"
 #pragma once
 
 /* Define the app structure */
 typedef struct _braid_App_struct
 {
     int      myid;       /* Processor rank*/
-    Network* network;    /* Pointer to the DNN Network */
+    Network* network;    /* Pointer to the DNN Network Block (local layer storage) */
     int      nexamples;  /* Number of data examples */
     double** examples;   /* Data examples */
     double** labels;     /* Labels for the data examples */
 
-    double   accuracy;   /* Accuracy of the network */
-    double   loss;
+    braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */
 } my_App;
 
 
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   double **state;            /* Network state at one layer, dimensions: nexamples * nchannels */
+   double **state;   /* Network state at one layer, dimensions: nexamples * nchannels */
+
+   Layer* layer;     /* Pointer to layer information (local design part) */
+
+   /* Flag that determines if the layer and state have just been received and thus should be free'd after usage (flag > 0) */
+   double sendflag;  
 } my_Vector;
 
+
+/* Compute time step index from given time */
+int GetTimeStepIndex(braid_App app, 
+                     double    t);
+
+int GetPrimalIndex(braid_App app,
+                   int       ts);
 
 int 
 my_Step(braid_App        app,
@@ -94,27 +107,48 @@ my_BufUnpack(braid_App           app,
              braid_BufferStatus  bstatus);
 
 
+
+
 int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr);
+my_Step_Adj(braid_App        app,
+            braid_Vector     ustop,
+            braid_Vector     fstop,
+            braid_Vector     u,
+            braid_StepStatus status);
+
+int
+my_Init_Adj(braid_App     app,
+            double        t,
+            braid_Vector *u_ptr);
+
+int
+my_BufSize_Adj(braid_App           app,
+               int                 *size_ptr,
+               braid_BufferStatus  bstatus);
 
 
 int
-my_ObjectiveT_diff(braid_App            app,
-                  braid_Vector          u,
-                  braid_Vector          u_bar,
-                  braid_Real            f_bar,
-                  braid_ObjectiveStatus ostatus);
+my_BufPack_Adj(braid_App           app,
+               braid_Vector        u,
+               void               *buffer,
+               braid_BufferStatus  bstatus);
+
 
 int
-my_Step_diff(braid_App         app,
-             braid_Vector      ustop,     /**< input, u vector at *tstop* */
-             braid_Vector      u,         /**< input, u vector at *tstart* */
-             braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
-             braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
-             braid_StepStatus  status);
+my_BufUnpack_Adj(braid_App           app,
+                 void               *buffer,
+                 braid_Vector       *u_ptr,
+                 braid_BufferStatus  bstatus);
 
-int 
-my_ResetGradient(braid_App app);
+
+void  
+evalObjective(braid_Core  core,
+              braid_App   app,     
+              double     *objective,
+              double     *loss_ptr,
+              double     *accuracy_ptr);
+
+
+void
+evalObjectiveDiff(braid_Core core_adj,
+                  braid_App  app);

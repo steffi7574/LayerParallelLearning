@@ -40,12 +40,13 @@ int main (int argc, char *argv[])
     int      type_openlayer;          /**< Type of opening layer for Convolutional layer, 0: replicate, 1: tuned for MNIST */ 
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
-    int      ndesign;             /**< Number of design variables */
-    double  *design;              /**< Pointer to global design vector */
-    double  *design0;             /**< Old design at last iteration */
-    double  *gradient;            /**< Pointer to global gradient vector */
-    double  *gradient0;           /**< Old gradient at last iteration*/
-    double  *descentdir;          /**< Descent direction for design updates */
+    int      ndesign_local;             /**< Number of local design variables on this processor */
+    int      ndesign_global;      /**< Number of global design variables (sum of local)*/
+    double  *design;              /**< On root process: Global design vector */
+    double  *gradient;            /**< On root process: Global gradient vector */
+    double  *design0;             /**< On root process: Old design at last iteration */
+    double  *gradient0;           /**< On root process: Old gradient at last iteration*/
+    double  *descentdir;          /**< On root process: Direction for design updates */
     double   objective;           /**< Optimization objective */
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -68,6 +69,7 @@ int main (int argc, char *argv[])
     /* --- PinT --- */
     braid_Core core_train;      /**< Braid core for training data */
     braid_Core core_val;        /**< Braid core for validation data */
+    braid_Core core_adj;        /**< Braid core for adjoint computation */
     my_App  *app_train;         /**< Braid app for training data */
     my_App  *app_val;           /**< Braid app for validation data */
     int      myid;              /**< Processor rank */
@@ -86,6 +88,12 @@ int main (int argc, char *argv[])
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
 
+    double accur_train;         /**< Accuracy on training data */
+    double accur_val;           /**< Accuracy on validation data */
+    double loss_train;          /**< Loss function on training data */
+    double loss_val;            /**< Loss function on validation data */
+
+    int ilower, iupper;         /**< Index of first and last layer stored on this processor */
     struct rusage r_usage;
     double StartTime, StopTime, myMB, globalMB; 
     double UsedTime = 0.0;
@@ -94,7 +102,10 @@ int main (int argc, char *argv[])
     char* activname;
     char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     double mygnorm, stepsize, ls_objective;
-    int nreq, ls_iter;
+    int nreq = -1;
+    int ls_iter;
+    braid_BaseVector ubase;
+    braid_Vector     u;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -430,69 +441,124 @@ int main (int argc, char *argv[])
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
-    /* Create the network */
-    network = new Network(nlayers, nchannels, nfeatures, nclasses, activation, T/(double)nlayers, 
-                          weights_init, weights_open_init, weights_class_init,  
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+    braid_SetRevertedRanks(core_adj, 1);
+
+    /* Init XBraid for validation data */
+    app_val = (my_App *) malloc(sizeof(my_App));
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+
+    /* Store all points for primal and adjoint */
+    braid_SetStorage(core_train, 0);
+    braid_SetStorage(core_adj, 0);
+    /* Set all Braid parameters */
+    braid_SetMaxLevels(core_train, braid_maxlevels);
+    braid_SetMaxLevels(core_val,   braid_maxlevels);
+    braid_SetMaxLevels(core_adj,   braid_maxlevels);
+    braid_SetMinCoarse(core_train, braid_mincoarse);
+    braid_SetMinCoarse(core_val,   braid_mincoarse);
+    braid_SetMinCoarse(core_adj,   braid_mincoarse);
+    braid_SetPrintLevel( core_train, braid_printlevel);
+    braid_SetPrintLevel( core_val,   braid_printlevel);
+    braid_SetPrintLevel( core_adj,   braid_printlevel);
+    braid_SetCFactor(core_train,  0, braid_cfactor0);
+    braid_SetCFactor(core_val,    0, braid_cfactor0);
+    braid_SetCFactor(core_train, -1, braid_cfactor);
+    braid_SetCFactor(core_val,   -1, braid_cfactor);
+    braid_SetCFactor(core_adj,   -1, braid_cfactor);
+    braid_SetAccessLevel(core_train, braid_accesslevel);
+    braid_SetAccessLevel(core_val,   braid_accesslevel);
+    braid_SetAccessLevel(core_adj,   braid_accesslevel);
+    braid_SetMaxIter(core_train, braid_maxiter);
+    braid_SetMaxIter(core_val,   braid_maxiter);
+    braid_SetMaxIter(core_adj,   braid_maxiter);
+    braid_SetSkip(core_train, braid_setskip);
+    braid_SetSkip(core_val,   braid_setskip);
+    braid_SetSkip(core_adj,   braid_setskip);
+    if (braid_fmg){
+        braid_SetFMG(core_train);
+        braid_SetFMG(core_val);
+        braid_SetFMG(core_adj);
+    }
+    /*
+    braid_SetNRelax(core_train, -1, braid_nrelax);
+    braid_SetNRelax(core_val,   -1, braid_nrelax);
+    braid_SetNRelax(core_adj,   -1, braid_nrelax);
+    braid_SetNRelax(core_train,  0, braid_nrelax0);
+    braid_SetNRelax(core_val,    0, braid_nrelax0);
+    braid_SetNRelax(core_adj,    0, braid_nrelax,0);
+    */
+    braid_SetAbsTol(core_train, braid_abstol);
+    braid_SetAbsTol(core_val,   braid_abstol);
+    braid_SetAbsTol(core_adj,   braid_abstol);
+
+    /* Get xbraid's grid distribution */
+    _braid_GetDistribution(core_train, &ilower, &iupper);
+    printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
+
+    /* Create network and layers */
+    network = new Network(nlayers+1, ilower,iupper, nfeatures, nclasses, nchannels, activation, T/(double)nlayers, 
                           gamma_tik, gamma_ddt, gamma_class,
+                          weights_open_init,  
                           networkType, type_openlayer);
+    ndesign_local  = network->getnDesign();
+    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-
+    /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
+    if (myid == MASTER_NODE)
+    {
+        design = new double[ndesign_global];
+        for (int i = 0; i < ndesign_global; i++)
+        {
+            design[i] = (double) rand() / ((double) RAND_MAX);
+        }
+    }
+    MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+    network->initialize(weights_open_init, weights_init, weights_class_init);
+    network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+    MPI_GatherVector(network->getDesign(), ndesign_local, design, MASTER_NODE, MPI_COMM_WORLD);
+ 
     /* Initialize xbraid's app structure */
-    app_train = (my_App *) malloc(sizeof(my_App));
+    app_train->primalcore  = core_train;
     app_train->myid        = myid;
     app_train->network     = network;
     app_train->nexamples   = ntraining;
     app_train->examples    = train_examples;
     app_train->labels      = train_labels;
-    app_train->accuracy    = 0.0;
-    app_train->loss        = 0.0;
-    /* Initialize xbraid's app structure */
-    app_val = (my_App *) malloc(sizeof(my_App));
+    app_val->primalcore    = core_val;
     app_val->myid          = myid;
     app_val->network       = network;
     app_val->nexamples     = nvalidation;
     app_val->examples      = val_examples;
     app_val->labels        = val_labels;
-    app_val->accuracy      = 0.0;
-    app_val->loss          = 0.0;
 
-    /* Initializze adjoint XBraid for training data */
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_train);
 
-    /* Init XBraid for validation data */
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-    braid_InitAdjoint( my_ObjectiveT, my_ObjectiveT_diff, my_Step_diff,  my_ResetGradient, &core_val);
-
-    /* Set Braid parameters */
-    braid_SetMaxLevels(core_train, braid_maxlevels);
-    braid_SetMaxLevels(core_val,   braid_maxlevels);
-    braid_SetMinCoarse(core_train, braid_mincoarse);
-    braid_SetMinCoarse(core_val, braid_mincoarse);
-    braid_SetPrintLevel( core_train, braid_printlevel);
-    braid_SetPrintLevel( core_val,   braid_printlevel);
-    braid_SetCFactor(core_train,  0, braid_cfactor0);
-    braid_SetCFactor(core_val,    0, braid_cfactor0);
-    braid_SetCFactor(core_train, -1, braid_cfactor);
-    braid_SetCFactor(core_val,   -1, braid_cfactor);
-    braid_SetAccessLevel(core_train, braid_accesslevel);
-    braid_SetAccessLevel(core_val,   braid_accesslevel);
-    braid_SetMaxIter(core_train, braid_maxiter);
-    braid_SetMaxIter(core_val,   braid_maxiter);
-    braid_SetSkip(core_train, braid_setskip);
-    braid_SetSkip(core_val,   braid_setskip);
-    if (braid_fmg){
-        braid_SetFMG(core_train);
-        braid_SetFMG(core_val);
+    /* Initialize hessian approximation on first processor */
+    HessianApprox  *hessian;
+    if (myid == MASTER_NODE)
+    {
+        switch (hessian_approx)
+        {
+            case USE_BFGS:
+                hessian = new BFGS(ndesign_global);
+                break;
+            case USE_LBFGS: 
+                hessian = new L_BFGS(ndesign_global, lbfgs_stages);
+                break;
+            case USE_IDENTITY:
+                hessian = new Identity(ndesign_global);
+        }
     }
-    braid_SetNRelax(core_train, -1, braid_nrelax);
-    braid_SetNRelax(core_val,   -1, braid_nrelax);
-    braid_SetNRelax(core_train,  0, braid_nrelax0);
-    braid_SetNRelax(core_val,    0, braid_nrelax0);
-    braid_SetAbsTol(core_train, braid_abstol);
-    braid_SetAbsTol(core_val,   braid_abstol);
-    braid_SetAbsTolAdjoint(core_train, braid_abstoladj);
-    braid_SetAbsTolAdjoint(core_val,   braid_abstoladj);
+
+    /* Allocate other optimization vars on first processor */
+    if (myid == MASTER_NODE)
+    {
+        gradient   = new double[ndesign_global];
+        design0    = new double[ndesign_global];
+        gradient0  = new double[ndesign_global];
+        descentdir = new double[ndesign_global];
+    }
 
     /* Initialize optimization parameters */
     ls_param    = 1e-4;
@@ -502,35 +568,6 @@ int main (int argc, char *argv[])
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
     stepsize    = stepsize_init;
-
-    /* Get pointers to gradient and design */
-    ndesign  = network->getnDesign();
-    design   = network->getDesign();
-    gradient = network->getGradient();
-
-    /* Initialize hessian approximation */
-    HessianApprox  *hessian;
-    if (myid == MASTER_NODE)
-    {
-        switch (hessian_approx)
-        {
-            case USE_BFGS:
-                hessian = new BFGS(ndesign);
-                break;
-            case USE_LBFGS: 
-                hessian = new L_BFGS(ndesign, lbfgs_stages);
-                break;
-            case USE_IDENTITY:
-                hessian = new Identity(ndesign);
-        }
-
-        /* Allocate memory for optimization vars */
-        design0    = new double [ndesign];
-        gradient0  = new double [ndesign];
-        descentdir = new double [ndesign];
-    }
-
-
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
@@ -589,67 +626,68 @@ int main (int argc, char *argv[])
     /* --- OPTIMIZATION --- */
     StartTime = MPI_Wtime();
     StopTime  = 0.0;
+    UsedTime = 0.0;
     for (int iter = 0; iter < maxoptimiter; iter++)
     {
-        /* Reset the app */
-        app_train->loss = 0.0;
-        app_val->loss   = 0.0;
 
-        /* --- Training data: Get objective and compute gradient ---*/ 
+        /* --- Training data: Get objective and gradient ---*/ 
 
-        /* Solve with braid */
-        braid_SetObjectiveOnly(core_train, 0);
-        braid_SetPrintLevel(core_train, 1);
-        braid_Drive(core_train);
-        braid_GetObjective(core_train, &objective);
-        // write_vector("gradient.dat", gradient, ndesign);
-
-
-        /* Get primal and adjoint residual norms */
+        /* Solve state equation with braid */
         nreq = -1;
+        braid_SetPrintLevel(core_train, braid_printlevel);
+        braid_Drive(core_train);
         braid_GetRNorms(core_train, &nreq, &rnorm);
-        braid_GetRNormAdjoint(core_train, &rnorm_adj);
+        /* Evaluat objective function */
+        evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
 
-        /* Reduce gradient on MASTER_NODE (in-place communication)*/
-        if (myid == MASTER_NODE) 
-        {
-            MPI_Reduce(MPI_IN_PLACE, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        }
-        else
-        {
-            MPI_Reduce(gradient, gradient, ndesign, MPI_DOUBLE, MPI_SUM, MASTER_NODE, MPI_COMM_WORLD);
-        }
+        /* Solve adjoint equation with XBraid */
+        nreq = -1;
+        braid_SetPrintLevel(core_adj, braid_printlevel);
+        evalObjectiveDiff(core_adj, app_train);
+        braid_Drive(core_adj);
+        braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
+        /* Get gradient on root process */
+        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
+        // if (myid == MASTER_NODE) write_vector("gradient.dat", gradient, ndesign_global);
 
         /* --- Validation data: Get accuracy --- */
 
-        braid_SetObjectiveOnly(core_val, 1);
-        braid_SetPrintLevel( core_val,   0);
+        braid_SetPrintLevel( core_val, 0);
+        braid_SetStorage(core_val, 0);
         braid_Drive(core_val);
+        /* Get loss and accuracy */
+        loss_val  = 0.0;
+        accur_val = 0.0;
+        _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
+        if (ubase != NULL) // This is only true on last processor 
+        {
+            u = ubase->userVector;
+            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val);
+        }
 
 
         /* --- Optimization control and output ---*/
 
-        /* Compute and communicate the norm */
-        mygnorm = 0.0;
-        if (myid == MASTER_NODE) {
-            mygnorm = vec_normsq(ndesign, gradient);
-        } 
+        /* Compute and communicate gradient norm */
+        mygnorm = vec_normsq(ndesign_local, network->getGradient());
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
 
-        /* Communicate loss and accuracy. This is actually not needed, except for printing output. Remove it. */
-        double train_loss = 0.0;
-        double train_accur = 0.0;
-        double val_accur = 0.0;
-        MPI_Allreduce(&app_train->loss, &train_loss, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app_train->accuracy, &train_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&app_val->accuracy, &val_accur, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
+        double myltrain  = loss_train;
+        double mylval    = loss_val;
+        double myatrain  = accur_train;
+        double myaval    = accur_val;
+        MPI_Allreduce(&myltrain, &loss_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&mylval, &loss_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&myatrain, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&myaval, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
         /* Output */
         if (myid == MASTER_NODE)
         {
-   
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, train_loss, gnorm, stepsize, ls_iter, train_accur, val_accur, UsedTime);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, loss_train, gnorm, stepsize, ls_iter, accur_train, accur_val, UsedTime);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, loss_train, gnorm, stepsize, ls_iter, accur_train, accur_val, UsedTime);
             fflush(optimfile);
         }
 
@@ -671,40 +709,41 @@ int main (int argc, char *argv[])
         /* Compute search direction on first processor */
         if (myid == MASTER_NODE)
         {
-            /* Update the L-BFGS memory */
-            if (iter > 0) 
-            {
-                hessian->updateMemory(iter, design, design0, gradient, gradient0);
-            }
+            /* Update the (L-)BFGS memory */
+            hessian->updateMemory(iter, design, design0, gradient, gradient0);
             /* Compute descent direction */
             hessian->computeDescentDir(iter, gradient, descentdir);
+            
+            // write_vector("gradient.dat", gradient, ndesign_global);
+            // write_vector("descentdir.dat", descentdir, ndesign_global);
 
             /* Store design and gradient into *0 vectors */
-            vec_copy(ndesign, design, design0);
-            vec_copy(ndesign, gradient, gradient0);
+            vec_copy(ndesign_global, design, design0);
+            vec_copy(ndesign_global, gradient, gradient0);
 
             /* Compute wolfe condition */
-            wolfe = vecdot(ndesign, gradient, descentdir);
+            wolfe = vecdot(ndesign_global, gradient, descentdir);
 
             /* Update the global design using the initial stepsize */
-            for (int id = 0; id < ndesign; id++)
+            for (int id = 0; id < ndesign_global; id++)
             {
                 design[id] -= stepsize * descentdir[id];
             }
         }
 
-        /* Broadcast the new design and wolfe condition to all processors */
-        MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
         MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+        network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+
 
         /* --- Backtracking linesearch --- */
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Compute new objective function value for current trial step */
             braid_SetPrintLevel(core_train, 0);
-            braid_SetObjectiveOnly(core_train, 1);
             braid_Drive(core_train);
-            braid_GetObjective(core_train, &ls_objective);
+            evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
             double test = objective - ls_param * stepsize * wolfe;
             if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
@@ -730,12 +769,13 @@ int main (int argc, char *argv[])
                 if (myid == MASTER_NODE)
                 {
                     /* Go back a portion of the step */
-                    for (int id = 0; id < ndesign; id++)
+                    for (int id = 0; id < ndesign_global; id++)
                     {
                         design[id] += stepsize * descentdir[id];
                     }
                 }
-                MPI_Bcast(design, ndesign, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+                MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+                network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
  
             }
  
@@ -773,46 +813,45 @@ int main (int argc, char *argv[])
 #if 0
     if (size == 1)
     {
-         int nconv_size = 3;
-
          printf("\n\n ============================ \n");
          printf(" Adjoint dot test: \n\n");
-         printf("   ndesign   = %d (calc = %d)\n",ndesign,
-                                                  nchannels*nclasses+nclasses // class layer
-                                                  +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/nfeatures)*(nchannels/nfeatures))); // con layers
-         printf("   nchannels = %d\n",nchannels);
-         printf("   nlayers   = %d\n",nlayers); 
-         printf("   conv_size = %d\n",nconv_size);
-         printf("   nclasses  = %d\n\n",nclasses);
 
-         // read_vector("design.dat", design, ndesign);
-      
-        /* Propagate through braid */
-        braid_SetObjectiveOnly(core_train, 0);
-        braid_Drive(core_train);
-        braid_GetObjective(core_train, &objective);
-        // write_vector("gradient.dat", gradient, ndesign);
         double obj0 = objective;
-
-        /* Sum up xtx */
-        double xtx = 0.0;
-        for (int i = 0; i < ndesign; i++)
-        {
-            xtx += gradient[i];
-        }
-
-        /* perturb into direction "only ones" */
         double EPS = 1e-7;
-        for (int i = 0; i < ndesign; i++)
+
+        read_vector("somedesign.dat", design, ndesign_global);
+        MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+        network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+         
+        braid_Drive(core_train);
+        evalObjective(core_train, app_train, &obj0, &loss_train, &accur_train);
+
+        /* Finite differences */
+        double yty = (obj1 - obj0)/EPS;
+
+        /* Eval gradient */
+        evalObjectiveDiff(core_adj, app_train);
+        braid_Drive(core_adj);
+        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
+ 
+
+
+        // write_vector("gradient.dat", gradient, ndesign);
+
+        double xtx = 0.0;
+        for (int i = 0; i < ndesign_global; i++)
         {
-            design[i] += EPS;
+            /* Sum up xtx */
+            xtx += gradient[i];
+            /* perturb into direction "only ones" */
+            app_train->network->getDesign()[i] += EPS;
         }
+
 
         /* New objective function evaluation */
-        braid_SetObjectiveOnly(core_train, 1);
         braid_Drive(core_train);
-        braid_GetObjective(core_train, &objective);
-        double obj1 = objective;
+        double obj1;
+        evalObjective(core_train, app_train, &obj1, &loss_train, &accur_train);
 
         /* Finite differences */
         double yty = (obj1 - obj0)/EPS;
@@ -820,9 +859,9 @@ int main (int argc, char *argv[])
 
         /* Print adjoint dot test result */
         printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
+        printf(" obj0 %1.14e, obj1 %1.14e\n", obj0, obj1);
 
     }
-
 #endif
 
 /** =======================================
@@ -923,6 +962,8 @@ int main (int argc, char *argv[])
         delete hessian;
         delete [] design0;
         delete [] gradient0;
+        delete [] gradient;
+        delete [] design;
         delete [] descentdir;
     }
 

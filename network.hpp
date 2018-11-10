@@ -2,47 +2,61 @@
 #include "layer.hpp"
 #include <algorithm>
 #include <math.h>
-#pragma once
-
+#include <mpi.h>
+#pragma once 
 
 class Network
 {
    protected:
-      int     nlayers;              /* Total number of Layers */
+      int     nlayers_global;       /* Total number of Layers of the network */
+      int     nlayers_local;        /* Number of Layers in this network block */
       int     nchannels;            /* Width of the network */
       double  dt;                   /* Time step size */
       double  loss;                 /* Value of the loss function */
       double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
-      double  gamma_ddt;            /* Parameter for ddt-regularization */
 
-      int     ndesign;              /* Number of design variables */
-      double* design;               /* Vector of all design variables (weights & biases at all layers) */
-      double* gradient;             /* Gradient */
+      int     startlayerID;         /* ID of the first layer on that processor */
+      int     endlayerID;           /* ID of the last layer on that processor */
 
-   public: 
+      int     ndesign;              /* Number of design variables (local) */
+      double* design;               /* Local vector of design variables*/
+      double* gradient;             /* Local Gradient */
+
       Layer** layers;               /* Array of network layers */
+      Layer*  layer_left;           /* Copy of last layer of processor to the left */
+      Layer*  layer_right;          /* Copy of first layer of processor to the right*/
+   public: 
       enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
 
       Network();
-      Network(int    nLayers,
-              int    nChannels, 
+      Network(int    nLayersGlobal,
+              int    StartLayerID, 
+              int    EndLayerID, 
               int    nFeatures,
               int    nClasses,
+              int    nChannels, 
               int    Activation,
               double deltaT,
-              double Weight_init,
-              double Weight_open_init,
-              double Classification_init,
-              double Gamma_tik, 
-              double Gamma_ddt,
-              double Gamma_class,
+              double gamma_tik, 
+              double gamma_ddt,
+              double gamma_class,
+              double weight_open_init,
               int    networkType,
               int    type_openlayer);
+
       ~Network();
 
-      /* Get dimensions */
+      /* Get number of channels */
       int getnChannels();
+
+      /* Get global number of layers */
       int getnLayers();
+
+      /* Get initial time step size */
+      double getDT();
+
+      /* Get local storage index of the a layer */
+      int getLocalID(int ilayer);
 
       /* Return value of the loss function */
       double getLoss();
@@ -60,34 +74,30 @@ class Network
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();
 
-
       /**
-       * Forward propagation through the network. Evaluates loss and accuracy at last layer. 
-       * In: - number of examples
-       *     - Pointer to input data, is NULL for all but the first processor!
-       *     - Pointer to data labels, is NULL for all but the last processor!
+       * Get the layer at a certain layer index, i.e. a certain time step
+       * Returns NULL, if this layer is not stored on this processor 
        */
-      void applyFWD(int     nexamples,
-                    double **examples,
-                    double **labels);
+      Layer* getLayer(int layerindex);
 
 
-      /**
-       * Returns the regularization term 
-       */
-      double evalRegularization();
-      
-      /**
-       * Regularization for the time-derivative of the layer weights
-       */
-      double evalRegulDDT(Layer* layer_old, 
-                          Layer* layer_curr);            
+      void initialize(double Weight_open_init,
+                      double Weight_init,
+                      double Classification_init);
 
-      /**
-       * Derivative of ddt-regularization term 
-       */
-      void evalRegulDDT_diff(Layer* layer_old, 
-                             Layer* layer_curr,
-                             double regul_bar);
+      Layer* createLayer(int    index, 
+                         int    nfeatures,
+                         int    nclasses,
+                         int    Activation,
+                         double gamma_tik,
+                         double gamma_ddt,
+                         double gamma_class,
+                         double weights_open_init,
+                         int    networkType,
+                         int    type_openlayer);
+     
+        
+      /* Replace the layer with one that is received from the left neighbouring processor */  
+      void MPI_CommunicateNeighbours(MPI_Comm comm);
 };
 

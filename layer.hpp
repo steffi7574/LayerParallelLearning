@@ -28,33 +28,50 @@ class Layer
       double* weights_bar;                 /* Derivative of the Weight matrix*/
       double* bias;                        /* Bias */
       double* bias_bar;                    /* Derivative of bias */
-      double  gamma;                       /* Parameter for Tikhonov regularization of weights and bias */
-      int     activ;
+      double  gamma_tik;                   /* Parameter for Tikhonov regularization of weights and bias */
+      double  gamma_ddt;                   /* Parameter for DDT regularization of weights and bias */
+      int     activ;                       /* Activaation function (enum element) */
+      int     type;                        /* Type of the layer (enum element) */
 
       double *update;                      /* Auxilliary for computing fwd update */
       double *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
-      enum activation{TANH, RELU, SMRELU};  /* Available activation functions */
+      /* Available activation functions */
+      enum activation{TANH, RELU, SMRELU};  
+
+      /* Available layer types */
+      enum layertype{OPENZERO=0, OPENDENSE=1, OPENCONV=2, OPENCONVMNIST=3, DENSE=4, CONVOLUTION=5, CLASSIFICATION=6};
 
       Layer();
       Layer(int     idx,
+            int     Type,
             int     dimI,
             int     dimO,
             int     dimB,
             double  deltaT,
             int     Activ,
-            double  Gamme);
+            double  GammaTik,
+            double  GammaDDT);
 
       Layer(int idx, 
-             int dimI, 
-             int dimO, 
-             int dimB);
+            int Type,
+            int dimI, 
+            int dimO, 
+            int dimB);
 
       virtual ~Layer();
 
       /* Set time step size */
       void setDt(double DT);
+
+      /* Some Get..() functions */
+      double getDt();
+      double getGammaTik();
+      double getGammaDDT();
+      int    getActivation();
+      int    getType();
+
 
       /* Get pointer to the weights bias*/
       double* getWeights();
@@ -70,12 +87,28 @@ class Layer
       int getDimBias();
       int getnDesign();
 
+      /* Get the layer index (i.e. the time step) */
+      int getIndex();
+
         /* Prints to screen */
       void print_data(double* data_Out);
 
       /* Activation function and derivative */
       double activation(double x);
       double dactivation(double x);
+
+
+      /**
+       * Pack weights and bias into a buffer 
+       */
+      void packDesign(double* buffer,
+                      int     size);
+
+      /**
+       * Unpack weights and bias from a buffer 
+       */
+      void unpackDesign(double* buffer);
+
 
       /**
        * Initialize the layer primal and adjoint weights and biases
@@ -103,6 +136,21 @@ class Layer
        */
       void evalTikh_diff(double regul_bar);
 
+     
+      /**
+       * Regularization for the time-derivative of the layer weights
+       */
+      double evalRegulDDT(Layer* layer_prev,
+                          double deltat);
+
+      /**
+       * Derivative of ddt-regularization term 
+       */
+      void evalRegulDDT_diff(Layer* layer_prev,
+                             Layer* layer_next,
+                             double deltat);
+
+
       /**
        * In opening layers: set pointer to the current example
        */
@@ -119,35 +167,29 @@ class Layer
        * Backward propagation of an example 
        * In:     data     - current example data
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
+       * In:     compute_gradient - flag to determin if gradient should be computed (i.e. if weights_bar,bias_bar should be updated or not. In general, update is only done on the finest layer-grid.)
        */
       virtual void applyBWD(double* state,
-                            double* state_bar) = 0;
+                            double* state_bar,
+                            int     compute_gradient) = 0;
 
       /**
-       * Evaluates the loss function 
+       * On classification layer: applies the classification and evaluates loss/accuracy 
        */
-      virtual double evalLoss(double *data_Out,
-                              double *label);
-
-
-      /** 
-       * Derivative of evaluating the loss function 
-       * In: data_Out, can be used to recompute intermediate states
-       *     label for the current example 
-       *     loss_bar: value holding the outer derivative
-       * Out: data_Out_bar holding the derivative of loss wrt data_Out
-       */
-      virtual void evalLoss_diff(double *data_Out, 
-                                 double *data_Out_bar,
-                                 double *label,
-                                 double  loss_bar);
+      virtual void evalClassification(int      nexamples, 
+                                      double** state,
+                                      double** labels, 
+                                      double*  loss_ptr, 
+                                      double*  accuracy_ptr);
 
       /**
-       * Compute class probabilities,
-       * return 1 if predicted class was correct, else 0.
+       * On classification layer: derivative of evalClassification 
        */
-      virtual int prediction(double* data_Out,
-                             double* label);
+      virtual void evalClassification_diff(int      nexamples, 
+                                          double** primalstate,
+                                          double** adjointstate,
+                                          double** labels, 
+                                          int      compute_gradient);
 
       /* ReLu Activation and derivative */
       double ReLu_act(double x);
@@ -176,13 +218,15 @@ class DenseLayer : public Layer {
                  int     dimO,
                  double  deltaT,
                  int     activation,
-                 double  Gamma);     
+                 double  gammatik, 
+                 double  gammaddt);     
       ~DenseLayer();
 
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 
@@ -199,7 +243,7 @@ class OpenDenseLayer : public DenseLayer {
       OpenDenseLayer(int     dimI,
                      int     dimO,
                      int     activation,
-                     double  Gamma);     
+                     double  gammatik);     
       ~OpenDenseLayer();
 
       void setExample(double* example_ptr);
@@ -207,7 +251,8 @@ class OpenDenseLayer : public DenseLayer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 
@@ -229,7 +274,8 @@ class OpenExpandZero : public Layer
             void applyFWD(double* state);
       
             void applyBWD(double* state,
-                          double* state_bar);
+                          double* state_bar,
+                          int     compute_gradient);
 };
 
 
@@ -240,29 +286,44 @@ class ClassificationLayer : public Layer
 {
       protected: 
             double* probability;          /* vector of pedicted class probabilities */
-      
+            double* tmpstate;             /* temporarily holding the state */ 
+            
       public:
             ClassificationLayer(int    idx,
                                 int    dimI,
                                 int    dimO,
-                                double Gamma);
+                                double gammatik);
             ~ClassificationLayer();
 
             void applyFWD(double* state);
       
             void applyBWD(double* state,
-                          double* state_bar);
+                          double* state_bar,
+                          int     compute_gradient);
+
+            void evalClassification(int      nexamples, 
+                                    double** state,
+                                    double** labels, 
+                                    double*  loss_ptr, 
+                                    double*  accuracy_ptr);
+
+
+            void evalClassification_diff(int      nexamples, 
+                                         double** primalstate,
+                                         double** adjointstate,
+                                         double** labels, 
+                                         int      compute_gradient);
 
             /**
-             * Evaluate the loss function 
+             * Evaluate the cross entropy function 
              */
-            double evalLoss(double *finalstate,
-                            double *label);
+            double crossEntropy(double *finalstate,
+                                double *label);
 
             /** 
-             * Algorithmic derivative of evaluating loss
+             * Algorithmic derivative of evaluating cross entropy loss
              */
-            void evalLoss_diff(double *data_Out, 
+            void crossEntropy_diff(double *data_Out, 
                                double *data_Out_bar,
                                double *label,
                                double  loss_bar);
@@ -314,7 +375,8 @@ class ConvLayer : public Layer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 
       double apply_conv(double* state,        // state vector to apply convolution to 
                       int     output_conv,    // output convolution
@@ -370,7 +432,8 @@ class OpenConvLayer : public Layer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 /** 
@@ -392,7 +455,8 @@ class OpenConvLayerMNIST : public OpenConvLayer {
       void applyFWD(double* state);
 
       void applyBWD(double* state,
-                    double* state_bar);
+                    double* state_bar,
+                    int     compute_gradient);
 };
 
 

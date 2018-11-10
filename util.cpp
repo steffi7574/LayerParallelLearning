@@ -83,3 +83,66 @@ void write_vector(char   *filename,
    fclose(file);
 
 }            
+
+void MPI_GatherVector(double*  sendbuffer,
+                      int      localsendcount,
+                      double*  recvbuffer,
+                      int      rootprocessID,
+                      MPI_Comm comm)
+{
+    int comm_size;
+    MPI_Comm_size(comm, &comm_size);
+
+    int* recvcount = new int[comm_size];
+    int* displs    = new int[comm_size];
+
+    /* Gather the local send counts and store in recvcount vector on root */
+    MPI_Gather(&localsendcount, 1, MPI_INT, recvcount , 1, MPI_INT, rootprocessID, comm);
+
+    /* Compute displacement vector */
+    displs[0] = 0;
+    for (int i=1; i<comm_size; i++)
+    {
+        displs[i] = displs[i-1] + recvcount [i-1];
+    }
+
+    /* Gatherv the vector */
+    MPI_Gatherv(sendbuffer, localsendcount, MPI_DOUBLE, recvbuffer, recvcount , displs, MPI_DOUBLE, rootprocessID, comm);
+
+    /* Clean up */
+    delete [] recvcount;
+    delete [] displs;
+}                  
+
+
+
+void MPI_ScatterVector(double*  sendbuffer,
+                       double*  recvbuffer,
+                       int      localrecvcount,
+                       int      rootprocessID,
+                       MPI_Comm comm)
+{
+    int comm_size;
+    MPI_Comm_size(comm, &comm_size);
+
+    int* sendcount = new int[comm_size];
+    int* displs    = new int[comm_size];
+
+    /* Gather the local recveive counts and store in sendcount for root */
+    MPI_Gather(&localrecvcount, 1, MPI_INT, sendcount , 1, MPI_INT, rootprocessID, comm);
+
+    /* Compute displacement vector */
+    displs[0] = 0;
+    for (int i=1; i<comm_size; i++)
+    {
+        displs[i] = displs[i-1] + sendcount [i-1];
+    }
+
+    /* Gatherv the vector */
+    MPI_Scatterv(sendbuffer, sendcount, displs, MPI_DOUBLE, recvbuffer, localrecvcount, MPI_DOUBLE, rootprocessID, comm);
+
+    /* Clean up */
+    delete [] sendcount;
+    delete [] displs;
+
+}                  

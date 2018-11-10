@@ -2,6 +2,21 @@
 // #include "codi.hpp"
 // #include "lib.hpp"
 
+int GetTimeStepIndex(braid_App app, 
+                     double    t)
+{
+
+    /* Round to the closes integer */
+    int ts = round(t / app->network->getDT()) ;
+    return ts;
+}
+
+int GetPrimalIndex(braid_App app,
+                   int       ts)
+{
+    int idx = app->network->getnLayers()-1 - ts;
+    return idx;
+}       
 
 int 
 my_Step(braid_App        app,
@@ -10,7 +25,7 @@ my_Step(braid_App        app,
         braid_Vector     u,
         braid_StepStatus status)
 {
-    int    ts;
+    int    ts_start, ts_stop;
     double tstart, tstop;
     double deltaT;
 
@@ -18,24 +33,39 @@ my_Step(braid_App        app,
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    braid_StepStatusGetTIndex(status, &ts);
-    deltaT = tstop - tstart;
+    // braid_StepStatusGetTIndex(status, &ts);
+    ts_start = GetTimeStepIndex(app, tstart); 
+    ts_stop  = GetTimeStepIndex(app, tstop); 
+    deltaT   = tstop - tstart;
+
+    /* Set time step size */
+    u->layer->setDt(deltaT);
+
+    // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
-        if (ts == 0)
-        {
-            app->network->layers[0]->setExample(app->examples[iex]);
-        }
-        else
-        {
-            app->network->layers[ts]->setDt(deltaT);
-        }
+        /* On fist layer, set example */
+        if (app->examples !=NULL) u->layer->setExample(app->examples[iex]);
 
         /* Apply the layer */
-        app->network->layers[ts]->applyFWD(u->state[iex]);
+        u->layer->applyFWD(u->state[iex]);
     }
+
+
+    /* Free the layer, if it has just been send to this processor */
+    if (u->sendflag > 0.0)
+    {
+        delete [] u->layer->getWeights();
+        delete [] u->layer->getWeightsBar();
+        delete u->layer;
+    }
+    u->sendflag = -1.0;
+
+    /* Move the layer pointer of u forward to that of tstop */
+    u->layer = app->network->getLayer(ts_stop);
+
 
     // /* no refinement */
     braid_StepStatusSetRFactor(status, 1);
@@ -53,7 +83,7 @@ my_Init(braid_App     app,
     int nexamples = app->nexamples;
 
 
-    /* Allocate the vector */
+    /* Initialize the state */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
     u->state = new double*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
@@ -65,8 +95,17 @@ my_Init(braid_App     app,
         }
     }
 
-    *u_ptr = u;
 
+    /* Initialize the design (if adjoint: nonphysical time t=-1.0) */
+    if (t >=0 )
+    {
+        /* Store a pointer to the layer design */
+        int ilayer  = GetTimeStepIndex(app, t);
+        u->layer = app->network->getLayer(ilayer);
+    }
+    u->sendflag = -1.0;
+    
+    *u_ptr = u;
     return 0;
 }
 
@@ -91,6 +130,8 @@ my_Clone(braid_App     app,
             v->state[iex][ic] = u->state[iex][ic];
         }
     }
+    v->layer      = u->layer;
+    v->sendflag = u->sendflag;
 
     *v_ptr = v;
 
@@ -175,7 +216,7 @@ my_BufSize(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(double) + (9 + (nchannels*nchannels+nchannels))*sizeof(double);
     return 0;
 }
 
@@ -187,19 +228,48 @@ my_BufPack(braid_App           app,
            void               *buffer,
            braid_BufferStatus  bstatus)
 {
+    int size;
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     
+    /* Store network state */
+    int idx = 0;
     for (int iex = 0; iex < nexamples; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
-           dbuffer[iex * nchannels + ic] = (u->state)[iex][ic];
+           dbuffer[idx] = (u->state)[iex][ic];
+           idx++;
         }
     }
+    size = nchannels*nexamples*sizeof(double);
 
-    braid_BufferStatusSetSize( bstatus,  nchannels*nexamples*sizeof(double));
+    int nweights = u->layer->getnDesign() - u->layer->getDimBias();
+    int nbias    = u->layer->getnDesign() - u->layer->getDimIn() * u->layer->getDimOut();
+
+    dbuffer[idx] = u->layer->getType();       idx++;
+    dbuffer[idx] = u->layer->getIndex();      idx++;
+    dbuffer[idx] = u->layer->getDimIn();      idx++;
+    dbuffer[idx] = u->layer->getDimOut();     idx++;
+    dbuffer[idx] = u->layer->getDimBias();    idx++;
+    dbuffer[idx] = u->layer->getActivation(); idx++;
+    dbuffer[idx] = u->layer->getnDesign();    idx++;
+    dbuffer[idx] = u->layer->getGammaTik();   idx++;
+    dbuffer[idx] = u->layer->getGammaDDT();   idx++;
+    for (int i = 0; i < nweights; i++)
+    {
+        dbuffer[idx] = u->layer->getWeights()[i];     idx++;
+        // dbuffer[idx] = u->layer->getWeightsBar()[i];  idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        dbuffer[idx] = u->layer->getBias()[i];     idx++;
+        // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
+    }
+    size += (9 + (nweights+nbias))*sizeof(double);
+
+    braid_BufferStatusSetSize( bstatus, size);
  
    return 0;
 }
@@ -216,6 +286,7 @@ my_BufUnpack(braid_App           app,
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
+    Layer *tmplayer = 0;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
@@ -226,174 +297,370 @@ my_BufUnpack(braid_App           app,
     }
 
     /* Unpack the buffer */
+    int idx = 0;
     for (int iex = 0; iex < nexamples; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
-           u->state[iex][ic] = dbuffer[iex * nchannels + ic];
+           u->state[iex][ic] = dbuffer[idx]; 
+           idx++;
         }
     }
+
+    /* Receive and initialize a layer. Set the sendflag */
+    int layertype = dbuffer[idx];  idx++;
+    int index     = dbuffer[idx];  idx++;
+    int dimIn     = dbuffer[idx];  idx++;
+    int dimOut    = dbuffer[idx];  idx++;
+    int dimBias   = dbuffer[idx];  idx++;
+    int activ     = dbuffer[idx];  idx++;
+    int nDesign   = dbuffer[idx];  idx++;
+    int gammatik  = dbuffer[idx];  idx++;
+    int gammaddt  = dbuffer[idx];  idx++;
+    int nweights = nDesign - dimBias;
+    int nbias    = nDesign - dimIn * dimOut;
+
+    int convolution_size = 3;
+
+    /* layertype decides on which layer should be created */
+    switch (layertype)
+    {
+        case Layer::OPENZERO:
+            tmplayer = new OpenExpandZero(dimIn, dimOut);
+            break;
+        case Layer::OPENDENSE:
+            tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gammatik);
+            break;
+        case Layer::OPENCONV:
+            tmplayer = new OpenConvLayer(dimIn, dimOut);
+            break;
+        case Layer::OPENCONVMNIST:
+            tmplayer = new OpenConvLayerMNIST(dimIn, dimOut);
+            break;
+        case Layer::DENSE:
+            tmplayer = new DenseLayer(index, dimIn, dimOut, 1.0, activ, gammatik, gammaddt);
+            break;
+        case Layer::CONVOLUTION:
+            tmplayer = new ConvLayer(index, dimIn, nchannels, convolution_size,dimIn/dimOut, 
+                                     0.0, 0, gammatik);
+            break;
+        case Layer::CLASSIFICATION:
+            tmplayer = new ClassificationLayer(index, dimIn, dimOut, gammatik);
+            break;
+        default: 
+            printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 
+    }
+
+    /* Allocate design and gradient */
+    double *design   = new double[nDesign];
+    double *gradient = new double[nDesign];
+    tmplayer->initialize(design, gradient, 0.0);
+    /* Set the weights */
+    for (int i = 0; i < nweights; i++)
+    {
+        tmplayer->getWeights()[i]    = dbuffer[idx]; idx++;
+    }
+    for (int i = 0; i < nbias; i++)
+    {
+        tmplayer->getBias()[i]    = dbuffer[idx];   idx++;
+    }
+    u->layer = tmplayer;
+    u->sendflag = 1.0;
+
+    *u_ptr = u;
+    return 0;
+}
+
+
+
+
+int 
+my_Step_Adj(braid_App        app,
+            braid_Vector     ustop,
+            braid_Vector     fstop,
+            braid_Vector     u,
+            braid_StepStatus status)
+{
+    int    ts_start, ts_stop;
+    int    level, compute_gradient;
+    double tstart, tstop;
+    double deltaT;
+    int    finegrid  = 0;
+    int    primaltimestep;
+    braid_BaseVector ubaseprimal;
+    braid_Vector     uprimal;
+    int    nexamples = app->nexamples;
+
+    /* Update gradient only on the finest grid */
+    braid_StepStatusGetLevel(status, &level);
+    if (level == 0) compute_gradient = 1;
+    else            compute_gradient = 0;
+   
+    /* Get the time-step size and current time index*/
+    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    ts_start       = GetTimeStepIndex(app, tstart); 
+    ts_stop        = GetTimeStepIndex(app, tstop); 
+    deltaT         = tstop - tstart;
+    primaltimestep = GetPrimalIndex(app, ts_stop); 
+
+
+    /* Get the primal vector from the primal core */
+    _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &ubaseprimal);
+    uprimal = ubaseprimal->userVector;
+
+    /* Reset gradient before the update */
+    if (compute_gradient) uprimal->layer->resetBar();
+
+    /* Take one step backwards, updates adjoint state and gradient, if desired. */
+    uprimal->layer->setDt(deltaT);
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        if (app->examples !=NULL) uprimal->layer->setExample(app->examples[iex]);
+
+        uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
+    }
+
+    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->userVector->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
+
+    /* Derivative of DDT-Regularization */
+    if (compute_gradient) 
+    {
+        Layer* prev = app->network->getLayer(primaltimestep - 1); 
+        Layer* next = app->network->getLayer(primaltimestep + 1); 
+        uprimal->layer->evalRegulDDT_diff(prev, next, app->network->getDT());
+    }        
+
+    /* Derivative of tikhonov */
+    if (compute_gradient) uprimal->layer->evalTikh_diff(1.0);
+
+
+    /* no refinement */
+    braid_StepStatusSetRFactor(status, 1);
+
+    return 0;
+}
+
+int
+my_Init_Adj(braid_App     app,
+            double        t,
+            braid_Vector *u_ptr)
+{
+    braid_BaseVector uprimal;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+    double *aux     = new double[nchannels];
+
+    int finegrid         = 0;
+    int ilayer           = GetTimeStepIndex(app, t);
+    int primaltimestep   = GetPrimalIndex(app, ilayer);
+
+
+    // printf("%d: Init %d (primaltimestep %d)\n", app->myid, ilayer, primaltimestep);
+
+    /* Allocate the adjoint vector and set to zero */
+    my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
+    u->state = new double*[nexamples];
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        u->state[iex] = new double[nchannels];
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+            u->state[iex][ic] = 0.0;
+        }
+    }
+    u->layer    = NULL;
+    u->sendflag = -1.0;
+
+    /* Adjoint initial (i.e. terminal) condition is derivative of classification layer */
+    if (t==0)
+    {
+        /* Get the primal vector */
+        _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
+        double** primalstate = uprimal->userVector->state;
+        Layer* layer = uprimal->userVector->layer;
+
+        /* Reset the gradient before updating it */
+        layer->resetBar();
+
+        /* Derivative of classification */
+        layer->evalClassification_diff(app->nexamples, primalstate, u->state, app->labels, 1);
+
+
+        /* Derivative of tikhonov regularization) */
+        layer->evalTikh_diff(1.0);
+ 
+       // printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
+    }
+
+    delete [] aux;
+
+    *u_ptr = u;
+    return 0;
+}
+
+int
+my_BufSize_Adj(braid_App           app,
+               int                 *size_ptr,
+               braid_BufferStatus  bstatus)
+{
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+   
+    *size_ptr = nchannels*nexamples*sizeof(double);
+    return 0;
+}
+
+
+
+int
+my_BufPack_Adj(braid_App           app,
+               braid_Vector        u,
+               void               *buffer,
+               braid_BufferStatus  bstatus)
+{
+    int size;
+    double *dbuffer   = (double*) buffer;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+    
+    /* Store network state */
+    int idx = 0;
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+           dbuffer[idx] = (u->state)[iex][ic];
+           idx++;
+        }
+    }
+    size = nchannels*nexamples*sizeof(double);
+
+    braid_BufferStatusSetSize( bstatus, size);
+ 
+   return 0;
+}
+
+
+
+int
+my_BufUnpack_Adj(braid_App           app,
+                 void               *buffer,
+                 braid_Vector       *u_ptr,
+                 braid_BufferStatus  bstatus)
+{
+
+    double *dbuffer   = (double*) buffer;
+    int nchannels = app->network->getnChannels();
+    int nexamples = app->nexamples;
+    
+    //  /* Allocate the vector */
+    my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
+    u->state = new double*[nexamples];
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        u->state[iex] = new double[nchannels];
+    }
+
+    /* Unpack the buffer */
+    int idx = 0;
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+           u->state[iex][ic] = dbuffer[idx]; 
+           idx++;
+        }
+    }
+    u->layer    = NULL;
+    u->sendflag = -1.0;
+
  
     *u_ptr = u;
     return 0;
 }
 
 
-int 
-my_ObjectiveT(braid_App              app,
-              braid_Vector           u,
-              braid_ObjectiveStatus  ostatus,
-              double                *objective_ptr)
+
+void
+evalObjective(braid_Core core,
+              braid_App   app,
+              double     *objective_ptr,
+              double     *loss_ptr,
+              double     *accuracy_ptr)
 {
-    int    success = 0;
-    double regul_tik = 0.0;
-    double regul_ddt = 0.0;
+    double objective = 0.0;
+    double regul     = 0.0;
     double loss      = 0.0;
     double accuracy  = 0.0;
+    double loss_loc  = 0.0; 
+    double accur_loc = 0.0; 
+    braid_BaseVector ubase;
+    braid_Vector     u;
 
-    int nlayers   = app->network->getnLayers();
-    int nexamples = app->nexamples;
-
-    /* Get the time index*/
-    int ts;
-    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-    int ilayer = ts - 1;
-    if (ilayer < 0) 
+    for (int ilayer = 0; ilayer < app->network->getnLayers(); ilayer++)
     {
-       *objective_ptr = 0.0;
-        return 0;
-    }
+        /* Get braid vector at this time step */
+        _braid_UGetVectorRef(core, 0, ilayer, &ubase);
 
-    /* Tikhonov regularization */
-    regul_tik = app->network->layers[ilayer]->evalTikh();
-
-    /* ddt-regularization term */
-    if (ilayer > 1 && ilayer < nlayers - 1) 
-    {
-        regul_ddt = app->network->evalRegulDDT(app->network->layers[ilayer-1], app->network->layers[ilayer]);
-    }
-
- 
-    /* Evaluate loss and accuracy */
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        loss += app->network->layers[ilayer]->evalLoss(u->state[iex], app->labels[iex]);
-
-        success += app->network->layers[ilayer]->prediction(u->state[iex], app->labels[iex]);
-    }
-    loss     = 1. / nexamples * loss;
-    accuracy = 100.0 * (double) success / nexamples;
-
-    /* Report to app */
-    if (ilayer == nlayers - 1)
-    {
-        app->loss     = loss;
-        app->accuracy = accuracy;
-    }
-
-    /* Compute objective function */
-    *objective_ptr = loss + regul_tik + regul_ddt;
-
-    
-    return 0;
-}
-
-
-int
-my_ObjectiveT_diff(braid_App            app,
-                  braid_Vector          u,
-                  braid_Vector          u_bar,
-                  braid_Real            f_bar,
-                  braid_ObjectiveStatus ostatus)
-{
-    double loss_bar, regul_tik_bar, regul_ddt_bar;
-    int nlayers   = app->network->getnLayers();
-    int nexamples = app->nexamples;
-
-    /* Get the time index*/
-    int ts;
-    braid_ObjectiveStatusGetTIndex(ostatus, &ts);
-    int ilayer = ts - 1;
-    if (ilayer < 0) 
-    {
-        return 0;
-    }
-
-    /* Derivative of objective function */
-    loss_bar      = f_bar;
-    regul_tik_bar = f_bar;
-    regul_ddt_bar = f_bar;
-
-    /* Derivative of loss function evaluation */
-    loss_bar = 1./nexamples * loss_bar;
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        app->network->layers[ilayer]->evalLoss_diff(u->state[iex], u_bar->state[iex], app->labels[iex], loss_bar);
-    }
-
-    /* Derivative of ddt-regularization term */
-    if (ilayer > 1 && ilayer < nlayers - 1) 
-    {
-        app->network->evalRegulDDT_diff(app->network->layers[ilayer-1], app->network->layers[ilayer], regul_ddt_bar);
-    }
-
-    /* Derivative of the tikhonov regularization term */
-    app->network->layers[ilayer]->evalTikh_diff(regul_tik_bar);
-
-    return 0;
-}
-
-int
-my_Step_diff(braid_App         app,
-             braid_Vector      ustop,     /**< input, u vector at *tstop* */
-             braid_Vector      u,         /**< input, u vector at *tstart* */
-             braid_Vector      ustop_bar, /**< input / output, adjoint vector for ustop */
-             braid_Vector      u_bar,     /**< input / output, adjoint vector for u */
-             braid_StepStatus  status)
-{
-    int    ts;
-    double tstart, tstop;
-    double deltaT;
-
-    int nexamples = app->nexamples;
-   
-    /* Get the time-step size and current time index*/
-    braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    braid_StepStatusGetTIndex(status, &ts);
-    deltaT = tstop - tstart;
-
-
-    /* apply the layer backwards for all examples */
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-
-        if (ts == 0)
+        if (ubase != NULL) // this is only true on one processor (the one that stores u)
         {
-            app->network->layers[0]->setExample(app->examples[iex]);
-        }
-        else
-        {
-            app->network->layers[ts]->setDt(deltaT);
-        }
+            /* Get vector u */
+            u = ubase->userVector;
 
-        /* Apply the layer backwards */
-        app->network->layers[ts]->applyBWD(u->state[iex], u_bar->state[iex]);
+             /* Tikhonov - Regularization*/
+            regul += u->layer->evalTikh();
+
+            /* DDT - Regularization on intermediate layers */
+            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
+
+            /* Classification and Loss evaluation */ 
+            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc);
+            loss     += loss_loc;
+            accuracy += accur_loc;
+        }
     }
 
-    return 0;
-}
+    /* Collect objective function from all processors */
+    double myobjective = loss + regul;
+    MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Return */
+    *objective_ptr = objective;
+    *accuracy_ptr  = accuracy;
+    *loss_ptr      = loss;
+
+}          
 
 
-int 
-my_ResetGradient(braid_App app)
+void
+evalObjectiveDiff(braid_Core core_adj,
+                  braid_App  app)
 {
-    int nlayers = app->network->getnLayers();
 
-    /* Reset bar variables of weights and bias at all layers */
-    for (int ilayer = 0; ilayer < nlayers; ilayer++)
+    braid_BaseVector  ubaseprimal, ubaseadjoint;
+    braid_Vector      uprimal, uadjoint;
+    int warm_restart = _braid_CoreElt(core_adj, warm_restart);
+
+    /* If warm_restart: set adjoint initial condition here. Otherwise it's set in my_Init_Adj */
+    if (warm_restart)
     {
-        app->network->layers[ilayer]->resetBar();
-    }
+        /* Get primal and adjoint state */
+        _braid_UGetVectorRef(app->primalcore, 0, GetPrimalIndex(app, 0), &ubaseprimal);
+        _braid_UGetVectorRef(core_adj, 0, 0, &ubaseadjoint);
 
-    return 0;
-}
+        if (ubaseprimal != NULL && ubaseadjoint !=NULL)  // this is the case at first primal and last adjoint time step  
+        {
+            uprimal  = ubaseprimal->userVector;
+            uadjoint = ubaseadjoint->userVector;
+
+            /* Reset the gradient before updating it */
+            uprimal->layer->resetBar();
+
+            /* Derivative of classification */
+            uprimal->layer->evalClassification_diff(app->nexamples, uprimal->state, uadjoint->state, app->labels, 1);
+
+            /* Derivative of tikhonov regularization) */
+            uprimal->layer->evalTikh_diff(1.0);
+        }
+    }
+}              

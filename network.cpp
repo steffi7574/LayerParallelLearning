@@ -65,8 +65,8 @@ Network::Network(int    nLayersGlobal,
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
         ndesign += layers[storeID]->getnDesign();
-        
     }
+
 
     /* Allocate memory for network design and gradient variables */
     design   = new double[ndesign];
@@ -142,10 +142,10 @@ Layer* Network::createLayer(int    ilayer,
                             double Gamma_ddt,
                             double Gamma_class,
                             double Weight_open_init,
-			                int    networkType,
-			                int    type_openlayer)
+                            int    networkType,
+                            int    type_openlayer)
 {
-    Layer* layer;
+    Layer* layer = 0;
     if (ilayer == 0)  // Opening layer
     {
         switch ( networkType )
@@ -164,11 +164,11 @@ Layer* Network::createLayer(int    ilayer,
                 /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
                 if (type_openlayer == 0)
                 {
-                   layers[0] = new OpenConvLayer(nFeatures, nchannels);
+                   layer = new OpenConvLayer(nFeatures, nchannels);
                 }
                 else if (type_openlayer == 1)
                 {
-                   layers[0] = new OpenConvLayerMNIST(nFeatures, nchannels);
+                   layer = new OpenConvLayerMNIST(nFeatures, nchannels);
                 }
                 break;
         }
@@ -183,7 +183,7 @@ Layer* Network::createLayer(int    ilayer,
             case CONVOLUTIONAL:
                 // TODO: Fix
                 int convolution_size = 3;
-                layers[ilayer] = new ConvLayer(ilayer, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
+                layer = new ConvLayer(ilayer, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
                 break;
         }
     }

@@ -1,4 +1,8 @@
+#include <math.h>
+#include <assert.h>
 #include "layer.hpp"
+
+#include <iostream>
 
 Layer::Layer()
 {
@@ -6,6 +10,9 @@ Layer::Layer()
    dim_Out      = 0;
    dim_Bias     = 0;
    ndesign      = 0;
+   nweights     = 0;
+   nconv        = 0;
+   csize        = 0;
 
    index        = 0;
    dt           = 0.0;
@@ -36,6 +43,7 @@ Layer::Layer(int     idx,
    dim_Out     = dimO;
    dim_Bias    = dimB;
    ndesign     = dimI * dimO + dimB;
+   nweights    = dimI * dimO;
    dt          = deltaT;
    activ       = Activ;
    gamma_tik   = gammatik;
@@ -82,6 +90,9 @@ int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
 int Layer::getnDesign() { return ndesign; }
 
+int Layer::getnConv() { return nconv; }
+int Layer::getCSize() { return csize; }
+
 int Layer::getIndex() { return index; }
 
 void Layer::print_data(double* data)
@@ -110,8 +121,10 @@ double Layer::activation(double x)
           y = Layer::SmoothReLu_act(x);
           break;
        default:
+          y = -1000000.0;
           printf("ERROR: You should specify an activation function!\n");
           printf("GO HOME AND GET SOME SLEEP!");
+          break;
     }
     return y;
 }
@@ -131,8 +144,10 @@ double Layer::dactivation(double x)
           y = Layer::dSmoothReLu_act(x);
           break;
        default:
+          y = -1000000.0;
           printf("ERROR: You should specify an activation function!\n");
           printf("GO HOME AND GET SOME SLEEP!");
+          break;
     }
     return y;
 
@@ -185,7 +200,6 @@ void Layer::initialize(double* design_ptr,
     weights_bar = gradient_ptr;
     
     /* Bias memory locations is a shift by number of weights */
-    int nweights = dim_Out * dim_In;
     bias         = design_ptr + nweights;    
     bias_bar     = gradient_ptr + nweights;
 
@@ -394,6 +408,10 @@ void DenseLayer::applyBWD(double* state,
                           int     compute_gradient)
 {
 
+   /* state_bar is the adjoint of the state variable, it contains the 
+      old time adjoint informationk, and is modified on the way out to
+      contain the update. */
+
    /* Derivative of the step */
    for (int io = 0; io < dim_Out; io++)
    {
@@ -401,7 +419,7 @@ void DenseLayer::applyBWD(double* state,
         update[io]  = vecdot(dim_In, &(weights[io*dim_In]), state);
         update[io] += bias[0];
         
-        /* Derivative */
+        /* Derivative: This is the update from old time */
         update_bar[io] = dt * dactivation(update[io]) * state_bar[io];
    }
 
@@ -491,10 +509,11 @@ void OpenDenseLayer::applyBWD(double* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 1)
+                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
+    nweights = 0;
 }
 
 
@@ -529,6 +548,97 @@ void OpenExpandZero::applyBWD(double* state,
       state_bar[ii] = 0.0;
    }
 }                           
+
+
+OpenConvLayer::OpenConvLayer(int dimI,
+                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 1)
+{
+    /* this layer doesn't have any design variables. */ 
+    ndesign = 0;
+    nweights = 0;
+    dim_Bias = 0;
+    
+    nconv = dim_Out/dim_In;
+
+    assert(nconv*dim_In == dim_Out);
+}
+
+
+OpenConvLayer::~OpenConvLayer(){}
+
+
+void OpenConvLayer::setExample(double* example_ptr)
+{
+    example = example_ptr;
+}
+
+
+void OpenConvLayer::applyFWD(double* state)
+{
+   // replicate the image data
+   for(int img = 0; img < nconv; img++) 
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         state[ii+dim_In*img] = example[ii];
+      }
+   }
+}                           
+
+void OpenConvLayer::applyBWD(double* state,
+                             double* state_bar,
+			                 int     compute_gradient)
+{
+   for (int ii = 0; ii < dim_Out; ii++)
+   {
+      state_bar[ii] = 0.0;
+   }
+}                           
+
+
+OpenConvLayerMNIST::OpenConvLayerMNIST(int dimI, int dimO) : OpenConvLayer(dimI, dimO) 
+{
+   type = OPENCONVMNIST;
+}
+
+
+OpenConvLayerMNIST::~OpenConvLayerMNIST(){}
+
+
+void OpenConvLayerMNIST::applyFWD(double* state)
+{
+   // replicate the image data
+   for(int img = 0; img < nconv; img++)
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         // The MNIST data is integer from [0, 255], so we rescale it to floats
+         // over the range[0,6]
+         //
+         // Also, rescale tanh so that it appropriately activates over the x-range of [0,6]
+         state[ii+dim_In*img] = tanh( (6.0*example[ii]/255.0) - 3.0) + 1;
+      }
+   }
+}
+
+void OpenConvLayerMNIST::applyBWD(double* state,
+                                  double* state_bar,
+				                  int     compute_gradient)
+{
+   // Derivative of step
+   for(int img = 0; img < nconv; img++)
+   {
+      for (int ii = 0; ii < dim_In; ii++)
+      {
+         state_bar[ii + dim_In*img] =  (1.0 - pow(tanh(example[ii]),2))*state_bar[ii + dim_In*img];
+         // state_bar[ii + dim_In*img] = 0.0;
+      }
+   }
+
+   // Derivative of affine transformation
+   // This is "0" because we have no bias or weights
+}
+
 
 
 ClassificationLayer::ClassificationLayer(int    idx,
@@ -804,7 +914,6 @@ void ClassificationLayer::evalClassification_diff(int      nexamples,
 
 }  
 
-
 double Layer::ReLu_act(double x)
 {
     return std::max(0.0, x);
@@ -872,4 +981,260 @@ double Layer::dtanh_act(double x)
     double diff = 1.0 - pow(tanh(x),2);
 
     return diff;
+}
+
+ConvLayer::ConvLayer(int     idx,
+                     int     dimI,
+                     int     dimO,
+                     int     csize_in,
+                     int     nconv_in,
+                     double  deltaT,
+                     int     Activ,
+                     double  Gammatik,
+		             double  Gammaddt) : Layer(idx, CONVOLUTION, dimI, dimO, 1, deltaT, Activ, Gammatik, Gammaddt)
+{
+   csize = csize_in;
+   nconv = nconv_in;
+   nweights = csize*csize*nconv*nconv;
+   ndesign = nweights + dimI/nconv; // must add to account for the bias
+}
+   
+ConvLayer::~ConvLayer() {}
+
+/** 
+ * This method is designed to be used only in the applyBWD. It computes the
+ * derivative of the objective with respect to the weights. In particular
+ * if you objective is $g$ and your kernel operator has value tau at index
+ * a,b then
+ *
+ * d_tau [ g] = \sum_{image j,k} tau state_{j+a,k+b} * update_bar_{j,k}
+ *
+ * Note that we assume that update_bar is 
+ *
+ *   update_bar = dt * dactivation * state_bar
+ *
+ * Where state_bar _must_ be at the old time. Note that the adjoint variable
+ * state_bar carries withit all the information of the objective derivative.
+ */
+void ConvLayer::
+updateWeightDerivative(double* state, double * update_bar, 
+                       int output_conv,  /* output convolution */
+                       int j,            /* pixel index */
+                       int k,            /* pixel index */
+                       int img_size_sqrt)
+{
+   int fcsize = floor(csize/2.0);
+   for(int input_image = 0; input_image < nconv; input_image++) {
+      int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+   
+      // weight derivative
+      for(int s = -fcsize; s <= fcsize; s++)
+      {
+         for(int t = -fcsize; t <= fcsize; t++)
+         {
+            int wght_idx = output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+            if(    ((j+s) >= 0)
+                && ((j+s) < img_size_sqrt) 
+                && ((k+t) >= 0) 
+                && ((k+t) < img_size_sqrt))
+            {
+               int offset = s*img_size_sqrt + t;
+   
+               weights_bar[wght_idx] += update_bar[center_index]*state[center_index+offset];
+            }
+         }
+      }
+   }
+}
+
+double ConvLayer::apply_conv(double* state, 
+                             int output_conv,  /* output convolution */
+                             int j,            /* pixel index */
+                             int k,            /* pixel index */
+                             int img_size_sqrt,
+                             bool transpose)
+{
+   double val = 0.0;
+   double * weights_local = weights;
+   int fcsize = floor(csize/2.0);
+
+   /*
+      // for testing
+      if(false)
+      {
+         weights_local = new double[csize*csize];
+         double value = 0.1;
+         for(int s = -fcsize; s <= fcsize; s++) {
+            for(int t = -fcsize; t <= fcsize; t++) {
+               int wght_idx =  (t+fcsize)*csize + (s+fcsize);
+               weights_local[wght_idx] = value;
+               value += 0.1;
+            }
+         }
+      }
+   */
+
+   /* loop over all the images */
+   for(int input_image = 0; input_image < nconv; input_image++) {
+      int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+      
+      for(int s = -fcsize; s <= fcsize; s++)
+      {
+         for(int t = -fcsize; t <= fcsize; t++)
+         {
+            int offset = transpose 
+                         ? -s*img_size_sqrt - t
+                         :  s*img_size_sqrt + t;
+            int wght_idx =  output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+   
+            // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
+            if(not transpose) {
+              if(   ((j+s) >= 0) 
+                 && ((j+s) < img_size_sqrt) 
+                 && ((k+t) >= 0) 
+                 && ((k+t) < img_size_sqrt))
+              {
+                 val += state[center_index + offset]*weights_local[wght_idx];
+              }
+            }
+            else
+            {
+              if(    ((j-s) >= 0) 
+                  && ((j-s) < img_size_sqrt) 
+                  && ((k-t) >= 0) 
+                  && ((k-t) < img_size_sqrt))
+              {
+                 val += state[center_index + offset]*weights_local[wght_idx];
+              }
+            }
+         }
+      }
+   }
+
+   return val;
+}
+
+void ConvLayer::applyFWD(double* state)
+{
+   /* Affine transformation */
+   int img_size = dim_In / nconv;
+   int img_size_sqrt = round(sqrt(img_size));
+
+   const bool no_transpose = false;
+
+   for(int i = 0; i < nconv; i++)
+   {
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+            int state_index = i*img_size + j*img_size_sqrt + k;
+
+            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[j*img_size_sqrt+k];
+         }
+      }
+   }
+
+   /* Apply step */
+   for (int io = 0; io < dim_Out; io++)
+   {
+      state[io] = state[io] + dt * activation(update[io]);
+   }
+}
+
+
+void ConvLayer::applyBWD(double* state,
+                         double* state_bar,
+			             int     compute_gradient)
+{
+   /* state_bar is the adjoint of the state variable, it contains the 
+      old time adjoint information, and is modified on the way out to
+      contain the update. */
+
+   /* Okay, for my own clarity:
+      state       = forward state solution
+      state_bar   = backward adjoint solution (in - new time, out - current time)
+      update_bar  = update to the bacward solution, this is "double dipped" in that
+                    it is used to compute the weight and bias derivative.
+                    Note that because this is written as a forward update (the
+                    residual is F = u_{n+1} - u_n - dt * sigma(W_n * u_n + b_n)               
+                    the adjoint variable is also the derivative of the objective
+                    with respect to the solution. 
+      weights_bar = Derivative of the objective with respect to the weights
+      bias_bar    = Derivative of the objective with respect to the bias
+
+  
+      More details: Assume that the objective is 'g', and the constraint in
+      residual form is F(u,W). Then
+ 
+        d_{W_n} g = \partial_{u} g * \partial_{W_n} u
+
+      Note that $\partial_{u} g$ only depends on the final layer. Expanding 
+      around the constraint then gives
+ 
+        d_{W_n} g = \partial_{u} g * (\partial_{u} F)^{-1} * \partial_{W_n} F
+
+      and now doing the standard adjoint thing we get
+      
+        d_{W_n} g = (\partial_{u} F)^{-T} * \partial_{u} g ) * \partial_{W_n} F
+ 
+      yielding
+         
+        d_{W_n} g = state_bar * \partial_{W_n} F
+
+      This is directly 
+
+        weights_bar = state_bar * \partial_{W_n} F
+
+      computed below. Similar for the bias. 
+    */
+
+   /* Affine transformation, and derivative of time step */
+   int img_size = dim_In / nconv;
+   int img_size_sqrt = round(sqrt(img_size));
+
+   const bool no_transpose = false;
+   const bool transpose    = true;
+
+   /* loop over number convolutions */
+   for(int i = 0; i < nconv; i++)
+   {
+      /* loop over full image */
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+             int state_index = i*img_size + j*img_size_sqrt + k;
+
+             /* compute the affine transformation */
+             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[j*img_size_sqrt+k];
+
+             /* derivative of the update, this is the contribution from old time */
+             update_bar[state_index] = dt * dactivation(update[state_index]) * state_bar[state_index];
+         }
+      }
+   }
+
+   /* Loop over the output dimensions */
+   for(int i = 0; i < nconv; i++)
+   {
+      /* loop over full image */
+      for(int j = 0; j < img_size_sqrt; j++)
+      {
+         for(int k = 0; k < img_size_sqrt; k++)
+         {
+            int state_index = i*img_size + j*img_size_sqrt + k;
+
+            // bias derivative
+            if (compute_gradient) bias_bar[j*img_size_sqrt+k] += update_bar[state_index];
+
+            // weight derivative (updates weight_bar)
+            if (compute_gradient) updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
+
+            // next adjoint step
+            state_bar[state_index] = state_bar[state_index] + apply_conv(update_bar, i, j, k, img_size_sqrt,transpose);
+         }
+      }
+
+   } // end for i
 }

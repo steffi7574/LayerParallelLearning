@@ -1,4 +1,5 @@
 #include "network.hpp"
+#include<assert.h>
 
 Network::Network()
 {
@@ -26,7 +27,9 @@ Network::Network(int    nLayersGlobal,
                  double gamma_tik, 
                  double gamma_ddt, 
                  double gamma_class,
-                 double Weight_open_init)
+                 double Weight_open_init,
+                 int    networkType,
+                 int    type_openlayer)
 {
     /* Initilizize */
     nlayers_global   = nLayersGlobal;
@@ -45,6 +48,9 @@ Network::Network(int    nLayersGlobal,
         nClasses  > nchannels)
     {
         printf("ERROR! Choose a wider netword!\n");
+        printf(" -- nFeatures = %d\n", nFeatures);
+        printf(" -- nChannels = %d\n", nChannels);
+        printf(" -- nClasses = %d\n", nClasses);
         exit(1);
     }
 
@@ -57,7 +63,7 @@ Network::Network(int    nLayersGlobal,
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
-        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
         ndesign += layers[storeID]->getnDesign();
         
     }
@@ -68,11 +74,11 @@ Network::Network(int    nLayersGlobal,
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
-    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
-    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init);
+    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 }             
 
   
@@ -135,23 +141,51 @@ Layer* Network::createLayer(int    ilayer,
                             double Gamma_tik,
                             double Gamma_ddt,
                             double Gamma_class,
-                            double Weight_open_init)
+                            double Weight_open_init,
+			                int    networkType,
+			                int    type_openlayer)
 {
     Layer* layer;
     if (ilayer == 0)  // Opening layer
     {
-        if (Weight_open_init == 0.0)
+        switch ( networkType )
         {
-           layer  = new OpenExpandZero(nFeatures, nchannels);
-        }
-        else
-        {
-           layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
+            case DENSE: 
+                if (Weight_open_init == 0.0)
+                {
+                   layer  = new OpenExpandZero(nFeatures, nchannels);
+                }
+                else
+                {
+                   layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
+                }
+                break;
+            case CONVOLUTIONAL:
+                /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
+                if (type_openlayer == 0)
+                {
+                   layers[0] = new OpenConvLayer(nFeatures, nchannels);
+                }
+                else if (type_openlayer == 1)
+                {
+                   layers[0] = new OpenConvLayerMNIST(nFeatures, nchannels);
+                }
+                break;
         }
     }
     else if (0 < ilayer && ilayer < nlayers_global-1) // Intermediate layer
     {
-        layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
+        switch ( networkType )
+        {
+            case DENSE:
+                layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
+                break;
+            case CONVOLUTIONAL:
+                // TODO: Fix
+                int convolution_size = 3;
+                layers[ilayer] = new ConvLayer(ilayer, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
+                break;
+        }
     }
     else if (ilayer == nlayers_global-1) // Classification layer 
     {

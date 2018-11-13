@@ -19,7 +19,11 @@ class Layer
       int dim_In;                          /* Dimension of incoming data */
       int dim_Out;                         /* Dimension of outgoing data */
       int dim_Bias;                        /* Dimension of the bias vector */
+      int nweights;                        /* Number of weights */
       int ndesign;                         /* Total number of design variables */
+
+      int nconv;
+      int csize;
 
       int     index;                       /* Number of the layer */
       double  dt;                          /* Step size for Layer update */
@@ -40,7 +44,7 @@ class Layer
       enum activation{TANH, RELU, SMRELU};  
 
       /* Available layer types */
-      enum layertype{OPENZERO=0, OPENDENSE=1, DENSE=2, CLASSIFICATION=3};
+      enum layertype{OPENZERO=0, OPENDENSE=1, DENSE=2, CLASSIFICATION=3, OPENCONV=4, OPENCONVMNIST=5, CONVOLUTION=6};
 
       Layer();
       Layer(int     idx,
@@ -85,6 +89,9 @@ class Layer
       int getDimOut();
       int getDimBias();
       int getnDesign();
+
+      int getnConv();
+      int getCSize();
 
       /* Get the layer index (i.e. the time step) */
       int getIndex();
@@ -346,3 +353,112 @@ class ClassificationLayer : public Layer
             void normalize_diff(double* data, 
                                 double* data_bar);
 };
+
+
+/**
+ * Layer using a convolution C of size csize X csize, 
+ * with nconv total convolutions. 
+ * Layer transformation: y = y + dt * sigma(W(C) y + b)
+ * if not openlayer: requires dimI = dimO !
+ */
+class ConvLayer : public Layer {
+
+  public:
+      ConvLayer(int     idx,
+                int     dimI,
+                int     dimO,
+                int     csize_in,
+                int     nconv_in,
+                double  deltaT,
+                int     Activ,
+                double  Gammatik,
+                double  Gammaddt);
+      ~ConvLayer();
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar,
+                    int     compute_gradient);
+
+      double apply_conv(double* state,        // state vector to apply convolution to 
+                      int     output_conv,    // output convolution
+                      int     j,              // row index
+                      int     k,              // column index
+                      int     img_size_sqrt,  // sqrt of the image size
+                      bool    transpose);     // apply the tranpose of the kernel
+
+      /** 
+       * This method is designed to be used only in the applyBWD. It computes the
+       * derivative of the objective with respect to the weights. In particular
+       * if you objective is $g$ and your kernel operator has value tau at index
+       * a,b then
+       *
+       *   weights_bar[magic_index] = d_tau [ g] = \sum_{image j,k} tau state_{j+a,k+b} * update_bar_{j,k}
+       *
+       * Note that we assume that update_bar is 
+       *
+       *   update_bar = dt * dactivation * state_bar
+       *
+       * Where state_bar _must_ be at the old time. Note that the adjoint variable
+       * state_bar carries withit all the information of the objective derivative.
+       *
+       * On exit this method modifies weights_bar
+       */
+      void updateWeightDerivative(
+                      double* state,          // state vector
+                      double * update_bar,    // combines derivative and adjoint info (see comments)
+                      int     output_conv,    // output convolution
+                      int     j,              // row index
+                      int     k,              // column index
+                      int     img_size_sqrt); // sqrt of the image size
+};
+
+
+/**
+ * Opening Layer for use with convolutional layers.  Examples are replicated.
+ * Layer transformation: y = ([I; I; ... I] y_ex)
+ */
+class OpenConvLayer : public Layer {
+
+  protected: 
+      double* example;    /* Pointer to the current example data */
+
+  public:
+      OpenConvLayer(int     dimI,
+                    int     dimO);
+      ~OpenConvLayer();
+
+      void setExample(double* example_ptr);
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar,
+                    int     compute_gradient);
+};
+
+/** 
+ * Opening Layer for use with convolutional layers.  Examples are replicated
+ * and then have an activation function applied.
+ *
+ * This layer is specially designed for MNIST
+ *
+ * Layer transformation: y = sigma([I; I; ... I] y_ex)
+ */
+
+class OpenConvLayerMNIST : public OpenConvLayer {
+
+  public:
+      OpenConvLayerMNIST(int     dimI,
+                         int     dimO);
+      ~OpenConvLayerMNIST();
+
+      void applyFWD(double* state);
+
+      void applyBWD(double* state,
+                    double* state_bar,
+                    int     compute_gradient);
+};
+
+

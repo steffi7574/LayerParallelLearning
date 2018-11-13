@@ -257,6 +257,8 @@ my_BufPack(braid_App           app,
     dbuffer[idx] = u->layer->getnDesign();    idx++;
     dbuffer[idx] = u->layer->getGammaTik();   idx++;
     dbuffer[idx] = u->layer->getGammaDDT();   idx++;
+    dbuffer[idx] = u->layer->getnConv();      idx++;
+    dbuffer[idx] = u->layer->getCSize();      idx++;
     for (int i = 0; i < nweights; i++)
     {
         dbuffer[idx] = u->layer->getWeights()[i];     idx++;
@@ -267,7 +269,7 @@ my_BufPack(braid_App           app,
         dbuffer[idx] = u->layer->getBias()[i];     idx++;
         // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
     }
-    size += (9 + (nweights+nbias))*sizeof(double);
+    size += (11 + (nweights+nbias))*sizeof(double);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -317,6 +319,8 @@ my_BufUnpack(braid_App           app,
     int nDesign   = dbuffer[idx];  idx++;
     int gammatik  = dbuffer[idx];  idx++;
     int gammaddt  = dbuffer[idx];  idx++;
+    int nconv     = dbuffer[idx];  idx++;
+    int csize     = dbuffer[idx];  idx++;
     int nweights = nDesign - dimBias;
     int nbias    = nDesign - dimIn * dimOut;
 
@@ -334,6 +338,15 @@ my_BufUnpack(braid_App           app,
             break;
         case Layer::CLASSIFICATION:
             tmplayer = new ClassificationLayer(index, dimIn, dimOut, gammatik);
+            break;
+        case Layer::OPENCONV:
+            tmplayer = new OpenConvLayer(dimIn, dimOut);
+            break;
+        case Layer::OPENCONVMNIST:
+            tmplayer = new OpenConvLayerMNIST(dimIn, dimOut);
+            break;
+        case Layer::CONVOLUTION:
+            tmplayer = new ConvLayer(index, dimIn, dimOut, csize, nconv, 1.0, activ, gammatik, gammaddt);
             break;
         default: 
             printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n"); 

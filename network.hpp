@@ -24,9 +24,11 @@ class Network
       double* gradient;             /* Local Gradient */
 
       Layer** layers;               /* Array of network layers */
-      Layer*  layer_left;           /* Copy of last layer of processor to the left */
-      Layer*  layer_right;          /* Copy of first layer of processor to the right*/
+      Layer*  layer_left;           /* Copy of last layer of right-neighbouring processor */
+      Layer*  layer_right;          /* Copy of first layer of left-neighbouring processor */
+   
    public: 
+      enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
 
       Network();
       Network(int    nLayersGlobal,
@@ -40,7 +42,9 @@ class Network
               double gamma_tik, 
               double gamma_ddt, 
               double gamma_class,
-              double Weight_open_init);
+              double Weight_open_init,
+	        int    networkType,
+	        int    type_openlayer);
      
       ~Network();
 
@@ -90,7 +94,9 @@ class Network
                          double gamma_tik,
                          double gamma_ddt,
                          double gamma_class,
-                         double weights_open_init);
+                         double weights_open_init,
+			       int    NetworkType,
+                         int    Type_OpenLayer);
      
         
       /* Replace the layer with one that is received from the left neighbouring processor */  

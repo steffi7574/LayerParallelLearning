@@ -21,7 +21,7 @@ default_batch_args = {batch_args_mapping["NAME"]          : "default",
                       batch_args_mapping["NTASKS"]        : 1}
 
 
-def submit_job(jobname, runcommand, ntasks, time_limit, executable, arguments):
+def submit_job(jobname, runcommand, ntasks, time_limit, executable, arguments,run=True):
 
     batch_args = copy.deepcopy(default_batch_args)
 
@@ -36,7 +36,8 @@ def submit_job(jobname, runcommand, ntasks, time_limit, executable, arguments):
     scriptname = jobname+".batch"
     assemble_batch_script(scriptname, command, batch_args)
 
-    subprocess.call("sbatch " + jobname + ".batch", shell=True)
+    if run:
+      subprocess.call("sbatch " + jobname + ".batch", shell=True)
 
 def assemble_batch_script(name, run_command, args):
     

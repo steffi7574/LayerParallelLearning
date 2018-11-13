@@ -441,6 +441,7 @@ int main (int argc, char *argv[])
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
+    app_train = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
     braid_SetRevertedRanks(core_adj, 1);

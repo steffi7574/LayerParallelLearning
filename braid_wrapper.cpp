@@ -246,7 +246,7 @@ my_BufPack(braid_App           app,
     size = nchannels*nexamples*sizeof(double);
 
     int nweights = u->layer->getnDesign() - u->layer->getDimBias();
-    int nbias    = u->layer->getnDesign() - u->layer->getDimIn() * u->layer->getDimOut();
+    int nbias    = u->layer->getnDesign() - nweights;
 
     dbuffer[idx] = u->layer->getType();       idx++;
     dbuffer[idx] = u->layer->getIndex();      idx++;
@@ -288,7 +288,7 @@ my_BufUnpack(braid_App           app,
     double *dbuffer   = (double*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
-    Layer *tmplayer;
+    Layer *tmplayer = 0;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));

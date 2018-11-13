@@ -52,6 +52,33 @@ Layer::Layer(int     idx,
    update     = new double[dimO];
    update_bar = new double[dimO];
 }   
+
+Layer::Layer(int     idx,
+             int     Type,
+             int     dimI,
+             int     dimO,
+             int     dimB,
+             int     dimW,
+             double  deltaT,
+             int     Activ,
+             double  gammatik,
+             double  gammaddt)
+{
+   index       = idx;
+   type        = Type;
+   dim_In      = dimI;
+   dim_Out     = dimO;
+   dim_Bias    = dimB;
+   ndesign     = dimW + dimB;
+   nweights    = dimW;
+   dt          = deltaT;
+   activ       = Activ;
+   gamma_tik   = gammatik;
+   gamma_ddt   = gammaddt;
+   
+   update     = new double[dimO];
+   update_bar = new double[dimO];
+}   
  
 // Layer::Layer(0, dimI, dimO, 1)
 Layer::Layer(int idx, 
@@ -817,7 +844,7 @@ int ClassificationLayer::prediction(double* data_Out,
                                     double* label)
 {
    double exp_sum, max;
-   int    class_id;
+   int    class_id = -1;
    int    success = 0;
 
    /* Compute sum_i (exp(x_i)) */
@@ -910,7 +937,7 @@ void ClassificationLayer::evalClassification_diff(int      nexamples,
         crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
         applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
     }
-    printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
+    // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
 
 }  
 
@@ -991,12 +1018,15 @@ ConvLayer::ConvLayer(int     idx,
                      double  deltaT,
                      int     Activ,
                      double  Gammatik,
-		             double  Gammaddt) : Layer(idx, CONVOLUTION, dimI, dimO, 1, deltaT, Activ, Gammatik, Gammaddt)
+		             double  Gammaddt) : Layer(idx, CONVOLUTION, 
+                                                       dimI, dimO, dimI/nconv_in, csize_in*csize_in*nconv_in*nconv_in,
+                                                       deltaT, Activ, Gammatik, Gammaddt)
 {
    csize = csize_in;
    nconv = nconv_in;
-   nweights = csize*csize*nconv*nconv;
-   ndesign = nweights + dimI/nconv; // must add to account for the bias
+
+   // nweights = csize*csize*nconv*nconv;
+   // ndesign = nweights + dimI/nconv; // must add to account for the bias
 }
    
 ConvLayer::~ConvLayer() {}

@@ -42,11 +42,11 @@ int main (int argc, char *argv[])
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    double  *design;              /**< On root process: Global design vector */
-    double  *gradient;            /**< On root process: Global gradient vector */
-    double  *design0;             /**< On root process: Old design at last iteration */
-    double  *gradient0;           /**< On root process: Old gradient at last iteration*/
-    double  *descentdir;          /**< On root process: Direction for design updates */
+    double  *design=0;            /**< On root process: Global design vector */
+    double  *gradient=0;          /**< On root process: Global gradient vector */
+    double  *design0=0;           /**< On root process: Old design at last iteration */
+    double  *gradient0=0;         /**< On root process: Old gradient at last iteration*/
+    double  *descentdir=0;        /**< On root process: Direction for design updates */
     double   objective;           /**< Optimization objective */
     double   wolfe;               /**< Holding the wolfe condition value */
     double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -98,7 +98,7 @@ int main (int argc, char *argv[])
     double StartTime, StopTime, myMB, globalMB; 
     double UsedTime = 0.0;
     char  optimfilename[255];
-    FILE *optimfile;   
+    FILE *optimfile = 0;   
     char* activname;
     char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     double mygnorm, stepsize, ls_objective;
@@ -504,6 +504,8 @@ int main (int argc, char *argv[])
     ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
+    printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
+
     /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
     if (myid == MASTER_NODE)
     {
@@ -517,7 +519,7 @@ int main (int argc, char *argv[])
     network->initialize(weights_open_init, weights_init, weights_class_init);
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
     MPI_GatherVector(network->getDesign(), ndesign_local, design, MASTER_NODE, MPI_COMM_WORLD);
- 
+
     /* Initialize xbraid's app structure */
     app_train->primalcore  = core_train;
     app_train->myid        = myid;
@@ -534,7 +536,7 @@ int main (int argc, char *argv[])
 
 
     /* Initialize hessian approximation on first processor */
-    HessianApprox  *hessian;
+    HessianApprox  *hessian = 0;
     if (myid == MASTER_NODE)
     {
         switch (hessian_approx)

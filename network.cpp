@@ -281,29 +281,38 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     MPI_Status status;
 
     /* Allocate buffers */
-    int size = (nchannels*nchannels+nchannels);
-    double* sendlast  = new double[size];
-    double* recvlast  = new double[size];
-    double* sendfirst = new double[size];
-    double* recvfirst = new double[size];
+    int size_left = -1; 
+    int size_right = -1; 
+
+    double* sendlast  = 0;
+    double* recvlast  = 0; 
+    double* sendfirst = 0;
+    double* recvfirst = 0;
 
     /* --- All but the first process receive the last layer from left neighbour --- */
     if (myid > 0)
     {
         /* Receive from left neighbour */
         int source = myid - 1;
-        MPI_Irecv(recvlast, size, MPI_DOUBLE, source, 0, comm, &recvlastreq);
+
+        size_left = layer_left->getnDesign();
+        recvlast  = new double[size_left];
+
+        MPI_Irecv(recvlast, size_left, MPI_DOUBLE, source, 0, comm, &recvlastreq);
     }
 
     /* --- All but the last process sent their last layer to right neighbour --- */
     if (myid < comm_size-1)
     {
+        size_left = layers[getLocalID(endlayerID)]->getnDesign();
+        sendlast  = new double[size_left];
+        
         /* Pack the last layer into a buffer */
-        layers[getLocalID(endlayerID)]->packDesign(sendlast, size);
+        layers[getLocalID(endlayerID)]->packDesign(sendlast, size_left);
 
        /* Send to right neighbour */
         int receiver = myid + 1;
-        MPI_Isend(sendlast, size, MPI_DOUBLE, receiver, 0, comm, &sendlastreq);
+        MPI_Isend(sendlast, size_left, MPI_DOUBLE, receiver, 0, comm, &sendlastreq);
     }
 
     /* --- All but the last processor recv the first layer from the right neighbour --- */
@@ -311,19 +320,26 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     {
         /* Receive from right neighbour */
         int source = myid + 1;
-        MPI_Irecv(recvfirst, size, MPI_DOUBLE, source, 1, comm, &recvfirstreq);
+
+        size_right = layer_right->getnDesign();
+        recvfirst  = new double[size_right];
+
+        MPI_Irecv(recvfirst, size_right, MPI_DOUBLE, source, 1, comm, &recvfirstreq);
     }
 
 
     /* --- All but the first processor send their first layer to the left neighbour --- */
     if (myid > 0)
     {
+        size_right = layers[getLocalID(startlayerID)]->getnDesign();
+        sendfirst  = new double[size_right];
+
         /* Pack the first layer into a buffer */
-        layers[getLocalID(startlayerID)]->packDesign(sendfirst, size);
+        layers[getLocalID(startlayerID)]->packDesign(sendfirst, size_right);
 
         /* Send to left neighbour */
         int receiver = myid - 1;
-        MPI_Isend(sendfirst, size, MPI_DOUBLE, receiver, 1, comm, &sendfirstreq);
+        MPI_Isend(sendfirst, size_right, MPI_DOUBLE, receiver, 1, comm, &sendfirstreq);
     }
 
 
@@ -346,9 +362,8 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     }
 
     /* Free the buffer */
-    delete [] sendlast;
-    delete [] recvlast;
-    delete [] sendfirst;
-    delete [] recvfirst;
-
+    if(sendlast!=0) delete [] sendlast;
+    if(recvlast!=0) delete [] recvlast;
+    if(sendfirst!=0) delete [] sendfirst;
+    if(recvfirst!=0) delete [] recvfirst;
 }

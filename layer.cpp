@@ -384,7 +384,8 @@ void Layer::evalClassification(int      nexamples,
                                double** state,
                                double** labels, 
                                double*  loss_ptr, 
-                               double*  accuracy_ptr)
+                               double*  accuracy_ptr,
+                               int      output)
 {
     *loss_ptr     = 0.0;
     *accuracy_ptr = 0.0;
@@ -841,7 +842,8 @@ void ClassificationLayer::crossEntropy_diff(double *data_Out,
 
 
 int ClassificationLayer::prediction(double* data_Out, 
-                                    double* label)
+                                    double* label,
+                                    int*    class_id_ptr)
 {
    double exp_sum, max;
    int    class_id = -1;
@@ -874,7 +876,8 @@ int ClassificationLayer::prediction(double* data_Out,
       success = 1;
   }
    
-
+   /* return */
+   *class_id_ptr = class_id;
    return success;
 }
 
@@ -882,10 +885,16 @@ void ClassificationLayer::evalClassification(int      nexamples,
                                              double** state,
                                              double** labels, 
                                              double*  loss_ptr, 
-                                             double*  accuracy_ptr)
+                                             double*  accuracy_ptr,
+                                             int      output)
 {
     double loss, accuracy;
-    int    success;
+    int    class_id;
+    int    success, success_local;
+    FILE*  classfile;
+
+    /* open file for printing predicted file */
+    if (output) classfile = fopen("classprediction.dat", "w");
 
     /* Sanity check */
     if (labels == NULL) printf("\n\n: ERROR: No labels for classification... \n\n");
@@ -902,8 +911,10 @@ void ClassificationLayer::evalClassification(int      nexamples,
         /* Apply classification on tmpstate */
         applyFWD(tmpstate);
         /* Evaluate Loss */
-        loss     += crossEntropy(tmpstate, labels[iex]);
-        success  += prediction(tmpstate, labels[iex]);
+        loss          += crossEntropy(tmpstate, labels[iex]);
+        success_local  = prediction(tmpstate, labels[iex], &class_id);
+        success       += success_local;
+        if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
     }
     loss     = 1. / nexamples * loss;
     accuracy = 100.0 * (double) success / nexamples;
@@ -912,6 +923,9 @@ void ClassificationLayer::evalClassification(int      nexamples,
     /* Return */
     *loss_ptr      = loss;
     *accuracy_ptr  = accuracy;
+
+    if (output) fclose(classfile);
+    if (output) printf("Prediction file written: classprediction.dat\n");
 
 }       
 

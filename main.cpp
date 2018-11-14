@@ -663,7 +663,7 @@ int main (int argc, char *argv[])
         if (ubase != NULL) // This is only true on last processor 
         {
             u = ubase->userVector;
-            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val);
+            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 0);
         }
 
 
@@ -797,6 +797,15 @@ int main (int argc, char *argv[])
             printf(" Global Memory:    %.2f MB\n", globalMB);
             printf("\n");
         }
+    }
+
+
+    /* Write predicted classes of validation data to file. */
+    _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
+    if (ubase != NULL) // This is only true on last processor 
+    {
+        u = ubase->userVector;
+        u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 1);
     }
 
     // write_vector("design.dat", design, ndesign);

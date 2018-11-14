@@ -615,7 +615,7 @@ evalObjective(braid_Core core,
             regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
 
             /* Classification and Loss evaluation */ 
-            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc);
+            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
             loss     += loss_loc;
             accuracy += accur_loc;
         }

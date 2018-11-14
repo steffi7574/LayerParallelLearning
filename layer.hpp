@@ -197,7 +197,8 @@ class Layer
                                       double** state,
                                       double** labels, 
                                       double*  loss_ptr, 
-                                      double*  accuracy_ptr);
+                                      double*  accuracy_ptr,
+                                      int      output);
 
       /**
        * On classification layer: derivative of evalClassification 
@@ -322,7 +323,8 @@ class ClassificationLayer : public Layer
                                     double** state,
                                     double** labels, 
                                     double*  loss_ptr, 
-                                    double*  accuracy_ptr);
+                                    double*  accuracy_ptr,
+                                    int      output);
 
 
             void evalClassification_diff(int      nexamples, 
@@ -348,9 +350,11 @@ class ClassificationLayer : public Layer
             /**
              * Compute the class probabilities
              * return 1 if predicted class was correct, 0 else.
+             * out: *class_id_ptr holding the predicted class 
              */
             int prediction(double* data_out, 
-                           double* label);
+                           double* label,
+                           int*    class_id_ptr);
 
             /**
              * Translate the data: 

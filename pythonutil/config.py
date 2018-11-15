@@ -163,13 +163,16 @@ def read_config(filename):
                 case("nchannels") or \
                 case("nlayers") or \
                 case("braid_cfactor") or \
+                case("braid_cfactor0") or \
                 case("braid_maxlevels") or \
+                case("braid_mincoarse") or \
                 case("braid_maxiter") or \
                 case("braid_printlevel") or \
                 case("braid_accesslevel") or \
                 case("braid_setskip") or \
                 case("braid_fmg") or \
                 case("braid_nrelax") or \
+                case("braid_nrelax0") or \
                 case("optim_maxiter") or \
                 case("ls_maxiter") or \
                 case("lbfgs_stages") :

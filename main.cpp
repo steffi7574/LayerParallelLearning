@@ -711,8 +711,14 @@ int main (int argc, char *argv[])
             }
             break;
         }
-
-
+        if ( iter == maxoptimiter - 1 )
+        {
+            if (myid == MASTER_NODE)
+            {
+                printf("\nMax. optimization iterations reached.\n");
+            }
+            break;
+        }
         /* --- Design update --- */
 
         stepsize = stepsize_init;

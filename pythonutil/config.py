@@ -175,7 +175,8 @@ def read_config(filename):
                 case("braid_nrelax0") or \
                 case("optim_maxiter") or \
                 case("ls_maxiter") or \
-                case("lbfgs_stages") :
+                case("lbfgs_stages") or \
+                case("validationlevel") :
                 data_dict[this_param] = int(this_value)
                 break
 

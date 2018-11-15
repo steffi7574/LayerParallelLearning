@@ -66,6 +66,7 @@ int main (int argc, char *argv[])
     double   ls_param;            /**< Parameter in wolfe condition test */
     int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
+    int      validationlevel;     /**< 0: validate only after optimization finishes, 1: validate in each optimization iteration */
     /* --- PinT --- */
     braid_Core core_train;      /**< Braid core for training data */
     braid_Core core_val;        /**< Braid core for validation data */
@@ -88,10 +89,10 @@ int main (int argc, char *argv[])
     double   braid_abstol;      /**< tolerance for primal braid */
     double   braid_abstoladj;   /**< tolerance for adjoint braid */
 
-    double accur_train;         /**< Accuracy on training data */
-    double accur_val;           /**< Accuracy on validation data */
-    double loss_train;          /**< Loss function on training data */
-    double loss_val;            /**< Loss function on validation data */
+    double accur_train = 0.0;   /**< Accuracy on training data */
+    double accur_val   = 0.0;   /**< Accuracy on validation data */
+    double loss_train  = 0.0;   /**< Loss function on training data */
+    double loss_val    = 0.0;   /**< Loss function on validation data */
 
     int ilower, iupper;         /**< Index of first and last layer stored on this processor */
     struct rusage r_usage;
@@ -150,6 +151,7 @@ int main (int argc, char *argv[])
     type_openlayer     = 0;
     hessian_approx     = USE_LBFGS;
     lbfgs_stages       = 20;
+    validationlevel    = 1;
 
 
     /* --- Read the config file (overwrite default values) --- */
@@ -400,6 +402,10 @@ int main (int argc, char *argv[])
         {
            lbfgs_stages = atoi(co->value);
         }
+        else if ( strcmp(co->key, "validationlevel") == 0 )
+        {
+           validationlevel = atoi(co->value);
+        }
         if (co->prev != NULL) {
             co = co->prev;
         } else {
@@ -610,6 +616,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                weights_class_init   %f \n", weights_class_init) ;
         fprintf(optimfile, "#                hessian_approx       %d \n", hessian_approx);
         fprintf(optimfile, "#                lbfgs_stages         %d \n", lbfgs_stages);
+        fprintf(optimfile, "#                validationlevel      %d \n", validationlevel);
         fprintf(optimfile, "\n");
     }
 
@@ -647,29 +654,29 @@ int main (int argc, char *argv[])
         evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
-        /* Get gradient on root process */
-        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
-        // if (myid == MASTER_NODE) write_vector("gradient.dat", gradient, ndesign_global);
+
 
         /* --- Validation data: Get accuracy --- */
 
-        braid_SetPrintLevel( core_val, 0);
-        braid_SetStorage(core_val, 0);
-        braid_Drive(core_val);
-        /* Get loss and accuracy */
-        loss_val  = 0.0;
-        accur_val = 0.0;
-        _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
-        if (ubase != NULL) // This is only true on last processor 
+        if ( validationlevel > 0 )
         {
-            u = ubase->userVector;
-            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 0);
+            braid_SetPrintLevel( core_val, 1);
+            braid_SetStorage(core_val, 0);
+            braid_Drive(core_val);
+            /* Get loss and accuracy */
+            _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
+            if (ubase != NULL) // This is only true on last processor 
+            {
+                u = ubase->userVector;
+                u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 0);
+            }
         }
 
 
         /* --- Optimization control and output ---*/
 
-        /* Compute and communicate gradient norm */
+        /* Compute and communicate gradient and its norm */
+        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
         mygnorm = vec_normsq(ndesign_local, network->getGradient());
         MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
@@ -685,6 +692,8 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&myaval, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Output */
+        StopTime = MPI_Wtime();
+        UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
             printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, loss_train, gnorm, stepsize, ls_iter, accur_train, accur_val, UsedTime);
@@ -782,30 +791,36 @@ int main (int argc, char *argv[])
  
         }
  
-        /* Print some statistics */
-        StopTime = MPI_Wtime();
-        UsedTime = StopTime-StartTime;
-        getrusage(RUSAGE_SELF,&r_usage);
-        myMB = (double) r_usage.ru_maxrss / 1024.0;
-        MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // /* Print some statistics */
+        // StopTime = MPI_Wtime();
+        // UsedTime = StopTime-StartTime;
+        // getrusage(RUSAGE_SELF,&r_usage);
+        // myMB = (double) r_usage.ru_maxrss / 1024.0;
+        // MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
-        if (myid == MASTER_NODE)
-        {
-            printf("\n");
-            printf(" Used Time:        %.2f seconds\n",UsedTime);
-            printf(" Global Memory:    %.2f MB\n", globalMB);
-            printf("\n");
-        }
+        // // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
+        // if (myid == MASTER_NODE)
+        // {
+        //     printf("\n");
+        //     printf(" Used Time:        %.2f seconds\n",UsedTime);
+        //     printf(" Global Memory:    %.2f MB\n", globalMB);
+        //     printf("\n");
+        // }
     }
 
+    /* --- Run final validation and write prediction file --- */
 
-    /* Write predicted classes of validation data to file. */
+    if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
+    braid_SetPrintLevel( core_val, 0);
+    braid_SetStorage(core_val, 0);
+    braid_Drive(core_val);
+    /* Get loss and accuracy */
     _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
     if (ubase != NULL) // This is only true on last processor 
     {
         u = ubase->userVector;
         u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 1);
+        printf("Final validation accuracy:  %2.2f%%\n", accur_val);
     }
 
     // write_vector("design.dat", design, ndesign);

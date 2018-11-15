@@ -66,7 +66,7 @@ int main (int argc, char *argv[])
     double   ls_param;            /**< Parameter in wolfe condition test */
     int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
-    int      validationlevel;     /**< 0: validate only after optimization finishes, 1: validate in each optimization iteration */
+    int      validationlevel;     /**< level for determine frequency of validation computations */
     /* --- PinT --- */
     braid_Core core_train;      /**< Braid core for training data */
     braid_Core core_val;        /**< Braid core for validation data */
@@ -815,18 +815,20 @@ int main (int argc, char *argv[])
     }
 
     /* --- Run final validation and write prediction file --- */
-
-    if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
-    braid_SetPrintLevel( core_val, 0);
-    braid_SetStorage(core_val, 0);
-    braid_Drive(core_val);
-    /* Get loss and accuracy */
-    _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
-    if (ubase != NULL) // This is only true on last processor 
+    if (validationlevel > -1)
     {
-        u = ubase->userVector;
-        u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 1);
-        printf("Final validation accuracy:  %2.2f%%\n", accur_val);
+        if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
+        braid_SetPrintLevel( core_val, 0);
+        braid_SetStorage(core_val, 0);
+        braid_Drive(core_val);
+        /* Get loss and accuracy */
+        _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );
+        if (ubase != NULL) // This is only true on last processor 
+        {
+            u = ubase->userVector;
+            u->layer->evalClassification(nvalidation, u->state, val_labels, &loss_val, &accur_val, 1);
+            printf("Final validation accuracy:  %2.2f%%\n", accur_val);
+        }
     }
 
     // write_vector("design.dat", design, ndesign);

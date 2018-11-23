@@ -682,22 +682,22 @@ int main (int argc, char *argv[])
         gnorm = sqrt(gnorm);
 
         // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
-        double myltrain  = loss_train;
-        double mylval    = loss_val;
-        double myatrain  = accur_train;
-        double myaval    = accur_val;
-        MPI_Allreduce(&myltrain, &loss_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&mylval, &loss_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&myatrain, &accur_train, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&myaval, &accur_val, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        double losstrain_out  = 0.0; 
+        double lossval_out    = 0.0; 
+        double accurtrain_out = 0.0; 
+        double accurval_out   = 0.0; 
+        MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
         /* Output */
         StopTime = MPI_Wtime();
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, loss_train, gnorm, stepsize, ls_iter, accur_train, accur_val, UsedTime);
-            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, loss_train, gnorm, stepsize, ls_iter, accur_train, accur_val, UsedTime);
+            printf("%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            fprintf(optimfile,"%3d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }
 

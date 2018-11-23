@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <math.h>
 #include <mpi.h>
+#include <string.h>
 #include "util.hpp"
 #pragma once
 

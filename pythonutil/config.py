@@ -203,6 +203,8 @@ def read_config(filename):
                case("ftrain_labels") or \
                case("fval_ex") or \
                case("fval_labels") or \
+               case("weightsopenfile") or \
+               case("weightsclassificationfile") or \
                case("network_type") or \
                case("type_openlayer") or \
                case("hessian_approx") :

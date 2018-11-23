@@ -102,6 +102,7 @@ int main (int argc, char *argv[])
     FILE *optimfile = 0;   
     char* activname;
     char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
+    char *weightsopenfile, *weightsclassificationfile;
     double mygnorm, stepsize, ls_objective;
     int nreq = -1;
     int ls_iter;
@@ -214,6 +215,14 @@ int main (int argc, char *argv[])
         else if ( strcmp(co->key, "nclasses") == 0 )
         {
             nclasses = atoi(co->value);
+        }
+        if ( strcmp(co->key, "weightsopenfile") == 0 )
+        {
+            weightsopenfile = co->value;
+        }
+        if ( strcmp(co->key, "weightsclassificationfile") == 0 )
+        {
+            weightsclassificationfile = co->value;
         }
         else if ( strcmp(co->key, "nlayers") == 0 )
         {
@@ -522,7 +531,7 @@ int main (int argc, char *argv[])
         }
     }
     MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
-    network->initialize(weights_open_init, weights_init, weights_class_init);
+    network->initialize(weights_open_init, weights_init, weights_class_init, datafolder, weightsopenfile, weightsclassificationfile);
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
     MPI_GatherVector(network->getDesign(), ndesign_local, design, MASTER_NODE, MPI_COMM_WORLD);
 

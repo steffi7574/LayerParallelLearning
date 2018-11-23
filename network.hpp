@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <math.h>
 #include <mpi.h>
+#include "util.hpp"
 #pragma once
 
 
@@ -83,9 +84,18 @@ class Network
       Layer* getLayer(int layerindex);
 
 
+      /* 
+       * Initialize the layer weights and biases:
+       * Default: Scales random initialization from main with the given factors
+       * If set, reads in opening and classification weights from file
+       */
       void initialize(double Weight_open_init,
                       double Weight_init,
-                      double Classification_init);
+                      double Classification_init,
+                      char   *datafolder,
+                      char   *weightsopenfile,
+                      char   *weightsclassificationfile);
+
 
       Layer* createLayer(int    index, 
                          int    nfeatures,

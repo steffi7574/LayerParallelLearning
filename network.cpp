@@ -226,11 +226,15 @@ Layer* Network::getLayer(int layerindex)
 
 void Network::initialize(double Weight_open_init,
                          double Weight_init,
-                         double Classification_init)
+                         double Classification_init,
+                         char   *datafolder,
+                         char   *weightsopenfile,
+                         char   *weightsclassificationfile)
 {
     double factor;
+    char   filename[255];
 
-    /* Initialize  the layer weights and bias */
+    /* Initialize  the layer weights and bias  */
     int istart = 0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
@@ -247,7 +251,29 @@ void Network::initialize(double Weight_open_init,
             factor = Classification_init;
         }
         int storeID = getLocalID(ilayer);
+
+        /* Scale the current design by the factor */
         layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), factor);
+
+        /* if set, read opening or classification layer */
+        if (ilayer == nlayers_global-1)
+        {
+            if (strcmp(weightsclassificationfile, "NONE") != 0)
+            {
+                sprintf(filename, "%s/%s", datafolder, weightsclassificationfile);
+                read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
+            }
+        }
+        if (ilayer == 0)
+        {
+            if (strcmp(weightsopenfile, "NONE") != 0)
+            {
+                sprintf(filename, "%s/%s", datafolder, weightsopenfile);
+                read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
+            }
+        }
+
+        /* Increase the counter */
         istart += layers[storeID]->getnDesign();
     }
 

@@ -1002,6 +1002,7 @@ int main (int argc, char *argv[])
     /* Clean up */
     delete network;
     braid_Destroy(core_train);
+    braid_Destroy(core_adj);
     braid_Destroy(core_val);
     free(app_train);
     free(app_val);

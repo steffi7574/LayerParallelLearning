@@ -216,7 +216,7 @@ my_BufSize(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double) + (9 + (nchannels*nchannels+nchannels))*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(double) + (12 + (nchannels*nchannels+nchannels))*sizeof(double);
     return 0;
 }
 
@@ -245,14 +245,15 @@ my_BufPack(braid_App           app,
     }
     size = nchannels*nexamples*sizeof(double);
 
-    int nweights = u->layer->getnDesign() - u->layer->getDimBias();
-    int nbias    = u->layer->getnDesign() - nweights;
+    int nweights = u->layer->getnWeights();
+    int nbias    = u->layer->getDimBias();
 
     dbuffer[idx] = u->layer->getType();       idx++;
     dbuffer[idx] = u->layer->getIndex();      idx++;
     dbuffer[idx] = u->layer->getDimIn();      idx++;
     dbuffer[idx] = u->layer->getDimOut();     idx++;
     dbuffer[idx] = u->layer->getDimBias();    idx++;
+    dbuffer[idx] = u->layer->getnWeights();   idx++;
     dbuffer[idx] = u->layer->getActivation(); idx++;
     dbuffer[idx] = u->layer->getnDesign();    idx++;
     dbuffer[idx] = u->layer->getGammaTik();   idx++;
@@ -269,7 +270,7 @@ my_BufPack(braid_App           app,
         dbuffer[idx] = u->layer->getBias()[i];     idx++;
         // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
     }
-    size += (11 + (nweights+nbias))*sizeof(double);
+    size += (12 + (nweights+nbias))*sizeof(double);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -315,14 +316,13 @@ my_BufUnpack(braid_App           app,
     int dimIn     = dbuffer[idx];  idx++;
     int dimOut    = dbuffer[idx];  idx++;
     int dimBias   = dbuffer[idx];  idx++;
+    int nweights  = dbuffer[idx];  idx++;
     int activ     = dbuffer[idx];  idx++;
     int nDesign   = dbuffer[idx];  idx++;
     int gammatik  = dbuffer[idx];  idx++;
     int gammaddt  = dbuffer[idx];  idx++;
     int nconv     = dbuffer[idx];  idx++;
     int csize     = dbuffer[idx];  idx++;
-    int nweights = nDesign - dimBias;
-    int nbias    = nDesign - dimIn * dimOut;
 
     /* layertype decides on which layer should be created */
     switch (layertype)
@@ -361,7 +361,7 @@ my_BufUnpack(braid_App           app,
     {
         tmplayer->getWeights()[i]    = dbuffer[idx]; idx++;
     }
-    for (int i = 0; i < nbias; i++)
+    for (int i = 0; i < dimBias; i++)
     {
         tmplayer->getBias()[i]    = dbuffer[idx];   idx++;
     }

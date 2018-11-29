@@ -52,27 +52,11 @@ class Layer
             int     dimI,
             int     dimO,
             int     dimB,
-            double  deltaT,
-            int     Activ,
-            double  GammaTik,
-            double  GammaDDT);
-
-      Layer(int     idx,
-            int     Type,
-            int     dimI,
-            int     dimO,
-            int     dimB,
             int     dimW,   // number of weights
             double  deltaT,
             int     Activ,
             double  gammatik,
             double  gammaddt);
-
-      Layer(int idx, 
-            int Type,
-            int dimI, 
-            int dimO, 
-            int dimB);
 
       virtual ~Layer();
 
@@ -99,6 +83,7 @@ class Layer
       int getDimIn();
       int getDimOut();
       int getDimBias();
+      int getnWeights();
       int getnDesign();
 
       int getnConv();

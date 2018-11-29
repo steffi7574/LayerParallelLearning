@@ -32,32 +32,6 @@ Layer::Layer(int     idx,
              int     dimI,
              int     dimO,
              int     dimB,
-             double  deltaT,
-             int     Activ,
-             double  gammatik,
-             double  gammaddt)
-{
-   index       = idx;
-   type        = Type;
-   dim_In      = dimI;
-   dim_Out     = dimO;
-   dim_Bias    = dimB;
-   ndesign     = dimI * dimO + dimB;
-   nweights    = dimI * dimO;
-   dt          = deltaT;
-   activ       = Activ;
-   gamma_tik   = gammatik;
-   gamma_ddt   = gammaddt;
-   
-   update     = new double[dimO];
-   update_bar = new double[dimO];
-}   
-
-Layer::Layer(int     idx,
-             int     Type,
-             int     dimI,
-             int     dimO,
-             int     dimB,
              int     dimW,
              double  deltaT,
              int     Activ,
@@ -80,13 +54,6 @@ Layer::Layer(int     idx,
    update_bar = new double[dimO];
 }   
  
-// Layer::Layer(0, dimI, dimO, 1)
-Layer::Layer(int idx, 
-             int type,
-             int dimI, 
-             int dimO, 
-             int dimB) : Layer(idx, type, dimI, dimO, dimB, 1.0, -1, 0.0, 0.0) {}
-
 Layer::~Layer()
 {
     delete [] update;
@@ -115,6 +82,7 @@ double* Layer::getBiasBar()    { return bias_bar; }
 int Layer::getDimIn()   { return dim_In;   }
 int Layer::getDimOut()  { return dim_Out;  }
 int Layer::getDimBias() { return dim_Bias; }
+int Layer::getnWeights() { return nweights; }
 int Layer::getnDesign() { return ndesign; }
 
 int Layer::getnConv() { return nconv; }
@@ -184,8 +152,8 @@ double Layer::dactivation(double x)
 void Layer::packDesign(double* buffer, 
                        int     size)
 {
-    int nweights = getnDesign() - getDimBias();
-    int nbias    = getnDesign() - getDimIn() * getDimOut();
+    int nweights = getnWeights();
+    int nbias    = getDimBias();
     int idx = 0;
     for (int i = 0; i < nweights; i++)
     {
@@ -204,8 +172,8 @@ void Layer::packDesign(double* buffer,
 
 void Layer::unpackDesign(double* buffer)
 {
-    int nweights     = getnDesign() - getDimBias();
-    int nbias        = getnDesign() - getDimIn() * getDimOut();
+    int nweights = getnWeights();
+    int nbias    = getDimBias();
 
     int idx = 0;
     for (int i = 0; i < nweights; i++)
@@ -231,12 +199,12 @@ void Layer::initialize(double* design_ptr,
     bias_bar     = gradient_ptr + nweights;
 
     /* Scale initial design */
-    for (int i = 0; i < ndesign - dim_Bias; i++)
+    for (int i = 0; i < nweights; i++)
     {
         weights[i]     = factor * weights[i];
         weights_bar[i] = 0.0;
     }
-    for (int i = 0; i < ndesign - nweights; i++)
+    for (int i = 0; i < dim_Bias; i++)
     {
         bias[i]     = factor * bias[i];
         bias_bar[i] = 0.0;
@@ -245,11 +213,11 @@ void Layer::initialize(double* design_ptr,
 
 void Layer::resetBar()
 {
-    for (int i = 0; i < ndesign - dim_Bias; i++)
+    for (int i = 0; i < nweights; i++)
     {
         weights_bar[i] = 0.0;
     }
-    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
+    for (int i = 0; i < dim_Bias; i++)
     {
         bias_bar[i] = 0.0;
     }
@@ -259,11 +227,11 @@ void Layer::resetBar()
 double Layer::evalTikh()
 {
     double tik = 0.0;
-    for (int i = 0; i < ndesign - dim_Bias; i++)
+    for (int i = 0; i < nweights; i++)
     {
         tik += pow(weights[i],2);
     }
-    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
+    for (int i = 0; i < dim_Bias; i++)
     {
         tik += pow(bias[i],2);
     }
@@ -276,11 +244,11 @@ void Layer::evalTikh_diff(double regul_bar)
     regul_bar = gamma_tik * regul_bar;
 
     /* Derivative bias term */
-    for (int i = 0; i < ndesign - dim_In * dim_Out; i++)
+    for (int i = 0; i < dim_Bias; i++)
     {
         bias_bar[i] += bias[i] * regul_bar;
     }
-    for (int i = 0; i < ndesign - dim_Bias; i++)
+    for (int i = 0; i < nweights; i++)
     {
         weights_bar[i] += weights[i] * regul_bar;
     }
@@ -300,16 +268,15 @@ double Layer::evalRegulDDT(Layer* layer_prev,
     if (layer_prev->getnDesign() == ndesign   &&
         layer_prev->getDimIn()   == dim_In    &&
         layer_prev->getDimOut()  == dim_Out   &&
-        layer_prev->getDimBias() == dim_Bias   )
+        layer_prev->getDimBias() == dim_Bias  &&
+        layer_prev->getnWeights() == nweights   )
     {
-        int nweights = getnDesign() - getDimBias();
         for (int iw = 0; iw < nweights; iw++)
         {
             diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
             regul_ddt += pow(diff,2);
         }
-        int nbias = getnDesign() - getDimIn() * getDimOut();
-        for (int ib = 0; ib < nbias; ib++)
+        for (int ib = 0; ib < dim_Bias; ib++)
         {
             diff       = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
             regul_ddt += pow(diff,2);
@@ -335,16 +302,15 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
     if (layer_prev->getnDesign() == ndesign   &&
         layer_prev->getDimIn()   == dim_In    &&
         layer_prev->getDimOut()  == dim_Out   &&
-        layer_prev->getDimBias() == dim_Bias   )
+        layer_prev->getDimBias() == dim_Bias  &&
+        layer_prev->getnWeights() == nweights   )
     {
-        int nbias = getnDesign() - getDimIn() * getDimOut();
-        for (int ib = 0; ib < nbias; ib++)
+        for (int ib = 0; ib < dim_Bias ; ib++)
         {
             diff              = getBias()[ib] - layer_prev->getBias()[ib];
             getBiasBar()[ib] += diff * regul_bar;
         }
 
-        int nweights = getnDesign() - getDimBias();
         for (int iw = 0; iw < nweights; iw++)
         {
             diff                 = getWeights()[iw] - layer_prev->getWeights()[iw];
@@ -356,16 +322,15 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
     if (layer_next->getnDesign() == ndesign   &&
         layer_next->getDimIn()   == dim_In    &&
         layer_next->getDimOut()  == dim_Out   &&
-        layer_next->getDimBias() == dim_Bias   )
+        layer_next->getDimBias() == dim_Bias  &&
+        layer_next->getnWeights() == nweights   )
     {
-        int nbias = getnDesign() - getDimIn() * getDimOut();
-        for (int ib = 0; ib < nbias; ib++)
+        for (int ib = 0; ib < dim_Bias; ib++)
         {
             diff              = getBias()[ib] - layer_next->getBias()[ib];
             getBiasBar()[ib] += diff * regul_bar;
         }
 
-        int nweights = getnDesign() - getDimBias();
         for (int iw = 0; iw < nweights; iw++)
         {
             diff                 = getWeights()[iw] - layer_next->getWeights()[iw];
@@ -405,7 +370,7 @@ DenseLayer::DenseLayer(int     idx,
                        double  deltaT,
                        int     Activ,
                        double  gammatik, 
-                       double  gammaddt) : Layer(idx, DENSE, dimI, dimO, 1, deltaT, Activ, gammatik, gammaddt)
+                       double  gammaddt) : Layer(idx, DENSE, dimI, dimO, 1, dimI*dimO, deltaT, Activ, gammatik, gammaddt)
 {}
    
 DenseLayer::~DenseLayer() {}
@@ -537,7 +502,7 @@ void OpenDenseLayer::applyBWD(double* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 0)
+                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -579,7 +544,7 @@ void OpenExpandZero::applyBWD(double* state,
 
 
 OpenConvLayer::OpenConvLayer(int dimI,
-                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 1)
+                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -672,7 +637,7 @@ void OpenConvLayerMNIST::applyBWD(double* state,
 ClassificationLayer::ClassificationLayer(int    idx,
                                          int    dimI,
                                          int    dimO,
-                                         double gammatik) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO)
+                                         double gammatik) : Layer(idx, CLASSIFICATION, dimI, dimO, dimO, dimI*dimO, 1.0, -1, 0.0, 0.0)
 {
     gamma_tik = gammatik;
     /* Allocate the probability vector */

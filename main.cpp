@@ -524,6 +524,7 @@ int main (int argc, char *argv[])
     /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
     if (myid == MASTER_NODE)
     {
+        srand(1.0);
         design = new double[ndesign_global];
         for (int i = 0; i < ndesign_global; i++)
         {

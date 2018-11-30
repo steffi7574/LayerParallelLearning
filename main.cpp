@@ -469,7 +469,7 @@ int main (int argc, char *argv[])
 
     /* Store all points for primal and adjoint */
     braid_SetStorage(core_train, 0);
-    braid_SetStorage(core_adj, 0);
+    braid_SetStorage(core_adj, -1);
     braid_SetStorage(core_val, -1);
     /* Set all Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);

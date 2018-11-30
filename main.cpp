@@ -469,7 +469,7 @@ int main (int argc, char *argv[])
 
     /* Store all points for primal and adjoint */
     braid_SetStorage(core_train, 0);
-    braid_SetStorage(core_adj, 0);
+    braid_SetStorage(core_adj, -1);
     /* Set all Braid parameters */
     braid_SetMaxLevels(core_train, braid_maxlevels);
     braid_SetMaxLevels(core_val,   braid_maxlevels);
@@ -670,7 +670,7 @@ int main (int argc, char *argv[])
         if ( validationlevel > 0 )
         {
             braid_SetPrintLevel( core_val, 1);
-            braid_SetStorage(core_val, 0);
+            braid_SetStorage(core_val, -1);
             braid_Drive(core_val);
             /* Get loss and accuracy */
             _braid_UGetVectorRef(core_val, 0, network->getnLayers()-1, &ubase );

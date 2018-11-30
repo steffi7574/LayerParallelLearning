@@ -133,6 +133,8 @@ double* Network::getDesign() { return design; }
        
 double* Network::getGradient() { return gradient; }
 
+int Network::getStartLayerID() { return startlayerID; }
+int Network::getEndLayerID()   { return endlayerID; }
 
 Layer* Network::createLayer(int    ilayer, 
                             int    nFeatures,

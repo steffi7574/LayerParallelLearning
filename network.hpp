@@ -74,6 +74,10 @@ class Network
       /* Return a pointer to the gradient vector */
       double* getGradient();
 
+      /* Get ID of first and last layer on this processor */
+      int getStartLayerID();
+      int getEndLayerID();
+
       /**
        *  Returns the total number of design variables (weights and biases at all layers) */
       int getnDesign();

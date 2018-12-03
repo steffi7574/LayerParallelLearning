@@ -669,7 +669,6 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core_train, &nreq, &rnorm);
         /* Evaluat objective function */
         evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
-        printf("%d: obj %1.14e loss_train %1.14e, accur %f \n", myid, objective, loss_train, accur_train);
 
 
         /* Solve adjoint equation with XBraid */
@@ -681,19 +680,18 @@ int main (int argc, char *argv[])
 
         /* derivative of opening layer (derivative of my_Init) */
         Layer* openlayer = network->getLayer(-1);
-        if (openlayer != NULL) //only on first processor 
+        _braid_UGetLast(core_adj, &ubase); // this is \bar y^0, it is stored on first proc (reverted ranks)
+        if (ubase != NULL) // This is true only on first processor (reverted ranks!)
         {
-            // _braid_UGetVectorRef(core_adj, 0, , &ubase);
-            _braid_UGetLast(core_adj, &ubase); // this is \bar y^0, it is stored on first proc (reverted ranks)
             u = ubase->userVector;
             for (int iex = 0; iex < app_train->nexamples; iex++)
             {
-                if (app_train->examples !=NULL) openlayer->setExample(app_train->examples[iex]);
-
+                openlayer->setExample(app_train->examples[iex]);
                 openlayer->applyBWD(NULL, u->state[iex], 1); 
             }
-            printf("%d: Init diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", myid, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getWeightsBar()[0] );
+            // printf("%d: Init diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", myid, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getWeightsBar()[0] );
         }
+
         /* TODO: Eval Tikh_diff on opening layer */
 
 

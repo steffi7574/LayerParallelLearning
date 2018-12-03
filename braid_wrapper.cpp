@@ -41,7 +41,7 @@ my_Step(braid_App        app,
     // u->layer->setDt(deltaT);
     u->layer->setDt(1.0);  // for testing only
 
-    printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
+    // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
@@ -96,7 +96,7 @@ my_Init(braid_App     app,
     if (t == 0)
     {
         Layer* openlayer = app->network->getLayer(-1);
-        printf("%d: Init %f: layer %d using %1.14e state %1.14e, %d\n", app->myid, t, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getnDesign());
+        // printf("%d: Init %f: layer %d using %1.14e state %1.14e, %d\n", app->myid, t, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getnDesign());
         for (int iex = 0; iex < nexamples; iex++)
         {
             /* set example */
@@ -428,12 +428,10 @@ my_Step_Adj(braid_App        app,
     uprimal->layer->setDt(1.0);  // for testing only
     for (int iex = 0; iex < nexamples; iex++)
     {
-        if (app->examples !=NULL) uprimal->layer->setExample(app->examples[iex]);
-
         uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
     }
 
-    printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
+    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, adj %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->state[1][1], u->state[1][1], uprimal->layer->getWeightsBar()[0],  uprimal->layer->getnDesign());
 
     /* Derivative of DDT-Regularization */
     if (compute_gradient) 
@@ -502,7 +500,7 @@ my_Init_Adj(braid_App     app,
         /* Derivative of tikhonov regularization) */
         layer->evalTikh_diff(1.0);
  
-       printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[1][1], layer->getWeightsBar()[0]);
+    //    printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[1][1], layer->getWeightsBar()[0]);
     }
 
     delete [] aux;

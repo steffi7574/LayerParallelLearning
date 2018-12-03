@@ -671,8 +671,6 @@ int main (int argc, char *argv[])
         evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
         printf("%d: obj %1.14e loss_train %1.14e, accur %f \n", myid, objective, loss_train, accur_train);
 
-        MPI_Finalize();
-        return(0);
 
         /* Solve adjoint equation with XBraid */
         nreq = -1;
@@ -681,6 +679,8 @@ int main (int argc, char *argv[])
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
 
+        MPI_Finalize();
+        return(0);
 
         /* --- Validation data: Get accuracy --- */
 

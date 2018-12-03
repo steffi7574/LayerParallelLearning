@@ -33,22 +33,19 @@ my_Step(braid_App        app,
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
-    // braid_StepStatusGetTIndex(status, &ts);
     ts_start = GetTimeStepIndex(app, tstart); 
     ts_stop  = GetTimeStepIndex(app, tstop); 
     deltaT   = tstop - tstart;
 
     /* Set time step size */
-    u->layer->setDt(deltaT);
+    // u->layer->setDt(deltaT);
+    u->layer->setDt(1.0);  // for testing only
 
-    // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
+    printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
-        /* On fist layer, set example */
-        if (app->examples !=NULL) u->layer->setExample(app->examples[iex]);
-
         /* Apply the layer */
         u->layer->applyFWD(u->state[iex]);
     }
@@ -95,13 +92,27 @@ my_Init(braid_App     app,
         }
     }
 
+    /* Apply the opening layer */ 
+    if (t == 0)
+    {
+        Layer* openlayer = app->network->getLayer(-1);
+        printf("%d: Init %f: layer %d using %1.14e state %1.14e, %d\n", app->myid, t, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getnDesign());
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            /* set example */
+            if (app->examples !=NULL) openlayer->setExample(app->examples[iex]);
 
-    /* Initialize the design (if adjoint: nonphysical time t=-1.0) */
-    if (t >=0 )
+            /* Apply the layer */
+            openlayer->applyFWD(u->state[iex]);
+        }
+    }
+
+    /* Set the layer pointer */
+    if (t >=0 ) // this should always be the case...
     {
         /* Store a pointer to the layer design */
         int ilayer  = GetTimeStepIndex(app, t);
-        u->layer = app->network->getLayer(ilayer);
+        u->layer = app->network->getLayer(ilayer);  // this is either a hidden or a classification layer
     }
     u->sendflag = -1.0;
     

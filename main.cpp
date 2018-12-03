@@ -33,7 +33,8 @@ int main (int argc, char *argv[])
     MyReal **val_examples   = NULL;   /**< Validation examples */
     MyReal **val_labels     = NULL;   /**< Validation labels*/
     /* --- Network --- */
-    int      nlayers;                 /**< Number of layers / time steps */
+    int      nlayers;                 /**< Total number of layers = nhiddenlayers + 2 */
+    int      nhiddenlayers;           /**< Number of hidden layers = number of xbraid steps */
     int      nchannels;               /**< Number of channels of the network (width) */
     MyReal   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
@@ -122,7 +123,7 @@ int main (int argc, char *argv[])
     nfeatures          = 2;
     nclasses           = 5;
     nchannels          = 8;
-    nlayers            = 32;
+    nhiddenlayers      = 32;
     T                  = 10.0;
     activation         = Layer::RELU;
     networkType        = Network::DENSE;
@@ -232,9 +233,9 @@ int main (int argc, char *argv[])
         {
             weightsclassificationfile = co->value;
         }
-        else if ( strcmp(co->key, "nlayers") == 0 )
+        else if ( strcmp(co->key, "nhiddenlayers") == 0 )
         {
-            nlayers = atoi(co->value);
+            nhiddenlayers = atoi(co->value);
         }
         else if ( strcmp(co->key, "activation") == 0 )
         {
@@ -464,16 +465,15 @@ int main (int argc, char *argv[])
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
-
     /* Initializze primal and adjoint XBraid for training data */
     app_train = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
     braid_SetRevertedRanks(core_adj, 1);
 
     /* Init XBraid for validation data */
     app_val = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
 
     /* Store all points for primal and adjoint */
     braid_SetStorage(core_train, 0);
@@ -519,12 +519,15 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTol(core_adj,   braid_abstol);
 
+    /* Total number of layers is hiddenlayers + 2 (plus opening and classification layers) */
+    nlayers = nhiddenlayers + 2;
+
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);
-    printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
+    printf("%d: Grid distribution: [%d, %d], total %d\n", myid, ilower, iupper, nlayers);
 
     /* Create network and layers */
-    network = new Network(nlayers+1,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
+    network = new Network(nlayers,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nhiddenlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
     ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -605,7 +608,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                nfeatures            %d \n", nfeatures);
         fprintf(optimfile, "#                nclasses             %d \n", nclasses);
         fprintf(optimfile, "#                nchannels            %d \n", nchannels);
-        fprintf(optimfile, "#                nlayers              %d \n", nlayers);
+        fprintf(optimfile, "#                nhiddenlayers        %d \n", nhiddenlayers);
         fprintf(optimfile, "#                T                    %f \n", T);
         fprintf(optimfile, "#                Activation           %s \n", activname);
         fprintf(optimfile, "#                type openlayer       %d \n", type_openlayer);
@@ -666,6 +669,10 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core_train, &nreq, &rnorm);
         /* Evaluat objective function */
         evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
+        printf("%d: obj %1.14e loss_train %1.14e, accur %f \n", myid, objective, loss_train, accur_train);
+
+        MPI_Finalize();
+        return(0);
 
         /* Solve adjoint equation with XBraid */
         nreq = -1;
@@ -1011,7 +1018,7 @@ int main (int argc, char *argv[])
     delete network;
     braid_Destroy(core_train);
     braid_Destroy(core_adj);
-    braid_Destroy(core_val);
+    if (validationlevel >= 0) braid_Destroy(core_val);
     free(app_train);
     free(app_val);
 

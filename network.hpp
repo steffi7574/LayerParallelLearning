@@ -25,9 +25,10 @@ class Network
       MyReal* design;               /* Local vector of design variables*/
       MyReal* gradient;             /* Local Gradient */
 
-      Layer** layers;               /* Array of network layers */
-      Layer*  layer_left;           /* Copy of last layer of right-neighbouring processor */
-      Layer*  layer_right;          /* Copy of first layer of left-neighbouring processor */
+      Layer*  openlayer;            /* At first processor: openinglayer, else: NULL */
+      Layer** layers;               /* Array of hidden layers and classification layer at last processor */
+      Layer*  layer_left;           /* Copy of last layer of left-neighbouring processor */
+      Layer*  layer_right;          /* Copy of first layer of right-neighbouring processor */
    
    public: 
       enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */

@@ -154,6 +154,13 @@ int main (int argc, char *argv[])
     hessian_approx     = USE_LBFGS;
     lbfgs_stages       = 20;
     validationlevel    = 1;
+    datafolder         = "NONE";
+    ftrain_ex          = "NONE";
+    fval_ex            = "NONE";
+    ftrain_labels      = "NONE";
+    fval_labels        = "NONE";
+    weightsopenfile    = "NONE";
+    weightsclassificationfile = "NONE";
 
 
     /* --- Read the config file (overwrite default values) --- */

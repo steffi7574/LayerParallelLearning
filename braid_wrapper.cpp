@@ -424,7 +424,8 @@ my_Step_Adj(braid_App        app,
     if (compute_gradient) uprimal->layer->resetBar();
 
     /* Take one step backwards, updates adjoint state and gradient, if desired. */
-    uprimal->layer->setDt(deltaT);
+    // uprimal->layer->setDt(deltaT);
+    uprimal->layer->setDt(1.0);  // for testing only
     for (int iex = 0; iex < nexamples; iex++)
     {
         if (app->examples !=NULL) uprimal->layer->setExample(app->examples[iex]);

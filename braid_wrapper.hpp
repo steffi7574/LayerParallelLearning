@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "defs.hpp"
 #include "braid.h"
 #include "_braid.h"
 #include "network.hpp"
@@ -13,8 +14,8 @@ typedef struct _braid_App_struct
     int      myid;       /* Processor rank*/
     Network* network;    /* Pointer to the DNN Network Block (local layer storage) */
     int      nexamples;  /* Number of data examples */
-    double** examples;   /* Data examples */
-    double** labels;     /* Labels for the data examples */
+    MyReal** examples;   /* Data examples */
+    MyReal** labels;     /* Labels for the data examples */
 
     braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */
 } my_App;
@@ -23,18 +24,18 @@ typedef struct _braid_App_struct
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   double **state;   /* Network state at one layer, dimensions: nexamples * nchannels */
+   MyReal **state;   /* Network state at one layer, dimensions: nexamples * nchannels */
 
    Layer* layer;     /* Pointer to layer information (local design part) */
 
    /* Flag that determines if the layer and state have just been received and thus should be free'd after usage (flag > 0) */
-   double sendflag;  
+   MyReal sendflag;  
 } my_Vector;
 
 
 /* Compute time step index from given time */
 int GetTimeStepIndex(braid_App app, 
-                     double    t);
+                     MyReal    t);
 
 int GetPrimalIndex(braid_App app,
                    int       ts);
@@ -48,12 +49,12 @@ my_Step(braid_App        app,
 
 int
 my_Init(braid_App     app,
-        double        t,
+        MyReal        t,
         braid_Vector *u_ptr);
 
 int
 my_Init_diff(braid_App     app,
-             double        t,
+             MyReal        t,
              braid_Vector  ubar);
 
 int
@@ -69,16 +70,16 @@ my_Free(braid_App    app,
 
 int
 my_Sum(braid_App     app,
-       double        alpha,
+       MyReal        alpha,
        braid_Vector  x,
-       double        beta,
+       MyReal        beta,
        braid_Vector  y);
 
 
 int
 my_SpatialNorm(braid_App     app,
                braid_Vector  u,
-               double       *norm_ptr);
+               MyReal       *norm_ptr);
 
 
 int
@@ -118,7 +119,7 @@ my_Step_Adj(braid_App        app,
 
 int
 my_Init_Adj(braid_App     app,
-            double        t,
+            MyReal        t,
             braid_Vector *u_ptr);
 
 int
@@ -144,9 +145,9 @@ my_BufUnpack_Adj(braid_App           app,
 void  
 evalObjective(braid_Core  core,
               braid_App   app,     
-              double     *objective,
-              double     *loss_ptr,
-              double     *accuracy_ptr);
+              MyReal     *objective,
+              MyReal     *loss_ptr,
+              MyReal     *accuracy_ptr);
 
 
 void

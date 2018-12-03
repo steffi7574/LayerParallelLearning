@@ -23,11 +23,11 @@ Network::Network(int    nLayersGlobal,
                  int    nClasses,
                  int    nChannels, 
                  int    Activation,
-                 double deltaT,
-                 double gamma_tik, 
-                 double gamma_ddt, 
-                 double gamma_class,
-                 double Weight_open_init,
+                 MyReal deltaT,
+                 MyReal gamma_tik, 
+                 MyReal gamma_ddt, 
+                 MyReal gamma_class,
+                 MyReal Weight_open_init,
                  int    networkType,
                  int    type_openlayer)
 {
@@ -69,8 +69,8 @@ Network::Network(int    nLayersGlobal,
 
 
     /* Allocate memory for network design and gradient variables */
-    design   = new double[ndesign];
-    gradient = new double[ndesign];
+    design   = new MyReal[ndesign];
+    gradient = new MyReal[ndesign];
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
@@ -115,7 +115,7 @@ int Network::getnChannels() { return nchannels; }
 
 int Network::getnLayers() { return nlayers_global; }
 
-double Network::getDT() { return dt; }
+MyReal Network::getDT() { return dt; }
 
 int Network::getLocalID(int ilayer) 
 {
@@ -123,15 +123,15 @@ int Network::getLocalID(int ilayer)
     return idx;
 }
 
-double Network::getLoss() { return loss; }
+MyReal Network::getLoss() { return loss; }
 
-double Network::getAccuracy() { return accuracy; }
+MyReal Network::getAccuracy() { return accuracy; }
 
 int Network::getnDesign() { return ndesign; }
 
-double* Network::getDesign() { return design; }
+MyReal* Network::getDesign() { return design; }
        
-double* Network::getGradient() { return gradient; }
+MyReal* Network::getGradient() { return gradient; }
 
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID()   { return endlayerID; }
@@ -140,10 +140,10 @@ Layer* Network::createLayer(int    ilayer,
                             int    nFeatures,
                             int    nClasses,
                             int    Activation,
-                            double Gamma_tik,
-                            double Gamma_ddt,
-                            double Gamma_class,
-                            double Weight_open_init,
+                            MyReal Gamma_tik,
+                            MyReal Gamma_ddt,
+                            MyReal Gamma_class,
+                            MyReal Weight_open_init,
                             int    networkType,
                             int    type_openlayer)
 {
@@ -226,14 +226,14 @@ Layer* Network::getLayer(int layerindex)
 }
 
 
-void Network::initialize(double Weight_open_init,
-                         double Weight_init,
-                         double Classification_init,
+void Network::initialize(MyReal Weight_open_init,
+                         MyReal Weight_init,
+                         MyReal Classification_init,
                          char   *datafolder,
                          char   *weightsopenfile,
                          char   *weightsclassificationfile)
 {
-    double factor;
+    MyReal factor;
     char   filename[255];
 
     /* Initialize  the layer weights and bias  */
@@ -282,8 +282,8 @@ void Network::initialize(double Weight_open_init,
     /* Create and initialize left neighbouring layer, if exists */
     if (layer_left != NULL)
     {
-        double *left_design   = new double[layer_left->getnDesign()];
-        double *left_gradient = new double[layer_left->getnDesign()];
+        MyReal *left_design   = new MyReal[layer_left->getnDesign()];
+        MyReal *left_gradient = new MyReal[layer_left->getnDesign()];
         layer_left->initialize(left_design, left_gradient, 0.0);
     }
 
@@ -291,8 +291,8 @@ void Network::initialize(double Weight_open_init,
     /* Create and initialize right neighbouring layer, if exists */
     if (layer_right != NULL)
     {
-        double *right_design   = new double[layer_right->getnDesign()];
-        double *right_gradient = new double[layer_right->getnDesign()];
+        MyReal *right_design   = new MyReal[layer_right->getnDesign()];
+        MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
         layer_right->initialize(right_design, right_gradient, 0.0);
     }
 
@@ -312,10 +312,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     int size_left = -1; 
     int size_right = -1; 
 
-    double* sendlast  = 0;
-    double* recvlast  = 0; 
-    double* sendfirst = 0;
-    double* recvfirst = 0;
+    MyReal* sendlast  = 0;
+    MyReal* recvlast  = 0; 
+    MyReal* sendfirst = 0;
+    MyReal* recvfirst = 0;
 
     /* --- All but the first process receive the last layer from left neighbour --- */
     if (myid > 0)
@@ -324,23 +324,23 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
         int source = myid - 1;
 
         size_left = layer_left->getnDesign();
-        recvlast  = new double[size_left];
+        recvlast  = new MyReal[size_left];
 
-        MPI_Irecv(recvlast, size_left, MPI_DOUBLE, source, 0, comm, &recvlastreq);
+        MPI_Irecv(recvlast, size_left, MPI_MyReal, source, 0, comm, &recvlastreq);
     }
 
     /* --- All but the last process sent their last layer to right neighbour --- */
     if (myid < comm_size-1)
     {
         size_left = layers[getLocalID(endlayerID)]->getnDesign();
-        sendlast  = new double[size_left];
+        sendlast  = new MyReal[size_left];
         
         /* Pack the last layer into a buffer */
         layers[getLocalID(endlayerID)]->packDesign(sendlast, size_left);
 
        /* Send to right neighbour */
         int receiver = myid + 1;
-        MPI_Isend(sendlast, size_left, MPI_DOUBLE, receiver, 0, comm, &sendlastreq);
+        MPI_Isend(sendlast, size_left, MPI_MyReal, receiver, 0, comm, &sendlastreq);
     }
 
     /* --- All but the last processor recv the first layer from the right neighbour --- */
@@ -350,9 +350,9 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
         int source = myid + 1;
 
         size_right = layer_right->getnDesign();
-        recvfirst  = new double[size_right];
+        recvfirst  = new MyReal[size_right];
 
-        MPI_Irecv(recvfirst, size_right, MPI_DOUBLE, source, 1, comm, &recvfirstreq);
+        MPI_Irecv(recvfirst, size_right, MPI_MyReal, source, 1, comm, &recvfirstreq);
     }
 
 
@@ -360,14 +360,14 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     if (myid > 0)
     {
         size_right = layers[getLocalID(startlayerID)]->getnDesign();
-        sendfirst  = new double[size_right];
+        sendfirst  = new MyReal[size_right];
 
         /* Pack the first layer into a buffer */
         layers[getLocalID(startlayerID)]->packDesign(sendfirst, size_right);
 
         /* Send to left neighbour */
         int receiver = myid - 1;
-        MPI_Isend(sendfirst, size_right, MPI_DOUBLE, receiver, 1, comm, &sendfirstreq);
+        MPI_Isend(sendfirst, size_right, MPI_MyReal, receiver, 1, comm, &sendfirstreq);
     }
 
 

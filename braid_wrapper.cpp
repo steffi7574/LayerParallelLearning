@@ -3,7 +3,7 @@
 // #include "lib.hpp"
 
 int GetTimeStepIndex(braid_App app, 
-                     double    t)
+                     MyReal    t)
 {
 
     /* Round to the closes integer */
@@ -26,8 +26,8 @@ my_Step(braid_App        app,
         braid_StepStatus status)
 {
     int    ts_start, ts_stop;
-    double tstart, tstop;
-    double deltaT;
+    MyReal tstart, tstop;
+    MyReal deltaT;
 
     int nexamples = app->nexamples;
    
@@ -76,7 +76,7 @@ my_Step(braid_App        app,
 
 int
 my_Init(braid_App     app,
-        double        t,
+        MyReal        t,
         braid_Vector *u_ptr)
 {
     int nchannels = app->network->getnChannels();
@@ -85,10 +85,10 @@ my_Init(braid_App     app,
 
     /* Initialize the state */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new double*[nexamples];
+    u->state = new MyReal*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
     {
-        u->state[iex] = new double[nchannels];
+        u->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
         {
             u->state[iex][ic] = 0.0;
@@ -121,10 +121,10 @@ my_Clone(braid_App     app,
  
     /* Allocate the vector */
     my_Vector* v = (my_Vector *) malloc(sizeof(my_Vector));
-    v->state = new double*[nexamples];
+    v->state = new MyReal*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
     {
-        v->state[iex] = new double[nchannels];
+        v->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
         {
             v->state[iex][ic] = u->state[iex][ic];
@@ -158,9 +158,9 @@ my_Free(braid_App    app,
 
 int
 my_Sum(braid_App     app,
-       double        alpha,
+       MyReal        alpha,
        braid_Vector  x,
-       double        beta,
+       MyReal        beta,
        braid_Vector  y)
 {
     int nchannels = app->network->getnChannels();
@@ -180,12 +180,12 @@ my_Sum(braid_App     app,
 int
 my_SpatialNorm(braid_App     app,
                braid_Vector  u,
-               double       *norm_ptr)
+               MyReal       *norm_ptr)
 {
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
 
-    double dot = 0.0;
+    MyReal dot = 0.0;
     for (int iex = 0; iex < nexamples; iex++)
     {
         dot += vecdot(nchannels, u->state[iex], u->state[iex]);
@@ -216,7 +216,7 @@ my_BufSize(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double) + (12 + (nchannels*nchannels+nchannels))*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(MyReal) + (12 + (nchannels*nchannels+nchannels))*sizeof(MyReal);
     return 0;
 }
 
@@ -229,7 +229,7 @@ my_BufPack(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int size;
-    double *dbuffer   = (double*) buffer;
+    MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     
@@ -243,7 +243,7 @@ my_BufPack(braid_App           app,
            idx++;
         }
     }
-    size = nchannels*nexamples*sizeof(double);
+    size = nchannels*nexamples*sizeof(MyReal);
 
     int nweights = u->layer->getnWeights();
     int nbias    = u->layer->getDimBias();
@@ -270,7 +270,7 @@ my_BufPack(braid_App           app,
         dbuffer[idx] = u->layer->getBias()[i];     idx++;
         // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
     }
-    size += (12 + (nweights+nbias))*sizeof(double);
+    size += (12 + (nweights+nbias))*sizeof(MyReal);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -286,17 +286,17 @@ my_BufUnpack(braid_App           app,
              braid_BufferStatus  bstatus)
 {
 
-    double *dbuffer   = (double*) buffer;
+    MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     Layer *tmplayer = 0;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new double*[nexamples];
+    u->state = new MyReal*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
     {
-        u->state[iex] = new double[nchannels];
+        u->state[iex] = new MyReal[nchannels];
     }
 
     /* Unpack the buffer */
@@ -353,8 +353,8 @@ my_BufUnpack(braid_App           app,
     }
 
     /* Allocate design and gradient */
-    double *design   = new double[nDesign];
-    double *gradient = new double[nDesign];
+    MyReal *design   = new MyReal[nDesign];
+    MyReal *gradient = new MyReal[nDesign];
     tmplayer->initialize(design, gradient, 0.0);
     /* Set the weights */
     for (int i = 0; i < nweights; i++)
@@ -384,8 +384,8 @@ my_Step_Adj(braid_App        app,
 {
     int    ts_start, ts_stop;
     int    level, compute_gradient;
-    double tstart, tstop;
-    double deltaT;
+    MyReal tstart, tstop;
+    MyReal deltaT;
     int    finegrid  = 0;
     int    primaltimestep;
     braid_BaseVector ubaseprimal;
@@ -443,13 +443,13 @@ my_Step_Adj(braid_App        app,
 
 int
 my_Init_Adj(braid_App     app,
-            double        t,
+            MyReal        t,
             braid_Vector *u_ptr)
 {
     braid_BaseVector uprimal;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
-    double *aux     = new double[nchannels];
+    MyReal *aux     = new MyReal[nchannels];
 
     int finegrid         = 0;
     int ilayer           = GetTimeStepIndex(app, t);
@@ -460,10 +460,10 @@ my_Init_Adj(braid_App     app,
 
     /* Allocate the adjoint vector and set to zero */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new double*[nexamples];
+    u->state = new MyReal*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
     {
-        u->state[iex] = new double[nchannels];
+        u->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
         {
             u->state[iex][ic] = 0.0;
@@ -477,7 +477,7 @@ my_Init_Adj(braid_App     app,
     {
         /* Get the primal vector */
         _braid_UGetVectorRef(app->primalcore, finegrid, primaltimestep, &uprimal);
-        double** primalstate = uprimal->userVector->state;
+        MyReal** primalstate = uprimal->userVector->state;
         Layer* layer = uprimal->userVector->layer;
 
         /* Reset the gradient before updating it */
@@ -507,7 +507,7 @@ my_BufSize_Adj(braid_App           app,
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
    
-    *size_ptr = nchannels*nexamples*sizeof(double);
+    *size_ptr = nchannels*nexamples*sizeof(MyReal);
     return 0;
 }
 
@@ -520,7 +520,7 @@ my_BufPack_Adj(braid_App           app,
                braid_BufferStatus  bstatus)
 {
     int size;
-    double *dbuffer   = (double*) buffer;
+    MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     
@@ -534,7 +534,7 @@ my_BufPack_Adj(braid_App           app,
            idx++;
         }
     }
-    size = nchannels*nexamples*sizeof(double);
+    size = nchannels*nexamples*sizeof(MyReal);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -550,16 +550,16 @@ my_BufUnpack_Adj(braid_App           app,
                  braid_BufferStatus  bstatus)
 {
 
-    double *dbuffer   = (double*) buffer;
+    MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
     int nexamples = app->nexamples;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new double*[nexamples];
+    u->state = new MyReal*[nexamples];
     for (int iex = 0; iex < nexamples; iex++)
     {
-        u->state[iex] = new double[nchannels];
+        u->state[iex] = new MyReal[nchannels];
     }
 
     /* Unpack the buffer */
@@ -585,16 +585,16 @@ my_BufUnpack_Adj(braid_App           app,
 void
 evalObjective(braid_Core core,
               braid_App   app,
-              double     *objective_ptr,
-              double     *loss_ptr,
-              double     *accuracy_ptr)
+              MyReal     *objective_ptr,
+              MyReal     *loss_ptr,
+              MyReal     *accuracy_ptr)
 {
-    double objective = 0.0;
-    double regul     = 0.0;
-    double loss      = 0.0;
-    double accuracy  = 0.0;
-    double loss_loc  = 0.0; 
-    double accur_loc = 0.0; 
+    MyReal objective = 0.0;
+    MyReal regul     = 0.0;
+    MyReal loss      = 0.0;
+    MyReal accuracy  = 0.0;
+    MyReal loss_loc  = 0.0; 
+    MyReal accur_loc = 0.0; 
     braid_BaseVector ubase;
     braid_Vector     u;
 
@@ -622,8 +622,8 @@ evalObjective(braid_Core core,
     }
 
     /* Collect objective function from all processors */
-    double myobjective = loss + regul;
-    MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MyReal myobjective = loss + regul;
+    MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
     /* Return */
     *objective_ptr = objective;

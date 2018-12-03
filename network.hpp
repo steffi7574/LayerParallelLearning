@@ -14,16 +14,16 @@ class Network
       int     nlayers_global;       /* Total number of Layers of the network */
       int     nlayers_local;        /* Number of Layers in this network block */
       int     nchannels;            /* Width of the network */
-      double  dt;                   /* Time step size */
-      double  loss;                 /* Value of the loss function */
-      double  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
+      MyReal  dt;                   /* Time step size */
+      MyReal  loss;                 /* Value of the loss function */
+      MyReal  accuracy;             /* Accuracy of the network prediction (percentage of successfully predicted classes) */
 
       int     startlayerID;         /* ID of the first layer on that processor */
       int     endlayerID;           /* ID of the last layer on that processor */
 
       int     ndesign;              /* Number of design variables (local) */
-      double* design;               /* Local vector of design variables*/
-      double* gradient;             /* Local Gradient */
+      MyReal* design;               /* Local vector of design variables*/
+      MyReal* gradient;             /* Local Gradient */
 
       Layer** layers;               /* Array of network layers */
       Layer*  layer_left;           /* Copy of last layer of right-neighbouring processor */
@@ -40,11 +40,11 @@ class Network
               int    nClasses,
               int    nChannels, 
               int    Activation,
-              double deltaT,
-              double gamma_tik, 
-              double gamma_ddt, 
-              double gamma_class,
-              double Weight_open_init,
+              MyReal deltaT,
+              MyReal gamma_tik, 
+              MyReal gamma_ddt, 
+              MyReal gamma_class,
+              MyReal Weight_open_init,
 	        int    networkType,
 	        int    type_openlayer);
      
@@ -57,22 +57,22 @@ class Network
       int getnLayers();
 
       /* Get initial time step size */
-      double getDT();
+      MyReal getDT();
 
       /* Get local storage index of the a layer */
       int getLocalID(int ilayer);
 
       /* Return value of the loss function */
-      double getLoss();
+      MyReal getLoss();
 
       /* Return accuracy value */
-      double getAccuracy();
+      MyReal getAccuracy();
  
       /* Return a pointer to the design vector */
-      double* getDesign();
+      MyReal* getDesign();
        
       /* Return a pointer to the gradient vector */
-      double* getGradient();
+      MyReal* getGradient();
 
       /* Get ID of first and last layer on this processor */
       int getStartLayerID();
@@ -94,9 +94,9 @@ class Network
        * Default: Scales random initialization from main with the given factors
        * If set, reads in opening and classification weights from file
        */
-      void initialize(double Weight_open_init,
-                      double Weight_init,
-                      double Classification_init,
+      void initialize(MyReal Weight_open_init,
+                      MyReal Weight_init,
+                      MyReal Classification_init,
                       char   *datafolder,
                       char   *weightsopenfile,
                       char   *weightsclassificationfile);
@@ -106,10 +106,10 @@ class Network
                          int    nfeatures,
                          int    nclasses,
                          int    Activation,
-                         double gamma_tik,
-                         double gamma_ddt,
-                         double gamma_class,
-                         double weights_open_init,
+                         MyReal gamma_tik,
+                         MyReal gamma_ddt,
+                         MyReal gamma_class,
+                         MyReal weights_open_init,
 			       int    NetworkType,
                          int    Type_OpenLayer);
      

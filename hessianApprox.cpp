@@ -12,12 +12,12 @@ L_BFGS::L_BFGS(int N, int stages)
    H0   = 1.0;
 
    /* Allocate memory for sk and yk for all stages */
-   s = new double*[M];
-   y = new double*[M];
+   s = new MyReal*[M];
+   y = new MyReal*[M];
    for (int imem = 0; imem < M; imem++)
    {
-      s[imem] = new double[dimN];
-      y[imem] = new double[dimN];
+      s[imem] = new MyReal[dimN];
+      y[imem] = new MyReal[dimN];
       for (int i = 0; i < dimN; i++)
       {
           s[imem][i] = 0.0;
@@ -26,7 +26,7 @@ L_BFGS::L_BFGS(int N, int stages)
    }
 
    /* Allocate memory for rho's values */
-   rho = new double[M];
+   rho = new MyReal[M];
    for (int i = 0; i < M; i++)
    {
        rho[i] = 0.0;
@@ -51,12 +51,12 @@ L_BFGS::~L_BFGS()
 
 
 void L_BFGS::computeDescentDir(int     iter,
-                               double* currgrad,
-                               double* descdir)
+                               MyReal* currgrad,
+                               MyReal* descdir)
 {
    int imemory;
-   double beta;
-   double* alpha = new double[M];
+   MyReal beta;
+   MyReal* alpha = new MyReal[M];
    int imax, imin;
 
 
@@ -117,16 +117,16 @@ void L_BFGS::computeDescentDir(int     iter,
 
 
 void L_BFGS::updateMemory(int     iter,
-                          double* xnew,
-                          double* xold,
-                          double* gradnew,
-                          double* gradold)
+                          MyReal* xnew,
+                          MyReal* xold,
+                          MyReal* gradnew,
+                          MyReal* gradold)
 {
 
   /* Update lbfgs memory if iter > 0 */
   if (iter > 0) 
   {
-     double yTy, yTs;
+     MyReal yTy, yTs;
      int imemory = (iter-1) % M ;
 
         /* Update BFGS memory for s, y */
@@ -160,15 +160,15 @@ BFGS::BFGS(int N)
 {
     dimN = N;
 
-    Hessian = new double[N*N];
+    Hessian = new MyReal[N*N];
     setIdentity();
 
-    y = new double[N];
-    s = new double[N];
+    y = new MyReal[N];
+    s = new MyReal[N];
 
-    Hy = new double[N];
-    A  = new double[N*N];
-    B  = new double[N*N];
+    Hy = new MyReal[N];
+    A  = new MyReal[N*N];
+    B  = new MyReal[N*N];
 }
 
 void BFGS::setIdentity()
@@ -195,10 +195,10 @@ BFGS::~BFGS()
 
 
 void BFGS::updateMemory(int     iter,
-                        double* xnew,
-                        double* xold,
-                        double* gradnew,
-                        double* gradold)
+                        MyReal* xnew,
+                        MyReal* xold,
+                        MyReal* gradnew,
+                        MyReal* gradold)
 {
     /* Update BFGS memory for s, y */
     for (int idir = 0; idir < dimN; idir++)
@@ -209,11 +209,11 @@ void BFGS::updateMemory(int     iter,
 }
 
 void BFGS::computeDescentDir(int     iter, 
-                             double* currgrad, 
-                             double* descdir)
+                             MyReal* currgrad, 
+                             MyReal* descdir)
 {
-    double yTy, yTs, H0;
-    double b, rho;
+    MyReal yTy, yTs, H0;
+    MyReal b, rho;
 
     /* Steepest descent in first iteration */
     if (iter == 0)
@@ -283,16 +283,16 @@ Identity::Identity(int N)
 Identity::~Identity(){}
 
 void Identity::updateMemory(int     iter,
-                            double* xnew,
-                            double* xold,
-                            double* gradnew,
-                            double* gradold){}
+                            MyReal* xnew,
+                            MyReal* xold,
+                            MyReal* gradnew,
+                            MyReal* gradold){}
 
 
 
 void Identity::computeDescentDir(int     iter, 
-                                 double* currgrad, 
-                                 double* descdir)
+                                 MyReal* currgrad, 
+                                 MyReal* descdir)
 {
   /* Steepest descent */
   for (int i = 0; i<dimN; i++)

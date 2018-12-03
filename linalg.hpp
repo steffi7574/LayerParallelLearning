@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include "defs.hpp"
 #pragma once
 
 /**
@@ -10,9 +11,9 @@
  * Out: H*x will be stored in Hx
  */
 void matvec(int     dimN,
-            double* H, 
-            double* x,
-            double* Hx);
+            MyReal* H, 
+            MyReal* x,
+            MyReal* Hx);
 
 
 
@@ -22,44 +23,44 @@ void matvec(int     dimN,
  *     vectors x and y of dimemsion dimN
  * Out: returns xTy
  */
-double vecdot(int     dimN,
-              double* x,
-              double* y);
+MyReal vecdot(int     dimN,
+              MyReal* x,
+              MyReal* y);
 
 /**
  * Return the maximum value of a vector 
  */
-double vecmax(int     dimN,
-              double* x);
+MyReal vecmax(int     dimN,
+              MyReal* x);
 
 
 /**
  * Return the index of the maximum entry of the vector 
  */
 int argvecmax(int     dimN,
-              double* x);
+              MyReal* x);
 
 
 
 /**
  * Return square of the l2-norm of the vector x
  */
-double vec_normsq(int    dimN,
-                  double *x);
+MyReal vec_normsq(int    dimN,
+                  MyReal *x);
 
 
 /**
  * Copy a vector u into u_copy 
  */
 int vec_copy(int N, 
-             double* u, 
-             double* u_copy);
+             MyReal* u, 
+             MyReal* u_copy);
 
 
 /**
  * Compute matrix x* y^T
  */
 void vecvecT(int N,
-             double* x,
-             double* y,
-             double* XYT);
+             MyReal* x,
+             MyReal* y,
+             MyReal* XYT);

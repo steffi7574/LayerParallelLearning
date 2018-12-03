@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <math.h>
 #include "linalg.hpp"
+#include "defs.hpp"
 
 
 #pragma once
@@ -26,18 +27,18 @@ class Layer
       int csize;
 
       int     index;                       /* Number of the layer */
-      double  dt;                          /* Step size for Layer update */
-      double* weights;                     /* Weight matrix, flattened as a vector */
-      double* weights_bar;                 /* Derivative of the Weight matrix*/
-      double* bias;                        /* Bias */
-      double* bias_bar;                    /* Derivative of bias */
-      double  gamma_tik;                   /* Parameter for Tikhonov regularization of weights and bias */
-      double  gamma_ddt;                   /* Parameter for DDT regularization of weights and bias */
+      MyReal  dt;                          /* Step size for Layer update */
+      MyReal* weights;                     /* Weight matrix, flattened as a vector */
+      MyReal* weights_bar;                 /* Derivative of the Weight matrix*/
+      MyReal* bias;                        /* Bias */
+      MyReal* bias_bar;                    /* Derivative of bias */
+      MyReal  gamma_tik;                   /* Parameter for Tikhonov regularization of weights and bias */
+      MyReal  gamma_ddt;                   /* Parameter for DDT regularization of weights and bias */
       int     activ;                       /* Activaation function (enum element) */
       int     type;                        /* Type of the layer (enum element) */
 
-      double *update;                      /* Auxilliary for computing fwd update */
-      double *update_bar;                  /* Auxilliary for computing bwd update */
+      MyReal *update;                      /* Auxilliary for computing fwd update */
+      MyReal *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
       /* Available activation functions */
@@ -53,31 +54,31 @@ class Layer
             int     dimO,
             int     dimB,
             int     dimW,   // number of weights
-            double  deltaT,
+            MyReal  deltaT,
             int     Activ,
-            double  gammatik,
-            double  gammaddt);
+            MyReal  gammatik,
+            MyReal  gammaddt);
 
       virtual ~Layer();
 
       /* Set time step size */
-      void setDt(double DT);
+      void setDt(MyReal DT);
 
       /* Some Get..() functions */
-      double getDt();
-      double getGammaTik();
-      double getGammaDDT();
+      MyReal getDt();
+      MyReal getGammaTik();
+      MyReal getGammaDDT();
       int    getActivation();
       int    getType();
 
 
       /* Get pointer to the weights bias*/
-      double* getWeights();
-      double* getBias();
+      MyReal* getWeights();
+      MyReal* getBias();
 
       /* Get pointer to the weights bias bar */
-      double* getWeightsBar();
-      double* getBiasBar();
+      MyReal* getWeightsBar();
+      MyReal* getBiasBar();
 
       /* Get the dimensions */
       int getDimIn();
@@ -93,23 +94,23 @@ class Layer
       int getIndex();
 
         /* Prints to screen */
-      void print_data(double* data_Out);
+      void print_data(MyReal* data_Out);
 
       /* Activation function and derivative */
-      double activation(double x);
-      double dactivation(double x);
+      MyReal activation(MyReal x);
+      MyReal dactivation(MyReal x);
 
 
       /**
        * Pack weights and bias into a buffer 
        */
-      void packDesign(double* buffer,
+      void packDesign(MyReal* buffer,
                       int     size);
 
       /**
        * Unpack weights and bias from a buffer 
        */
-      void unpackDesign(double* buffer);
+      void unpackDesign(MyReal* buffer);
 
 
       /**
@@ -117,9 +118,9 @@ class Layer
        * In: pointer to the global design and gradient vector memory 
        *     factor for scaling random initialization of primal variables
        */
-      void initialize(double* design_ptr,
-                      double* gradient_ptr,
-                      double  factor);
+      void initialize(MyReal* design_ptr,
+                      MyReal* gradient_ptr,
+                      MyReal  factor);
 
       /**
        * Sets the bar variables to zero 
@@ -131,38 +132,38 @@ class Layer
        * Evaluate Tikhonov Regularization
        * Returns 1/2 * \|weights||^2 + 1/2 * \|bias\|^2
        */
-      double evalTikh();
+      MyReal evalTikh();
 
       /**
        * Derivative of Tikhonov Regularization
        */
-      void evalTikh_diff(double regul_bar);
+      void evalTikh_diff(MyReal regul_bar);
 
      
       /**
        * Regularization for the time-derivative of the layer weights
        */
-      double evalRegulDDT(Layer* layer_prev,
-                          double deltat);
+      MyReal evalRegulDDT(Layer* layer_prev,
+                          MyReal deltat);
 
       /**
        * Derivative of ddt-regularization term 
        */
       void evalRegulDDT_diff(Layer* layer_prev,
                              Layer* layer_next,
-                             double deltat);
+                             MyReal deltat);
 
 
       /**
        * In opening layers: set pointer to the current example
        */
-      virtual void setExample(double* example_ptr);
+      virtual void setExample(MyReal* example_ptr);
 
       /**
        * Forward propagation of an example 
        * In/Out: vector holding the current propagated example 
        */
-      virtual void applyFWD(double* state) = 0;
+      virtual void applyFWD(MyReal* state) = 0;
 
 
       /**
@@ -171,40 +172,40 @@ class Layer
        * In/Out: data_bar - adjoint example data that is to be propagated backwards 
        * In:     compute_gradient - flag to determin if gradient should be computed (i.e. if weights_bar,bias_bar should be updated or not. In general, update is only done on the finest layer-grid.)
        */
-      virtual void applyBWD(double* state,
-                            double* state_bar,
+      virtual void applyBWD(MyReal* state,
+                            MyReal* state_bar,
                             int     compute_gradient) = 0;
 
       /**
        * On classification layer: applies the classification and evaluates loss/accuracy 
        */
       virtual void evalClassification(int      nexamples, 
-                                      double** state,
-                                      double** labels, 
-                                      double*  loss_ptr, 
-                                      double*  accuracy_ptr,
+                                      MyReal** state,
+                                      MyReal** labels, 
+                                      MyReal*  loss_ptr, 
+                                      MyReal*  accuracy_ptr,
                                       int      output);
 
       /**
        * On classification layer: derivative of evalClassification 
        */
       virtual void evalClassification_diff(int      nexamples, 
-                                          double** primalstate,
-                                          double** adjointstate,
-                                          double** labels, 
+                                          MyReal** primalstate,
+                                          MyReal** adjointstate,
+                                          MyReal** labels, 
                                           int      compute_gradient);
 
       /* ReLu Activation and derivative */
-      double ReLu_act(double x);
-      double dReLu_act(double x);
+      MyReal ReLu_act(MyReal x);
+      MyReal dReLu_act(MyReal x);
         
       /* Smooth ReLu activation: Uses a quadratic approximation around zero (range: default 0.1) */
-      double SmoothReLu_act(double x);
-      double dSmoothReLu_act(double x);
+      MyReal SmoothReLu_act(MyReal x);
+      MyReal dSmoothReLu_act(MyReal x);
 
       /* tanh Activation and derivative */
-      double tanh_act(double x);
-      double dtanh_act(double x);
+      MyReal tanh_act(MyReal x);
+      MyReal dtanh_act(MyReal x);
 
 };
 
@@ -219,16 +220,16 @@ class DenseLayer : public Layer {
       DenseLayer(int     idx,
                  int     dimI,
                  int     dimO,
-                 double  deltaT,
+                 MyReal  deltaT,
                  int     activation,
-                 double  gammatik, 
-                 double  gammaddt);     
+                 MyReal  gammatik, 
+                 MyReal  gammaddt);     
       ~DenseLayer();
 
-      void applyFWD(double* state);
+      void applyFWD(MyReal* state);
 
-      void applyBWD(double* state,
-                    double* state_bar,
+      void applyBWD(MyReal* state,
+                    MyReal* state_bar,
                     int     compute_gradient);
 };
 
@@ -240,21 +241,21 @@ class DenseLayer : public Layer {
 class OpenDenseLayer : public DenseLayer {
 
   protected: 
-      double* example;    /* Pointer to the current example data */
+      MyReal* example;    /* Pointer to the current example data */
 
   public:
       OpenDenseLayer(int     dimI,
                      int     dimO,
                      int     activation,
-                     double  gammatik);     
+                     MyReal  gammatik);     
       ~OpenDenseLayer();
 
-      void setExample(double* example_ptr);
+      void setExample(MyReal* example_ptr);
 
-      void applyFWD(double* state);
+      void applyFWD(MyReal* state);
 
-      void applyBWD(double* state,
-                    double* state_bar,
+      void applyBWD(MyReal* state,
+                    MyReal* state_bar,
                     int     compute_gradient);
 };
 
@@ -266,18 +267,18 @@ class OpenDenseLayer : public DenseLayer {
 class OpenExpandZero : public Layer 
 {
       protected: 
-            double* example;    /* Pointer to the current example data */
+            MyReal* example;    /* Pointer to the current example data */
       public:
             OpenExpandZero(int dimI,
                            int dimO);
             ~OpenExpandZero();
 
-            void setExample(double* example_ptr);
+            void setExample(MyReal* example_ptr);
            
-            void applyFWD(double* state);
+            void applyFWD(MyReal* state);
       
-            void applyBWD(double* state,
-                          double* state_bar,
+            void applyBWD(MyReal* state,
+                          MyReal* state_bar,
                           int     compute_gradient);
 };
 
@@ -288,70 +289,70 @@ class OpenExpandZero : public Layer
 class ClassificationLayer : public Layer
 {
       protected: 
-            double* probability;          /* vector of pedicted class probabilities */
-            double* tmpstate;             /* temporarily holding the state */ 
+            MyReal* probability;          /* vector of pedicted class probabilities */
+            MyReal* tmpstate;             /* temporarily holding the state */ 
             
       public:
             ClassificationLayer(int    idx,
                                 int    dimI,
                                 int    dimO,
-                                double gammatik);
+                                MyReal gammatik);
             ~ClassificationLayer();
 
-            void applyFWD(double* state);
+            void applyFWD(MyReal* state);
       
-            void applyBWD(double* state,
-                          double* state_bar,
+            void applyBWD(MyReal* state,
+                          MyReal* state_bar,
                           int     compute_gradient);
 
             void evalClassification(int      nexamples, 
-                                    double** state,
-                                    double** labels, 
-                                    double*  loss_ptr, 
-                                    double*  accuracy_ptr,
+                                    MyReal** state,
+                                    MyReal** labels, 
+                                    MyReal*  loss_ptr, 
+                                    MyReal*  accuracy_ptr,
                                     int      output);
 
 
             void evalClassification_diff(int      nexamples, 
-                                         double** primalstate,
-                                         double** adjointstate,
-                                         double** labels, 
+                                         MyReal** primalstate,
+                                         MyReal** adjointstate,
+                                         MyReal** labels, 
                                          int      compute_gradient);
 
             /**
              * Evaluate the cross entropy function 
              */
-            double crossEntropy(double *finalstate,
-                                double *label);
+            MyReal crossEntropy(MyReal *finalstate,
+                                MyReal *label);
 
             /** 
              * Algorithmic derivative of evaluating cross entropy loss
              */
-            void crossEntropy_diff(double *data_Out, 
-                               double *data_Out_bar,
-                               double *label,
-                               double  loss_bar);
+            void crossEntropy_diff(MyReal *data_Out, 
+                                   MyReal *data_Out_bar,
+                                   MyReal *label,
+                                   MyReal  loss_bar);
 
             /**
              * Compute the class probabilities
              * return 1 if predicted class was correct, 0 else.
              * out: *class_id_ptr holding the predicted class 
              */
-            int prediction(double* data_out, 
-                           double* label,
+            int prediction(MyReal* data_out, 
+                           MyReal* label,
                            int*    class_id_ptr);
 
             /**
              * Translate the data: 
              * Substracts the maximum value from all entries
              */
-            void normalize(double* data);
+            void normalize(MyReal* data);
 
             /**
              * Algorithmic derivative of the normalize funciton 
              */ 
-            void normalize_diff(double* data, 
-                                double* data_bar);
+            void normalize_diff(MyReal* data, 
+                                MyReal* data_bar);
 };
 
 
@@ -369,19 +370,19 @@ class ConvLayer : public Layer {
                 int     dimO,
                 int     csize_in,
                 int     nconv_in,
-                double  deltaT,
+                MyReal  deltaT,
                 int     Activ,
-                double  Gammatik,
-                double  Gammaddt);
+                MyReal  Gammatik,
+                MyReal  Gammaddt);
       ~ConvLayer();
 
-      void applyFWD(double* state);
+      void applyFWD(MyReal* state);
 
-      void applyBWD(double* state,
-                    double* state_bar,
+      void applyBWD(MyReal* state,
+                    MyReal* state_bar,
                     int     compute_gradient);
 
-      double apply_conv(double* state,        // state vector to apply convolution to 
+      MyReal apply_conv(MyReal* state,        // state vector to apply convolution to 
                       int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k,              // column index
@@ -406,8 +407,8 @@ class ConvLayer : public Layer {
        * On exit this method modifies weights_bar
        */
       void updateWeightDerivative(
-                      double* state,          // state vector
-                      double * update_bar,    // combines derivative and adjoint info (see comments)
+                      MyReal* state,          // state vector
+                      MyReal * update_bar,    // combines derivative and adjoint info (see comments)
                       int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k,              // column index
@@ -422,19 +423,19 @@ class ConvLayer : public Layer {
 class OpenConvLayer : public Layer {
 
   protected: 
-      double* example;    /* Pointer to the current example data */
+      MyReal* example;    /* Pointer to the current example data */
 
   public:
       OpenConvLayer(int     dimI,
                     int     dimO);
       ~OpenConvLayer();
 
-      void setExample(double* example_ptr);
+      void setExample(MyReal* example_ptr);
 
-      void applyFWD(double* state);
+      void applyFWD(MyReal* state);
 
-      void applyBWD(double* state,
-                    double* state_bar,
+      void applyBWD(MyReal* state,
+                    MyReal* state_bar,
                     int     compute_gradient);
 };
 
@@ -454,10 +455,10 @@ class OpenConvLayerMNIST : public OpenConvLayer {
                          int     dimO);
       ~OpenConvLayerMNIST();
 
-      void applyFWD(double* state);
+      void applyFWD(MyReal* state);
 
-      void applyBWD(double* state,
-                    double* state_bar,
+      void applyBWD(MyReal* state,
+                    MyReal* state_bar,
                     int     compute_gradient);
 };
 

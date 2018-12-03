@@ -1,11 +1,11 @@
 # TODO
 
-## Program:
-* Use Eigen for data management and linear algebra stuff. 
-* Branch localdesignstorage (distributedcontrol): 
-    - Random initialization of the weights will be different across the proccesors. -> Difficult to compare runs with varying numbers of processors... -> Think!
-* Branch solveadjointwithxbraid:
-    - Include DDT-regularization and its derivative. 
+* Memory reduction:
+    - single precision
+    - sending / receiving a layer allocates buffer of size O(nchannels^2) even if that's way too big for the convolution layers.
+
+* Weights parametrization using splines
+* Remove opening layer from braid treatment, use it only with in my\_Init(). 
 
 
 # Parameter study: Lessons Learned (n=32)

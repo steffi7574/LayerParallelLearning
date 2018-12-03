@@ -1,11 +1,11 @@
 #include "linalg.hpp"
 
 void matvec(int dimN,
-            double* H, 
-            double* x,
-            double* Hx)
+            MyReal* H, 
+            MyReal* x,
+            MyReal* Hx)
 {
-    double sum_j;
+    MyReal sum_j;
 
     for (int i=0; i<dimN; i++)
     {
@@ -20,11 +20,11 @@ void matvec(int dimN,
 
 
 
-double vecdot(int     dimN,
-              double* x,
-              double* y)
+MyReal vecdot(int     dimN,
+              MyReal* x,
+              MyReal* y)
 {
-   double dotprod = 0.0;
+   MyReal dotprod = 0.0;
    for (int i = 0; i < dimN; i++)
    {
       dotprod += x[i] * y[i];
@@ -33,10 +33,10 @@ double vecdot(int     dimN,
 }
 
           
-double vecmax(int     dimN,
-              double* x)
+MyReal vecmax(int     dimN,
+              MyReal* x)
 {
-    double max = - 1e+12;
+    MyReal max = - 1e+12;
     
     for (int i = 0; i < dimN; i++)
     {
@@ -50,9 +50,9 @@ double vecmax(int     dimN,
 
 
 int argvecmax(int     dimN,
-              double* x)
+              MyReal* x)
 {
-    double max = - 1e+12;
+    MyReal max = - 1e+12;
     int    i_max;
     for (int i = 0; i < dimN; i++)
     {
@@ -66,10 +66,10 @@ int argvecmax(int     dimN,
 }
 
 
-double vec_normsq(int    dimN,
-                  double *x)
+MyReal vec_normsq(int    dimN,
+                  MyReal *x)
 {
-    double norm = 0.0;
+    MyReal norm = 0.0;
     for (int i = 0; i<dimN; i++)
     {
         norm += pow(x[i],2);
@@ -79,8 +79,8 @@ double vec_normsq(int    dimN,
 }
 
 int vec_copy(int N, 
-             double* u, 
-             double* u_copy)
+             MyReal* u, 
+             MyReal* u_copy)
 {
     for (int i=0; i<N; i++)
     {
@@ -91,9 +91,9 @@ int vec_copy(int N,
 }
 
 void vecvecT(int N,
-             double* x,
-             double* y,
-             double* XYT)
+             MyReal* x,
+             MyReal* y,
+             MyReal* XYT)
 {
    for (int i=0; i<N; i++)
    {

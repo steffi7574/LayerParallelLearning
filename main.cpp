@@ -5,6 +5,7 @@
 #include <mpi.h>
 
 // #include "lib.hpp"
+#include "defs.hpp"
 #include "hessianApprox.hpp"
 #include "util.hpp"
 #include "layer.hpp"
@@ -27,14 +28,14 @@ int main (int argc, char *argv[])
     int      nvalidation;             /**< Number of elements in validation data */
     int      nfeatures;               /**< Number of features in the data set */
     int      nclasses;                /**< Number of classes / Clabels */
-    double **train_examples = NULL;   /**< Traning examples */
-    double **train_labels   = NULL;   /**< Training labels*/
-    double **val_examples   = NULL;   /**< Validation examples */
-    double **val_labels     = NULL;   /**< Validation labels*/
+    MyReal **train_examples = NULL;   /**< Traning examples */
+    MyReal **train_labels   = NULL;   /**< Training labels*/
+    MyReal **val_examples   = NULL;   /**< Validation examples */
+    MyReal **val_labels     = NULL;   /**< Validation labels*/
     /* --- Network --- */
     int      nlayers;                 /**< Number of layers / time steps */
     int      nchannels;               /**< Number of channels of the network (width) */
-    double   T;                       /**< Final time */
+    MyReal   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
     int      networkType;             /**< Use a dense or convolutional network */
     int      type_openlayer;          /**< Type of opening layer for Convolutional layer, 0: replicate, 1: tuned for MNIST */ 
@@ -42,28 +43,28 @@ int main (int argc, char *argv[])
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    double  *design=0;            /**< On root process: Global design vector */
-    double  *gradient=0;          /**< On root process: Global gradient vector */
-    double  *design0=0;           /**< On root process: Old design at last iteration */
-    double  *gradient0=0;         /**< On root process: Old gradient at last iteration*/
-    double  *descentdir=0;        /**< On root process: Direction for design updates */
-    double   objective;           /**< Optimization objective */
-    double   wolfe;               /**< Holding the wolfe condition value */
-    double   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
-    double   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
-    double   gamma_class;         /**< Parameter for regularization of classification weights and bias*/
-    double   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
-    double   weights_init;        /**< Factor for scaling initial weights and bias of intermediate layers*/
-    double   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
-    double   stepsize_init;       /**< Initial stepsize for design updates */
+    MyReal  *design=0;            /**< On root process: Global design vector */
+    MyReal  *gradient=0;          /**< On root process: Global gradient vector */
+    MyReal  *design0=0;           /**< On root process: Old design at last iteration */
+    MyReal  *gradient0=0;         /**< On root process: Old gradient at last iteration*/
+    MyReal  *descentdir=0;        /**< On root process: Direction for design updates */
+    MyReal   objective;           /**< Optimization objective */
+    MyReal   wolfe;               /**< Holding the wolfe condition value */
+    MyReal   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
+    MyReal   gamma_ddt;           /**< Parameter for time-derivative regularization of the weights and bias */
+    MyReal   gamma_class;         /**< Parameter for regularization of classification weights and bias*/
+    MyReal   weights_open_init;   /**< Factor for scaling initial opening layer weights and biases */
+    MyReal   weights_init;        /**< Factor for scaling initial weights and bias of intermediate layers*/
+    MyReal   weights_class_init;  /**< Factor for scaling initial classification weights and biases */
+    MyReal   stepsize_init;       /**< Initial stepsize for design updates */
     int      maxoptimiter;        /**< Maximum number of optimization iterations */
-    double   rnorm;               /**< Space-time Norm of the state variables */
-    double   rnorm_adj;           /**< Space-time norm of the adjoint variables */
-    double   gnorm;               /**< Norm of the gradient */
-    double   gtol;                /**< Stoping tolerance on the gradient norm */
+    MyReal   rnorm;               /**< Space-time Norm of the state variables */
+    MyReal   rnorm_adj;           /**< Space-time norm of the adjoint variables */
+    MyReal   gnorm;               /**< Norm of the gradient */
+    MyReal   gtol;                /**< Stoping tolerance on the gradient norm */
     int      ls_maxiter;          /**< Max. number of linesearch iterations */
-    double   ls_factor;           /**< Reduction factor for linesearch */
-    double   ls_param;            /**< Parameter in wolfe condition test */
+    MyReal   ls_factor;           /**< Reduction factor for linesearch */
+    MyReal   ls_param;            /**< Parameter in wolfe condition test */
     int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
     int      validationlevel;     /**< level for determine frequency of validation computations */
@@ -86,24 +87,24 @@ int main (int argc, char *argv[])
     int      braid_fmg;         /**< braid: V-cycle or full multigrid */
     int      braid_nrelax0;     /**< braid: number of CF relaxation sweeps on level 0*/
     int      braid_nrelax;      /**< braid: number of CF relaxation sweeps */
-    double   braid_abstol;      /**< tolerance for primal braid */
-    double   braid_abstoladj;   /**< tolerance for adjoint braid */
+    MyReal   braid_abstol;      /**< tolerance for primal braid */
+    MyReal   braid_abstoladj;   /**< tolerance for adjoint braid */
 
-    double accur_train = 0.0;   /**< Accuracy on training data */
-    double accur_val   = 0.0;   /**< Accuracy on validation data */
-    double loss_train  = 0.0;   /**< Loss function on training data */
-    double loss_val    = 0.0;   /**< Loss function on validation data */
+    MyReal accur_train = 0.0;   /**< Accuracy on training data */
+    MyReal accur_val   = 0.0;   /**< Accuracy on validation data */
+    MyReal loss_train  = 0.0;   /**< Loss function on training data */
+    MyReal loss_val    = 0.0;   /**< Loss function on validation data */
 
     int ilower, iupper;         /**< Index of first and last layer stored on this processor */
     struct rusage r_usage;
-    double StartTime, StopTime, myMB, globalMB; 
-    double UsedTime = 0.0;
+    MyReal StartTime, StopTime, myMB, globalMB; 
+    MyReal UsedTime = 0.0;
     char  optimfilename[255];
     FILE *optimfile = 0;   
     char* activname;
     char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     char *weightsopenfile, *weightsclassificationfile;
-    double mygnorm, stepsize, ls_objective;
+    MyReal mygnorm, stepsize, ls_objective;
     int nreq = -1;
     int ls_iter;
     braid_BaseVector ubase;
@@ -153,6 +154,13 @@ int main (int argc, char *argv[])
     hessian_approx     = USE_LBFGS;
     lbfgs_stages       = 20;
     validationlevel    = 1;
+    datafolder         = "NONE";
+    ftrain_ex          = "NONE";
+    fval_ex            = "NONE";
+    ftrain_labels      = "NONE";
+    fval_labels        = "NONE";
+    weightsopenfile    = "NONE";
+    weightsclassificationfile = "NONE";
 
 
     /* --- Read the config file (overwrite default values) --- */
@@ -435,23 +443,23 @@ int main (int argc, char *argv[])
     sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
     /* Read training data */
-    train_examples = new double* [ntraining];
-    train_labels   = new double* [ntraining];
+    train_examples = new MyReal* [ntraining];
+    train_labels   = new MyReal* [ntraining];
     for (int ix = 0; ix<ntraining; ix++)
     {
-        train_examples[ix] = new double[nfeatures];
-        train_labels[ix]   = new double[nclasses];
+        train_examples[ix] = new MyReal[nfeatures];
+        train_labels[ix]   = new MyReal[nclasses];
     }
     read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
     read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
 
     /* Read validation data */
-    val_examples = new double* [nvalidation];
-    val_labels   = new double* [nvalidation];
+    val_examples = new MyReal* [nvalidation];
+    val_labels   = new MyReal* [nvalidation];
     for (int ix = 0; ix<nvalidation; ix++)
     {
-        val_examples[ix] = new double[nfeatures];
-        val_labels[ix]   = new double[nclasses];
+        val_examples[ix] = new MyReal[nfeatures];
+        val_labels[ix]   = new MyReal[nclasses];
     }
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
@@ -516,7 +524,7 @@ int main (int argc, char *argv[])
     printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
 
     /* Create network and layers */
-    network = new Network(nlayers+1,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(double)nlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
+    network = new Network(nlayers+1,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
     ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -526,10 +534,10 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
         srand(1.0);
-        design = new double[ndesign_global];
+        design = new MyReal[ndesign_global];
         for (int i = 0; i < ndesign_global; i++)
         {
-            design[i] = (double) rand() / ((double) RAND_MAX);
+            design[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
         }
     }
     MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
@@ -572,10 +580,10 @@ int main (int argc, char *argv[])
     /* Allocate other optimization vars on first processor */
     if (myid == MASTER_NODE)
     {
-        gradient   = new double[ndesign_global];
-        design0    = new double[ndesign_global];
-        gradient0  = new double[ndesign_global];
-        descentdir = new double[ndesign_global];
+        gradient   = new MyReal[ndesign_global];
+        design0    = new MyReal[ndesign_global];
+        gradient0  = new MyReal[ndesign_global];
+        descentdir = new MyReal[ndesign_global];
     }
 
     /* Initialize optimization parameters */
@@ -688,18 +696,18 @@ int main (int argc, char *argv[])
         /* Compute and communicate gradient and its norm */
         MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
         mygnorm = vec_normsq(ndesign_local, network->getGradient());
-        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
         gnorm = sqrt(gnorm);
 
         // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
-        double losstrain_out  = 0.0; 
-        double lossval_out    = 0.0; 
-        double accurtrain_out = 0.0; 
-        double accurval_out   = 0.0; 
-        MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MyReal losstrain_out  = 0.0; 
+        MyReal lossval_out    = 0.0; 
+        MyReal accurtrain_out = 0.0; 
+        MyReal accurval_out   = 0.0; 
+        MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
         /* Output */
         StopTime = MPI_Wtime();
@@ -758,7 +766,7 @@ int main (int argc, char *argv[])
         }
 
         /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
-        MPI_Bcast(&wolfe, 1, MPI_DOUBLE, MASTER_NODE, MPI_COMM_WORLD);
+        MPI_Bcast(&wolfe, 1, MPI_MyReal, MASTER_NODE, MPI_COMM_WORLD);
         MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
         network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
@@ -771,7 +779,7 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
-            double test = objective - ls_param * stepsize * wolfe;
+            MyReal test = objective - ls_param * stepsize * wolfe;
             if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
             /* Test the wolfe condition */
             if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
@@ -811,8 +819,8 @@ int main (int argc, char *argv[])
         // StopTime = MPI_Wtime();
         // UsedTime = StopTime-StartTime;
         // getrusage(RUSAGE_SELF,&r_usage);
-        // myMB = (double) r_usage.ru_maxrss / 1024.0;
-        // MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        // myMB = (MyReal) r_usage.ru_maxrss / 1024.0;
+        // MPI_Allreduce(&myMB, &globalMB, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
         // // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
         // if (myid == MASTER_NODE)
@@ -885,8 +893,8 @@ int main (int argc, char *argv[])
  
 
 
-        double xtx = 0.0;
-        double EPS = 1e-7;
+        MyReal xtx = 0.0;
+        MyReal EPS = 1e-7;
         for (int i = 0; i < ndesign_global; i++)
         {
             /* Sum up xtx */
@@ -898,11 +906,11 @@ int main (int argc, char *argv[])
 
         /* New objective function evaluation */
         braid_Drive(core_train);
-        double obj1;
+        MyReal obj1;
         evalObjective(core_train, app_train, &obj1, &loss_train, &accur_train);
 
         /* Finite differences */
-        double yty = (obj1 - obj0)/EPS;
+        MyReal yty = (obj1 - obj0)/EPS;
 
 
         /* Print adjoint dot test result */
@@ -917,11 +925,11 @@ int main (int argc, char *argv[])
  * Full finite differences 
  * ======================================= */
 
-    // double* findiff = new double[ndesign];
-    // double* relerr = new double[ndesign];
-    // double errnorm = 0.0;
-    // double obj0, obj1, design_store;
-    // double EPS;
+    // MyReal* findiff = new MyReal[ndesign];
+    // MyReal* relerr = new MyReal[ndesign];
+    // MyReal errnorm = 0.0;
+    // MyReal obj0, obj1, design_store;
+    // MyReal EPS;
 
     // printf("\n--------------------------------\n");
     // printf(" FINITE DIFFERENCE TESTING\n\n");
@@ -974,8 +982,8 @@ int main (int argc, char *argv[])
   * check network implementation 
   * ======================================= */
     // network->applyFWD(ntraining, train_examples, train_labels);
-    // double accur = network->getAccuracy();
-    // double regul = network->evalRegularization();
+    // MyReal accur = network->getAccuracy();
+    // MyReal regul = network->evalRegularization();
     // objective = network->getLoss() + regul;
     // printf("\n --- \n");
     // printf(" Network: obj %1.14e \n", objective);
@@ -985,8 +993,8 @@ int main (int argc, char *argv[])
     StopTime = MPI_Wtime();
     UsedTime = StopTime-StartTime;
     getrusage(RUSAGE_SELF,&r_usage);
-    myMB = (double) r_usage.ru_maxrss / 1024.0;
-    MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    myMB = (MyReal) r_usage.ru_maxrss / 1024.0;
+    MPI_Allreduce(&myMB, &globalMB, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
     // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
     if (myid == MASTER_NODE)

@@ -1,12 +1,12 @@
 #include "util.hpp"
 
 void read_matrix(char    *filename, 
-               double **var, 
+               MyReal **var, 
                int      dimx, 
                int      dimy)
 {
    FILE   *file;
-   double  tmp;
+   MyReal  tmp;
 
    /* Open file */
    file = fopen(filename, "r");
@@ -22,7 +22,7 @@ void read_matrix(char    *filename,
    {
        for (int iy = 0; iy < dimy; iy++)
        {
-            fscanf(file, "%lf", &tmp);
+            fscanf(file, "%f", &tmp);
             var[ix][iy] = tmp;
        }
    }
@@ -31,11 +31,11 @@ void read_matrix(char    *filename,
 }
 
 void read_vector(char *filename, 
-                 double *var, 
+                 MyReal *var, 
                  int      dimx)
 {
    FILE   *file;
-   double  tmp;
+   MyReal  tmp;
 
    /* Open file */
    file = fopen(filename, "r");
@@ -49,7 +49,7 @@ void read_vector(char *filename,
    printf("Reading file %s\n", filename);
    for (int ix = 0; ix < dimx; ix++)
    {
-            fscanf(file, "%lf", &tmp);
+            fscanf(file, "%f", &tmp);
             var[ix] = tmp;
    }
 
@@ -58,7 +58,7 @@ void read_vector(char *filename,
 
 
 void write_vector(char   *filename,
-                  double * var, 
+                  MyReal * var, 
                   int      dimN)
 {
    FILE *file;
@@ -84,9 +84,9 @@ void write_vector(char   *filename,
 
 }            
 
-void MPI_GatherVector(double*  sendbuffer,
+void MPI_GatherVector(MyReal*  sendbuffer,
                       int      localsendcount,
-                      double*  recvbuffer,
+                      MyReal*  recvbuffer,
                       int      rootprocessID,
                       MPI_Comm comm)
 {
@@ -107,7 +107,7 @@ void MPI_GatherVector(double*  sendbuffer,
     }
 
     /* Gatherv the vector */
-    MPI_Gatherv(sendbuffer, localsendcount, MPI_DOUBLE, recvbuffer, recvcount , displs, MPI_DOUBLE, rootprocessID, comm);
+    MPI_Gatherv(sendbuffer, localsendcount, MPI_MyReal, recvbuffer, recvcount , displs, MPI_MyReal, rootprocessID, comm);
 
     /* Clean up */
     delete [] recvcount;
@@ -116,8 +116,8 @@ void MPI_GatherVector(double*  sendbuffer,
 
 
 
-void MPI_ScatterVector(double*  sendbuffer,
-                       double*  recvbuffer,
+void MPI_ScatterVector(MyReal*  sendbuffer,
+                       MyReal*  recvbuffer,
                        int      localrecvcount,
                        int      rootprocessID,
                        MPI_Comm comm)
@@ -139,7 +139,7 @@ void MPI_ScatterVector(double*  sendbuffer,
     }
 
     /* Gatherv the vector */
-    MPI_Scatterv(sendbuffer, sendcount, displs, MPI_DOUBLE, recvbuffer, localrecvcount, MPI_DOUBLE, rootprocessID, comm);
+    MPI_Scatterv(sendbuffer, sendcount, displs, MPI_MyReal, recvbuffer, localrecvcount, MPI_MyReal, rootprocessID, comm);
 
     /* Clean up */
     delete [] sendcount;

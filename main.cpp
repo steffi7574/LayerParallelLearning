@@ -679,8 +679,23 @@ int main (int argc, char *argv[])
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
 
-        MPI_Finalize();
-        return(0);
+        /* derivative of opening layer (derivative of my_Init) */
+        Layer* openlayer = network->getLayer(-1);
+        if (openlayer != NULL) //only on first processor 
+        {
+            // _braid_UGetVectorRef(core_adj, 0, , &ubase);
+            _braid_UGetLast(core_adj, &ubase); // this is \bar y^0, it is stored on first proc (reverted ranks)
+            u = ubase->userVector;
+            for (int iex = 0; iex < app_train->nexamples; iex++)
+            {
+                if (app_train->examples !=NULL) openlayer->setExample(app_train->examples[iex]);
+
+                openlayer->applyBWD(NULL, u->state[iex], 1); 
+            }
+            printf("%d: Init diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", myid, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getWeightsBar()[0] );
+        }
+        /* TODO: Eval Tikh_diff on opening layer */
+
 
         /* --- Validation data: Get accuracy --- */
 

@@ -105,23 +105,27 @@ Network::Network(int    nLayersGlobal,
 
 Network::~Network()
 {
-    /* Delete the layers */
-    delete [] openlayer;
+    /* Delete openlayer */
+    if (openlayer != NULL) delete openlayer;
+
+    /* Delete intermediate and classification layers */
     for (int ilayer = 0; ilayer < nlayers_local; ilayer++)
     {
         delete layers[ilayer];
     }
     delete [] layers;
+
+    /* Delete design and gradient */
     delete [] design;
     delete [] gradient;
 
+    /* Delete neighbouring layer information */
     if (layer_left != NULL)
     {
         delete [] layer_left->getWeights();
         delete [] layer_left->getWeightsBar();
         delete layer_left;
     }
-
     if (layer_right != NULL)
     {
         delete [] layer_right->getWeights();

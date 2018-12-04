@@ -161,7 +161,7 @@ def read_config(filename):
                 case("nfeatures") or \
                 case("nclasses") or \
                 case("nchannels") or \
-                case("nhiddenlayers") or \
+                case("nlayers") or \
                 case("braid_cfactor") or \
                 case("braid_cfactor0") or \
                 case("braid_maxlevels") or \

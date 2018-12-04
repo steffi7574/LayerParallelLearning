@@ -1,10 +1,5 @@
 # TODO
 
-* Remove opening layer from braid treatment, use it only with in my\_Init(). 
-    TODO: 
-        - Adapt pythonutil/config.py for new hiddenlayer option. 
-        - Consistency of names for nlayers/nlayers_local/hiddenlayers 
-
 * put everything in my\_init\_adj into evalObj\_diff. 
 
 * Memory reduction:

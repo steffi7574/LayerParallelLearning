@@ -123,7 +123,7 @@ int main (int argc, char *argv[])
     nfeatures          = 2;
     nclasses           = 5;
     nchannels          = 8;
-    nhiddenlayers      = 32;
+    nlayers            = 32;
     T                  = 10.0;
     activation         = Layer::RELU;
     networkType        = Network::DENSE;
@@ -233,9 +233,16 @@ int main (int argc, char *argv[])
         {
             weightsclassificationfile = co->value;
         }
-        else if ( strcmp(co->key, "nhiddenlayers") == 0 )
+        else if ( strcmp(co->key, "nlayers") == 0 )
         {
-            nhiddenlayers = atoi(co->value);
+            nlayers = atoi(co->value);
+
+            if (nlayers < 3)
+            {
+                printf("\n\n ERROR: nlayers=%d too small! Choose minimum three layers (openlayer, one hidden layer, classification layer)!\n\n", nlayers);
+                MPI_Finalize();
+                return(0);
+            }
         }
         else if ( strcmp(co->key, "activation") == 0 )
         {
@@ -465,6 +472,9 @@ int main (int argc, char *argv[])
     read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
     read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
+    /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
+    nhiddenlayers = nlayers - 2;
+
     /* Initializze primal and adjoint XBraid for training data */
     app_train = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
@@ -519,8 +529,6 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTol(core_adj,   braid_abstol);
 
-    /* Total number of layers is hiddenlayers + 2 (plus opening and classification layers) */
-    nlayers = nhiddenlayers + 2;
 
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);
@@ -610,7 +618,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                nfeatures            %d \n", nfeatures);
         fprintf(optimfile, "#                nclasses             %d \n", nclasses);
         fprintf(optimfile, "#                nchannels            %d \n", nchannels);
-        fprintf(optimfile, "#                nhiddenlayers        %d \n", nhiddenlayers);
+        fprintf(optimfile, "#                nlayers              %d \n", nlayers);
         fprintf(optimfile, "#                T                    %f \n", T);
         fprintf(optimfile, "#                Activation           %s \n", activname);
         fprintf(optimfile, "#                type openlayer       %d \n", type_openlayer);

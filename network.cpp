@@ -69,7 +69,7 @@ Network::Network(int    nLayersGlobal,
         int index = -1;
         openlayer = createLayer(index, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
         ndesign += openlayer->getnDesign();
-        printf("Create opening layer %d, ndesign %d \n", index, openlayer->getnDesign());
+        // printf("Create opening layer %d, ndesign %d \n", index, openlayer->getnDesign());
     }
 
    /* Create intermediate layers and classification layer */
@@ -80,7 +80,7 @@ Network::Network(int    nLayersGlobal,
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
         ndesign += layers[storeID]->getnDesign();
-        printf("creating hidden/class layer %d/%d, ndesign%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
+        // printf("creating hidden/class layer %d/%d, ndesign%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
 
 
@@ -90,12 +90,12 @@ Network::Network(int    nLayersGlobal,
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
-    printf("Left neighbour %d\n", leftID);
+    // printf("Left neighbour %d\n", leftID);
     layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
-    printf("Right neighbour %d\n", rightID);
+    // printf("Right neighbour %d\n", rightID);
     layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 }             
 

@@ -2,7 +2,6 @@
 
 * Remove opening layer from braid treatment, use it only with in my\_Init(). 
     TODO: 
-        - Improve output of created network
         - Adapt pythonutil/config.py for new hiddenlayer option. 
         - Consistency of names for nlayers/nlayers_local/hiddenlayers 
 

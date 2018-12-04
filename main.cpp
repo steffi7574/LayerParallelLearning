@@ -524,13 +524,15 @@ int main (int argc, char *argv[])
 
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);
-    printf("%d: Grid distribution: [%d, %d], total %d\n", myid, ilower, iupper, nlayers);
 
     /* Create network and layers */
     network = new Network(nlayers,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nhiddenlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
     ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
+    int startid = ilower;
+    if (ilower == 0) startid = -1;
+    printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper, nlayers);
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
     /* Initialize design with random numbers (do on one processor and scatter for scaling test) */

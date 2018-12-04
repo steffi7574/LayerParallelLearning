@@ -633,7 +633,7 @@ evalObjective(braid_Core core,
             loss     += loss_loc;
             accuracy += accur_loc;
         }
-        printf("%d: layer %d using %1.14e \n", app->myid, layer->getIndex(), layer->getWeights()[0]);
+        // printf("%d: layer %d using %1.14e \n", app->myid, layer->getIndex(), layer->getWeights()[0]);
     }
 
 

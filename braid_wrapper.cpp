@@ -38,8 +38,7 @@ my_Step(braid_App        app,
     deltaT   = tstop - tstart;
 
     /* Set time step size */
-    // u->layer->setDt(deltaT);
-    u->layer->setDt(1.0);  // for testing only
+    u->layer->setDt(deltaT);
 
     // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
@@ -424,8 +423,7 @@ my_Step_Adj(braid_App        app,
     if (compute_gradient) uprimal->layer->resetBar();
 
     /* Take one step backwards, updates adjoint state and gradient, if desired. */
-    // uprimal->layer->setDt(deltaT);
-    uprimal->layer->setDt(1.0);  // for testing only
+    uprimal->layer->setDt(deltaT);
     for (int iex = 0; iex < nexamples; iex++)
     {
         uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
@@ -438,8 +436,7 @@ my_Step_Adj(braid_App        app,
     {
         Layer* prev = app->network->getLayer(primaltimestep - 1); 
         Layer* next = app->network->getLayer(primaltimestep + 1); 
-        // uprimal->layer->evalRegulDDT_diff(prev, next, app->network->getDT());
-        uprimal->layer->evalRegulDDT_diff(prev, next, 1.0); // for testing only 
+        uprimal->layer->evalRegulDDT_diff(prev, next, app->network->getDT());
     }        
 
     /* Derivative of tikhonov */
@@ -635,8 +632,7 @@ evalObjective(braid_Core core,
 
 
             /* DDT - Regularization on intermediate layers */
-            // regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
-            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), 1.0); // for testing only
+            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
 
             // printf("%d: Eval ddt at ilayer %d using %1.14e primal %1.14e \n", app->myid,  u->layer->getIndex(), u->layer->getWeights()[0], u->state[1][1]);
 

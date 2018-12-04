@@ -1,14 +1,23 @@
 # TODO
 
-* Memory reduction:
-    - single precision
+1. Remove opening layer from braid treatment, use it only with in my\_Init(). 
+    TODO: 
+        - Eval and check Regularization terms, in particular Tikhonov regul and Tikh_diff. 
+        - Improve output of created network
+        - Adapt pythonutil/config.py for new hiddenlayer option. 
+        - Consistency of names for nlayers/nlayers_local/hiddenlayers 
+
+2. Memory reduction:
     - sending / receiving a layer allocates buffer of size O(nchannels^2) even if that's way too big for the convolution layers.
 
-* Weights parametrization using splines
-* Remove opening layer from braid treatment, use it only with in my\_Init(). 
+3. Batch optimization: Allow for varying batches during optimization -> SGD and variants
+    - Set new initial condition before braid\_Drive(). 
+
+4. Weights parametrization using splines
 
 
-# Parameter study: Lessons Learned (n=32)
+
+# Parameter study: Lessons Learned (n=32, peaks example)
 
 * if **tanh** activation:
     - *Expand* input data to first layer using zeros
@@ -35,7 +44,3 @@
 * Rule of thumb for initialization: 
     loss(first iteration) = - log(P(GuessTheRightClass))
 
-
-# Read:
-* **Stochastic approximation**: small batches, use SDG, no hessian approx
-* **Stochastic Average Approximation (SAA)**: big batches, BFGS with line-search

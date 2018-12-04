@@ -153,3 +153,8 @@ evalObjective(braid_Core  core,
 void
 evalObjectiveDiff(braid_Core core_adj,
                   braid_App  app);
+
+
+void 
+evalInitDiff(braid_Core core_adj,
+             braid_App  app);

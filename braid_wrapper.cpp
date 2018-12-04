@@ -675,3 +675,27 @@ evalObjectiveDiff(braid_Core core_adj,
         }
     }
 }              
+
+
+void 
+evalInitDiff(braid_Core core_adj,
+             braid_App  app)
+{
+    Layer* openlayer = app->network->getLayer(-1);
+    int    nexamples  = app->nexamples;
+    braid_BaseVector ubase;
+
+    /* Get \bar y^0 (which is the LAST xbraid vector, stored on proc 0) */
+    _braid_UGetLast(core_adj, &ubase); 
+    if (ubase != NULL) // This is true only on first processor (reverted ranks!)
+    {
+        /* Get Derivative of the opening layer for all examples */ 
+        for (int iex = 0; iex < nexamples; iex++)
+        {
+            openlayer->setExample(app->examples[iex]);
+            /* TODO: Don't feed applyBWD with NULL! */
+            openlayer->applyBWD(NULL, ubase->userVector->state[iex], 1); 
+        }
+        // printf("%d: Init diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", myid, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getWeightsBar()[0] );
+    }
+}         

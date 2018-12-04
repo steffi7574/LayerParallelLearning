@@ -613,9 +613,8 @@ evalObjective(braid_Core core,
     Layer* openlayer = app->network->getLayer(-1);
     if (openlayer != NULL) 
     {
-        MyReal tmp = openlayer->evalTikh();
-        regul += tmp;
-        // printf("%d: Eval objective at ilayer %d using %1.14e regul %1.14e \n", app->myid,  openlayer->getIndex(), openlayer->getWeights()[0], tmp );
+        regul += openlayer->evalTikh();
+        // printf("%d: Eval objective at ilayer %d using %1.14e \n", app->myid,  openlayer->getIndex(), openlayer->getWeights()[0] );
     }
 
 
@@ -632,16 +631,14 @@ evalObjective(braid_Core core,
             u = ubase->userVector;
 
              /* Tikhonov - Regularization*/
-            MyReal tmp = u->layer->evalTikh();
-            regul += tmp;
+            regul += u->layer->evalTikh();
 
 
             /* DDT - Regularization on intermediate layers */
-            // tmp = u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
-            tmp = u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), 1.0); // for testing only
-            regul += tmp;
+            // regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
+            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), 1.0); // for testing only
 
-            // printf("%d: Eval ddt at ilayer %d using %1.14e primal %1.14e regul %1.14e\n", app->myid,  u->layer->getIndex(), u->layer->getWeights()[0], u->state[1][1], tmp);
+            // printf("%d: Eval ddt at ilayer %d using %1.14e primal %1.14e \n", app->myid,  u->layer->getIndex(), u->layer->getWeights()[0], u->state[1][1]);
 
             /* Classification and Loss evaluation */ 
             u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);

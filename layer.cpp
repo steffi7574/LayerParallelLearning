@@ -258,13 +258,13 @@ void Layer::evalTikh_diff(MyReal regul_bar)
 MyReal Layer::evalRegulDDT(Layer* layer_prev, 
                            MyReal deltat)
 {
-    if (layer_prev == NULL) return 0.0;
+    if (layer_prev == NULL) return 0.0;  // this holds for opening layer
 
     MyReal diff;
     MyReal regul_ddt = 0.0;
 
     /* Compute ddt-regularization only if dimensions match  */
-    /* this excludes openinglayer, first layer and classification layer. */
+    /* this excludes first intermediate layer and classification layer. */
     if (layer_prev->getnDesign() == ndesign   &&
         layer_prev->getDimIn()   == dim_In    &&
         layer_prev->getDimOut()  == dim_Out   &&

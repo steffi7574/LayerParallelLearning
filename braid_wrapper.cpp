@@ -605,43 +605,37 @@ evalObjective(braid_Core core,
     MyReal accur_loc = 0.0; 
     braid_BaseVector ubase;
     braid_Vector     u;
+    Layer* layer;
 
-    /* Opening layer: Only Tikhonov Regularization */
-    Layer* openlayer = app->network->getLayer(-1);
-    if (openlayer != NULL) 
+    /* Get range of locally stored layers */
+    int startlayerID = app->network->getStartLayerID();
+    int endlayerID   = app->network->getEndLayerID();
+    if (startlayerID == 0) startlayerID -= 1; // this include opening layer (id = -1) at first processor 
+
+    /* Iterate over the local layers */
+    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
-        regul += openlayer->evalTikh();
-        // printf("%d: Eval objective at ilayer %d using %1.14e \n", app->myid,  openlayer->getIndex(), openlayer->getWeights()[0] );
-    }
+        /* Get the layer */
+        layer = app->network->getLayer(ilayer); 
 
+         /* Tikhonov - Regularization*/
+        regul += layer->evalTikh();
 
-    /* Intermediate and classification layers */
-    for (int ilayer = 0; ilayer < app->network->getnLayers(); ilayer++)
-    {
+        /* DDT - Regularization on intermediate layers */
+        regul += layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
 
-        /* Get braid vector at this time step */
-        _braid_UGetVectorRef(core, 0, ilayer, &ubase);
-
-        if (ubase != NULL) // this is only true on one processor (the one that stores u)
+        /* At last layer: Classification and Loss evaluation */ 
+        if (ilayer == app->network->getnLayers()-2)
         {
-            /* Get vector u */
+            _braid_UGetVectorRef(core, 0, ilayer, &ubase);
             u = ubase->userVector;
-
-             /* Tikhonov - Regularization*/
-            regul += u->layer->evalTikh();
-
-
-            /* DDT - Regularization on intermediate layers */
-            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
-
-            // printf("%d: Eval ddt at ilayer %d using %1.14e primal %1.14e \n", app->myid,  u->layer->getIndex(), u->layer->getWeights()[0], u->state[1][1]);
-
-            /* Classification and Loss evaluation */ 
-            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
+            layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
             loss     += loss_loc;
             accuracy += accur_loc;
         }
+        printf("%d: layer %d using %1.14e \n", app->myid, layer->getIndex(), layer->getWeights()[0]);
     }
+
 
     /* Collect objective function from all processors */
     MyReal myobjective = loss + regul;

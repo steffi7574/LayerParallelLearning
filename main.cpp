@@ -857,7 +857,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    // write_vector("design.dat", design, ndesign);
+    if (myid == MASTER_NODE) write_vector("gradient.dat", gradient, ndesign_global);
 #endif
 
 

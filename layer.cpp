@@ -435,7 +435,7 @@ void DenseLayer::applyBWD(MyReal* state,
 OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
                                int     Activ,
-                               MyReal  gammatik) : DenseLayer(0, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
+                               MyReal  gammatik) : DenseLayer(-1, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
 {
     type    = OPENDENSE;
     example = NULL;
@@ -502,7 +502,7 @@ void OpenDenseLayer::applyBWD(MyReal* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
+                               int dimO) : Layer(-1, OPENZERO, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -544,7 +544,7 @@ void OpenExpandZero::applyBWD(MyReal* state,
 
 
 OpenConvLayer::OpenConvLayer(int dimI,
-                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
+                             int dimO) : Layer(-1, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;

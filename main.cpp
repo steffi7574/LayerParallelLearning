@@ -450,27 +450,38 @@ int main (int argc, char *argv[])
     sprintf(val_ex_filename,    "%s/%s", datafolder, fval_ex);
     sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
-    /* Read training data */
-    train_examples = new MyReal* [ntraining];
-    train_labels   = new MyReal* [ntraining];
-    for (int ix = 0; ix<ntraining; ix++)
+    /* Read training and validation examples */
+    if (myid == 0)   // examples are only needed on opening layer, i.e. first proc
     {
-        train_examples[ix] = new MyReal[nfeatures];
-        train_labels[ix]   = new MyReal[nclasses];
+        train_examples = new MyReal* [ntraining];
+        val_examples   = new MyReal* [nvalidation];
+        for (int ix = 0; ix<ntraining; ix++)
+        {
+            train_examples[ix] = new MyReal[nfeatures];
+        }
+        for (int ix = 0; ix<nvalidation; ix++)
+        {
+            val_examples[ix] = new MyReal[nfeatures];
+        }
+        read_matrix(train_ex_filename, train_examples, ntraining,   nfeatures);
+        read_matrix(val_ex_filename,   val_examples,   nvalidation, nfeatures);
     }
-    read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
-    read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
-
-    /* Read validation data */
-    val_examples = new MyReal* [nvalidation];
-    val_labels   = new MyReal* [nvalidation];
-    for (int ix = 0; ix<nvalidation; ix++)
+    /* Read in training and validation labels */
+    if (myid == size - 1)  // labels are only needed on classification layer, i.e. last proc
     {
-        val_examples[ix] = new MyReal[nfeatures];
-        val_labels[ix]   = new MyReal[nclasses];
+        train_labels = new MyReal* [ntraining];
+        val_labels   = new MyReal* [nvalidation];
+        for (int ix = 0; ix<ntraining; ix++)
+        {
+            train_labels[ix]   = new MyReal[nclasses];
+        }
+        for (int ix = 0; ix<nvalidation; ix++)
+        {
+            val_labels[ix]   = new MyReal[nclasses];
+        }
+        read_matrix(train_lab_filename, train_labels, ntraining,   nclasses);
+        read_matrix(val_lab_filename,   val_labels,   nvalidation, nclasses);
     }
-    read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
-    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
 
     /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
     nhiddenlayers = nlayers - 2;
@@ -689,10 +700,6 @@ int main (int argc, char *argv[])
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
         /* Derivative of opening layer */
         evalInitDiff(core_adj, app_train);
-
-
-        /* TODO: Eval Tikh_diff on opening layer */
-
 
         /* --- Validation data: Get accuracy --- */
 
@@ -1026,7 +1033,7 @@ int main (int argc, char *argv[])
     }
 
 
-    /* Clean up */
+    /* Clean up XBraid */
     delete network;
     braid_Destroy(core_train);
     braid_Destroy(core_adj);
@@ -1034,6 +1041,7 @@ int main (int argc, char *argv[])
     free(app_train);
     free(app_val);
 
+    /* Delete optimization vars */
     if (myid == MASTER_NODE)
     {
         delete hessian;
@@ -1044,21 +1052,36 @@ int main (int argc, char *argv[])
         delete [] descentdir;
     }
 
-    for (int ix = 0; ix<ntraining; ix++)
+    /* Delete training and validation examples on first proc */
+    if (myid == 0)
     {
-        delete [] train_examples[ix];
-        delete [] train_labels[ix];
+        for (int ix = 0; ix<ntraining; ix++)
+        {
+            delete [] train_examples[ix];
+        }
+        for (int ix = 0; ix<nvalidation; ix++)
+        {
+            delete [] val_examples[ix];
+        }
+        delete [] train_examples;
+        delete [] val_examples;
     }
-    delete [] train_examples;
-    delete [] train_labels;
-    for (int ix = 0; ix<nvalidation; ix++)
+    /* Delete training and validation labels on last proc */
+    if (myid == size - 1)
     {
-        delete [] val_examples[ix];
-        delete [] val_labels[ix];
+        for (int ix = 0; ix<ntraining; ix++)
+        {
+            delete [] train_labels[ix];
+        }
+        for (int ix = 0; ix<nvalidation; ix++)
+        {
+            delete [] val_labels[ix];
+        }
+        delete [] train_labels;
+        delete [] val_labels;
     }
-    delete [] val_examples;
-    delete [] val_labels;
 
+    /* Close optim file */
     if (myid == MASTER_NODE)
     {
         fclose(optimfile);

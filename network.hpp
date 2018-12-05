@@ -21,7 +21,7 @@ class Network
       int     startlayerID;         /* ID of the first layer on that processor */
       int     endlayerID;           /* ID of the last layer on that processor */
 
-      int     ndesign;              /* Number of design variables (local) */
+      int     ndesign_loc;          /* Maximum of all local numbers of design variables */
       MyReal* design;               /* Local vector of design variables*/
       MyReal* gradient;             /* Local Gradient */
 
@@ -80,8 +80,8 @@ class Network
       int getEndLayerID();
 
       /**
-       *  Returns the total number of design variables (weights and biases at all layers) */
-      int getnDesign();
+       *  Return number of design variables (local on this processor) */
+      int getnDesignLocal();
 
       /**
        * Get the layer at a certain layer index, i.e. a certain time step

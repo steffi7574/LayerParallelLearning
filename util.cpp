@@ -22,7 +22,7 @@ void read_matrix(char    *filename,
    {
        for (int iy = 0; iy < dimy; iy++)
        {
-            fscanf(file, "%f", &tmp);
+            fscanf(file, "%lf", &tmp);
             var[ix][iy] = tmp;
        }
    }
@@ -49,7 +49,7 @@ void read_vector(char *filename,
    printf("Reading file %s\n", filename);
    for (int ix = 0; ix < dimx; ix++)
    {
-            fscanf(file, "%f", &tmp);
+            fscanf(file, "%lf", &tmp);
             var[ix] = tmp;
    }
 

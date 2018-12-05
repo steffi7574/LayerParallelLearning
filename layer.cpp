@@ -258,13 +258,13 @@ void Layer::evalTikh_diff(MyReal regul_bar)
 MyReal Layer::evalRegulDDT(Layer* layer_prev, 
                            MyReal deltat)
 {
-    if (layer_prev == NULL) return 0.0;
+    if (layer_prev == NULL) return 0.0;  // this holds for opening layer
 
     MyReal diff;
     MyReal regul_ddt = 0.0;
 
     /* Compute ddt-regularization only if dimensions match  */
-    /* this excludes openinglayer, first layer and classification layer. */
+    /* this excludes first intermediate layer and classification layer. */
     if (layer_prev->getnDesign() == ndesign   &&
         layer_prev->getDimIn()   == dim_In    &&
         layer_prev->getDimOut()  == dim_Out   &&
@@ -435,7 +435,7 @@ void DenseLayer::applyBWD(MyReal* state,
 OpenDenseLayer::OpenDenseLayer(int     dimI,
                                int     dimO,
                                int     Activ,
-                               MyReal  gammatik) : DenseLayer(0, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
+                               MyReal  gammatik) : DenseLayer(-1, dimI, dimO, 1.0, Activ, gammatik, 0.0) 
 {
     type    = OPENDENSE;
     example = NULL;
@@ -502,7 +502,7 @@ void OpenDenseLayer::applyBWD(MyReal* state,
 
 
 OpenExpandZero::OpenExpandZero(int dimI,
-                               int dimO) : Layer(0, OPENZERO, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
+                               int dimO) : Layer(-1, OPENZERO, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;
@@ -544,7 +544,7 @@ void OpenExpandZero::applyBWD(MyReal* state,
 
 
 OpenConvLayer::OpenConvLayer(int dimI,
-                             int dimO) : Layer(0, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
+                             int dimO) : Layer(-1, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0)
 {
     /* this layer doesn't have any design variables. */ 
     ndesign = 0;

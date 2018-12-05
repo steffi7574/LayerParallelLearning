@@ -1,12 +1,10 @@
 # TODO
 
-* put everything in my\_init\_adj into evalObj\_diff. 
-
-* Memory reduction:
-    - sending / receiving a layer allocates buffer of size O(nchannels^2) even if that's way too big for the convolution layers.
-
 * Batch optimization: Allow for varying batches during optimization -> SGD and variants
     - Set new initial condition before braid\_Drive(). 
+    - If (!warm\_restart), init can not be called before drive() because the grid doesn't exist yet. 
+      Hence: Before drive(), call setInitCondition(warm\_restart)
+    - setInitCondition(warm\_restart) only writes initial condition if (!warm\_restart), for both primal and adjoint!
 
 * Weights parametrization using splines
 

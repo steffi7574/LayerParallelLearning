@@ -223,13 +223,20 @@ my_BufSize(braid_App           app,
            int                 *size_ptr,
            braid_BufferStatus  bstatus)
 {
-    int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nchannels        = app->network->getnChannels();
+    int nexamples        = app->nexamples;
+    int ndesign_layermax = app->ndesign_layermax;
    
-    *size_ptr = nchannels*nexamples*sizeof(MyReal) + (12 + (nchannels*nchannels+nchannels))*sizeof(MyReal);
+    /* Gather number of variables */
+    int nuvector     = nchannels*nexamples;
+    int nlayerinfo   = 12;
+    int nlayerdesign = ndesign_layermax;
+
+    /* Set the size */
+    *size_ptr = (nuvector + nlayerinfo + nlayerdesign) * sizeof(MyReal);
+
     return 0;
 }
-
 
 
 int

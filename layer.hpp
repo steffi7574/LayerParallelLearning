@@ -415,7 +415,7 @@ class ConvLayer : public Layer {
        *
        * On exit this method modifies weights_bar
        */
-      void updateWeightDerivative(
+      MyReal updateWeightDerivative(
                       MyReal* state,          // state vector
                       MyReal * update_bar,    // combines derivative and adjoint info (see comments)
                       int     output_conv,    // output convolution

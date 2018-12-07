@@ -33,8 +33,7 @@ int main (int argc, char *argv[])
     MyReal **val_examples   = NULL;   /**< Validation examples */
     MyReal **val_labels     = NULL;   /**< Validation labels*/
     /* --- Network --- */
-    int      nlayers;                 /**< Total number of layers = nhiddenlayers + 2 */
-    int      nhiddenlayers;           /**< Number of hidden layers = number of xbraid steps */
+    int      nlayers;                 /**< Number of layers / time steps */
     int      nchannels;               /**< Number of channels of the network (width) */
     MyReal   T;                       /**< Final time */
     int      activation;              /**< Enumerator for the activation function */
@@ -236,13 +235,6 @@ int main (int argc, char *argv[])
         else if ( strcmp(co->key, "nlayers") == 0 )
         {
             nlayers = atoi(co->value);
-
-            if (nlayers < 3)
-            {
-                printf("\n\n ERROR: nlayers=%d too small! Choose minimum three layers (openlayer, one hidden layer, classification layer)!\n\n", nlayers);
-                MPI_Finalize();
-                return(0);
-            }
         }
         else if ( strcmp(co->key, "activation") == 0 )
         {
@@ -450,51 +442,38 @@ int main (int argc, char *argv[])
     sprintf(val_ex_filename,    "%s/%s", datafolder, fval_ex);
     sprintf(val_lab_filename,   "%s/%s", datafolder, fval_labels);
 
-    /* Read training and validation examples */
-    if (myid == 0)   // examples are only needed on opening layer, i.e. first proc
+    /* Read training data */
+    train_examples = new MyReal* [ntraining];
+    train_labels   = new MyReal* [ntraining];
+    for (int ix = 0; ix<ntraining; ix++)
     {
-        train_examples = new MyReal* [ntraining];
-        val_examples   = new MyReal* [nvalidation];
-        for (int ix = 0; ix<ntraining; ix++)
-        {
-            train_examples[ix] = new MyReal[nfeatures];
-        }
-        for (int ix = 0; ix<nvalidation; ix++)
-        {
-            val_examples[ix] = new MyReal[nfeatures];
-        }
-        read_matrix(train_ex_filename, train_examples, ntraining,   nfeatures);
-        read_matrix(val_ex_filename,   val_examples,   nvalidation, nfeatures);
+        train_examples[ix] = new MyReal[nfeatures];
+        train_labels[ix]   = new MyReal[nclasses];
     }
-    /* Read in training and validation labels */
-    if (myid == size - 1)  // labels are only needed on classification layer, i.e. last proc
-    {
-        train_labels = new MyReal* [ntraining];
-        val_labels   = new MyReal* [nvalidation];
-        for (int ix = 0; ix<ntraining; ix++)
-        {
-            train_labels[ix]   = new MyReal[nclasses];
-        }
-        for (int ix = 0; ix<nvalidation; ix++)
-        {
-            val_labels[ix]   = new MyReal[nclasses];
-        }
-        read_matrix(train_lab_filename, train_labels, ntraining,   nclasses);
-        read_matrix(val_lab_filename,   val_labels,   nvalidation, nclasses);
-    }
+    read_matrix(train_ex_filename,  train_examples, ntraining, nfeatures);
+    read_matrix(train_lab_filename, train_labels,   ntraining, nclasses);
 
-    /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
-    nhiddenlayers = nlayers - 2;
+    /* Read validation data */
+    val_examples = new MyReal* [nvalidation];
+    val_labels   = new MyReal* [nvalidation];
+    for (int ix = 0; ix<nvalidation; ix++)
+    {
+        val_examples[ix] = new MyReal[nfeatures];
+        val_labels[ix]   = new MyReal[nclasses];
+    }
+    read_matrix(val_ex_filename,  val_examples, nvalidation, nfeatures);
+    read_matrix(val_lab_filename, val_labels,   nvalidation, nclasses);
+
 
     /* Initializze primal and adjoint XBraid for training data */
     app_train = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
     braid_SetRevertedRanks(core_adj, 1);
 
     /* Init XBraid for validation data */
     app_val = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nhiddenlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
+    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, T, nlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
 
     /* Store all points for primal and adjoint */
     braid_SetStorage(core_train, 0);
@@ -540,18 +519,15 @@ int main (int argc, char *argv[])
     braid_SetAbsTol(core_val,   braid_abstol);
     braid_SetAbsTol(core_adj,   braid_abstol);
 
-
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);
+    printf("%d: Grid distribution: [%d, %d]\n", myid, ilower, iupper);
 
     /* Create network and layers */
-    network = new Network(nlayers,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nhiddenlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
+    network = new Network(nlayers+1,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
     ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    int startid = ilower;
-    if (ilower == 0) startid = -1;
-    printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper, nlayers);
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
     /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
@@ -691,15 +667,13 @@ int main (int argc, char *argv[])
         /* Evaluat objective function */
         evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
 
-
         /* Solve adjoint equation with XBraid */
         nreq = -1;
         braid_SetPrintLevel(core_adj, braid_printlevel);
         evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
-        /* Derivative of opening layer */
-        evalInitDiff(core_adj, app_train);
+
 
         /* --- Validation data: Get accuracy --- */
 
@@ -874,7 +848,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    if (myid == MASTER_NODE) write_vector("gradient.dat", gradient, ndesign_global);
+    // write_vector("design.dat", design, ndesign);
 #endif
 
 
@@ -1033,15 +1007,14 @@ int main (int argc, char *argv[])
     }
 
 
-    /* Clean up XBraid */
+    /* Clean up */
     delete network;
     braid_Destroy(core_train);
     braid_Destroy(core_adj);
-    if (validationlevel >= 0) braid_Destroy(core_val);
+    braid_Destroy(core_val);
     free(app_train);
     free(app_val);
 
-    /* Delete optimization vars */
     if (myid == MASTER_NODE)
     {
         delete hessian;
@@ -1052,36 +1025,21 @@ int main (int argc, char *argv[])
         delete [] descentdir;
     }
 
-    /* Delete training and validation examples on first proc */
-    if (myid == 0)
+    for (int ix = 0; ix<ntraining; ix++)
     {
-        for (int ix = 0; ix<ntraining; ix++)
-        {
-            delete [] train_examples[ix];
-        }
-        for (int ix = 0; ix<nvalidation; ix++)
-        {
-            delete [] val_examples[ix];
-        }
-        delete [] train_examples;
-        delete [] val_examples;
+        delete [] train_examples[ix];
+        delete [] train_labels[ix];
     }
-    /* Delete training and validation labels on last proc */
-    if (myid == size - 1)
+    delete [] train_examples;
+    delete [] train_labels;
+    for (int ix = 0; ix<nvalidation; ix++)
     {
-        for (int ix = 0; ix<ntraining; ix++)
-        {
-            delete [] train_labels[ix];
-        }
-        for (int ix = 0; ix<nvalidation; ix++)
-        {
-            delete [] val_labels[ix];
-        }
-        delete [] train_labels;
-        delete [] val_labels;
+        delete [] val_examples[ix];
+        delete [] val_labels[ix];
     }
+    delete [] val_examples;
+    delete [] val_labels;
 
-    /* Close optim file */
     if (myid == MASTER_NODE)
     {
         fclose(optimfile);

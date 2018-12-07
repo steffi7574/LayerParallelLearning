@@ -14,7 +14,7 @@ int GetTimeStepIndex(braid_App app,
 int GetPrimalIndex(braid_App app,
                    int       ts)
 {
-    int idx = app->network->getnLayers()-2 - ts;
+    int idx = app->network->getnLayers()-1 - ts;
     return idx;
 }       
 
@@ -33,6 +33,7 @@ my_Step(braid_App        app,
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
+    // braid_StepStatusGetTIndex(status, &ts);
     ts_start = GetTimeStepIndex(app, tstart); 
     ts_stop  = GetTimeStepIndex(app, tstop); 
     deltaT   = tstop - tstart;
@@ -45,6 +46,9 @@ my_Step(braid_App        app,
     /* apply the layer for all examples */
     for (int iex = 0; iex < nexamples; iex++)
     {
+        /* On fist layer, set example */
+        if (app->examples !=NULL) u->layer->setExample(app->examples[iex]);
+
         /* Apply the layer */
         u->layer->applyFWD(u->state[iex]);
     }
@@ -91,27 +95,13 @@ my_Init(braid_App     app,
         }
     }
 
-    /* Apply the opening layer */ 
-    if (t == 0)
-    {
-        Layer* openlayer = app->network->getLayer(-1);
-        // printf("%d: Init %f: layer %d using %1.14e state %1.14e, %d\n", app->myid, t, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getnDesign());
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            /* set example */
-            if (app->examples !=NULL) openlayer->setExample(app->examples[iex]);
 
-            /* Apply the layer */
-            openlayer->applyFWD(u->state[iex]);
-        }
-    }
-
-    /* Set the layer pointer */
-    if (t >=0 ) // this should always be the case...
+    /* Initialize the design (if adjoint: nonphysical time t=-1.0) */
+    if (t >=0 )
     {
         /* Store a pointer to the layer design */
         int ilayer  = GetTimeStepIndex(app, t);
-        u->layer = app->network->getLayer(ilayer);  // this is either a hidden or a classification layer
+        u->layer = app->network->getLayer(ilayer);
     }
     u->sendflag = -1.0;
     
@@ -426,10 +416,12 @@ my_Step_Adj(braid_App        app,
     uprimal->layer->setDt(deltaT);
     for (int iex = 0; iex < nexamples; iex++)
     {
+        if (app->examples !=NULL) uprimal->layer->setExample(app->examples[iex]);
+
         uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
     }
 
-    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, adj %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->state[1][1], u->state[1][1], uprimal->layer->getWeightsBar()[0],  uprimal->layer->getnDesign());
+    // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_start, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->userVector->state[1][1], uprimal->layer->getWeightsBar()[0], uprimal->layer->getnDesign());
 
     /* Derivative of DDT-Regularization */
     if (compute_gradient) 
@@ -498,7 +490,7 @@ my_Init_Adj(braid_App     app,
         /* Derivative of tikhonov regularization) */
         layer->evalTikh_diff(1.0);
  
-    //    printf("%d: Init_adj Loss at %d, using %1.14e, primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], primalstate[1][1], u->state[1][1], layer->getWeightsBar()[0]);
+       // printf("%d: BWD Loss at %d, using primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), primalstate[1][1], u->state[9][6], layer->getWeightsBar()[0]);
     }
 
     delete [] aux;
@@ -605,37 +597,29 @@ evalObjective(braid_Core core,
     MyReal accur_loc = 0.0; 
     braid_BaseVector ubase;
     braid_Vector     u;
-    Layer* layer;
 
-    /* Get range of locally stored layers */
-    int startlayerID = app->network->getStartLayerID();
-    int endlayerID   = app->network->getEndLayerID();
-    if (startlayerID == 0) startlayerID -= 1; // this include opening layer (id = -1) at first processor 
-
-    /* Iterate over the local layers */
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
+    for (int ilayer = 0; ilayer < app->network->getnLayers(); ilayer++)
     {
-        /* Get the layer */
-        layer = app->network->getLayer(ilayer); 
+        /* Get braid vector at this time step */
+        _braid_UGetVectorRef(core, 0, ilayer, &ubase);
 
-         /* Tikhonov - Regularization*/
-        regul += layer->evalTikh();
-
-        /* DDT - Regularization on intermediate layers */
-        regul += layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
-
-        /* At last layer: Classification and Loss evaluation */ 
-        if (ilayer == app->network->getnLayers()-2)
+        if (ubase != NULL) // this is only true on one processor (the one that stores u)
         {
-            _braid_UGetVectorRef(core, 0, ilayer, &ubase);
+            /* Get vector u */
             u = ubase->userVector;
-            layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
+
+             /* Tikhonov - Regularization*/
+            regul += u->layer->evalTikh();
+
+            /* DDT - Regularization on intermediate layers */
+            regul += u->layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
+
+            /* Classification and Loss evaluation */ 
+            u->layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
             loss     += loss_loc;
             accuracy += accur_loc;
         }
-        // printf("%d: layer %d using %1.14e \n", app->myid, layer->getIndex(), layer->getWeights()[0]);
     }
-
 
     /* Collect objective function from all processors */
     MyReal myobjective = loss + regul;
@@ -658,8 +642,6 @@ evalObjectiveDiff(braid_Core core_adj,
     braid_Vector      uprimal, uadjoint;
     int warm_restart = _braid_CoreElt(core_adj, warm_restart);
 
-    /* Only gradient for primal time step N here. Other time steps are in my_Step_adj. */
-
     /* If warm_restart: set adjoint initial condition here. Otherwise it's set in my_Init_Adj */
     if (warm_restart)
     {
@@ -675,8 +657,6 @@ evalObjectiveDiff(braid_Core core_adj,
             /* Reset the gradient before updating it */
             uprimal->layer->resetBar();
 
-            // printf("%d: Eval objective_diff at ilayer %d using %1.14e primal %1.14e\n", app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0], uprimal->state[1][1]);
-
             /* Derivative of classification */
             uprimal->layer->evalClassification_diff(app->nexamples, uprimal->state, uadjoint->state, app->labels, 1);
 
@@ -685,31 +665,3 @@ evalObjectiveDiff(braid_Core core_adj,
         }
     }
 }              
-
-
-void 
-evalInitDiff(braid_Core core_adj,
-             braid_App  app)
-{
-    Layer* openlayer = app->network->getLayer(-1);
-    int    nexamples = app->nexamples;
-    braid_BaseVector ubase;
-
-    /* Get \bar y^0 (which is the LAST xbraid vector, stored on proc 0) */
-    _braid_UGetLast(core_adj, &ubase); 
-    if (ubase != NULL) // This is true only on first processor (reverted ranks!)
-    {
-        /* Apply opening layer backwards for all examples */ 
-        for (int iex = 0; iex < nexamples; iex++)
-        {
-            openlayer->setExample(app->examples[iex]);
-            /* TODO: Don't feed applyBWD with NULL! */
-            openlayer->applyBWD(NULL, ubase->userVector->state[iex], 1); 
-        }
-        // printf("%d: Init_diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", app->myid, openlayer->getIndex(), openlayer->getWeights()[3], ubase->userVector->state[1][1], openlayer->getWeightsBar()[0] );
-
-        /* Derivative of Tikhonov Regularization */
-        openlayer->evalTikh_diff(1.0);
-    }
-
-}         

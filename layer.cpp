@@ -1040,24 +1040,28 @@ updateWeightDerivative(MyReal* state,
                        int k,            /* pixel index */
                        int img_size_sqrt)
 {
+   int fcsize_s_l = -fcsize;
+   int fcsize_s_u =  fcsize;
+   int fcsize_t_l = -fcsize;
+   int fcsize_t_u =  fcsize;
+   
+   if((j+fcsize_s_l) < 0) fcsize_s_l = -j;
+   if((k+fcsize_t_l) < 0) fcsize_t_l = -k;
+   if((j+fcsize_s_u) >= img_size_sqrt) fcsize_s_u = img_size_sqrt-j-1;
+   if((k+fcsize_t_u) >= img_size_sqrt) fcsize_t_u = img_size_sqrt-k-1;
+
    for(int input_image = 0; input_image < nconv; input_image++) {
       int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
    
       // weight derivative
-      for(int s = -fcsize; s <= fcsize; s++)
+      for(int s = fcsize_s_l; s <= fcsize_s_u; s++)
       {
-         for(int t = -fcsize; t <= fcsize; t++)
+         for(int t = fcsize_t_l; t <= fcsize_t_u; t++)
          {
             int wght_idx = output_conv*csize2*nconv + input_image*csize2 + ( s+fcsize)*csize + ( t+fcsize);
-            if(    ((j+s) >= 0)
-                && ((j+s) < img_size_sqrt) 
-                && ((k+t) >= 0) 
-                && ((k+t) < img_size_sqrt))
-            {
-               int offset = s*img_size_sqrt + t;
+            int offset = s*img_size_sqrt + t;
    
-               weights_bar[wght_idx] += update_bar[center_index]*state[center_index+offset];
-            }
+            weights_bar[wght_idx] += update_bar[center_index]*state[center_index+offset];
          }
       }
    }

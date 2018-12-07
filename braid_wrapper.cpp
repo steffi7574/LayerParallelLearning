@@ -588,6 +588,37 @@ my_BufUnpack_Adj(braid_App           app,
     return 0;
 }
 
+void
+evalInit(braid_Core core,
+         braid_App   app)
+{
+    Layer* openlayer = app->network->getLayer(-1);
+    int    nexamples = app->nexamples;
+    braid_BaseVector ubase;
+    braid_Vector     u;
+
+
+    /* Apply initial condition if warm_restart (otherwise it is set in my_Init() */
+    if (_braid_CoreElt(core, warm_restart)) 
+    {
+        /* Get vector at t == 0 */
+        _braid_UGetVectorRef(core, 0, 0, &ubase);
+        if (ubase != NULL) // only true on first processor 
+        {
+            u = ubase->userVector;
+
+            /* Apply opening layer */
+            for (int iex = 0; iex < nexamples; iex++)
+            {
+                /* set example */
+                if (app->examples !=NULL) openlayer->setExample(app->examples[iex]);
+
+                /* Apply the layer */
+                openlayer->applyFWD(u->state[iex]);
+            } 
+        }
+    }
+}
 
 
 void

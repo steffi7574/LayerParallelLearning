@@ -142,6 +142,11 @@ my_BufUnpack_Adj(braid_App           app,
                  braid_BufferStatus  bstatus);
 
 
+void
+evalInit(braid_Core core,
+         braid_App   app);
+
+
 void  
 evalObjective(braid_Core  core,
               braid_App   app,     

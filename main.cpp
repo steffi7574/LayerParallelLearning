@@ -686,29 +686,10 @@ int main (int argc, char *argv[])
         /* Solve state equation with braid */
         nreq = -1;
         braid_SetPrintLevel(core_train, braid_printlevel);
-
-        /* Apply initial condition if warm_restart (i.e. iter>0)*/
-        if (_braid_CoreElt(core_train, warm_restart)) 
-        {
-            _braid_UGetVectorRef(core_train, 0, 0, &ubase);
-            if (ubase != NULL) // only true on first processor 
-            {
-                u = ubase->userVector;
-                Layer* openlayer = app_train->network->getLayer(-1);
-                for (int iex = 0; iex < app_train->nexamples; iex++)
-                {
-                    /* set example */
-                    if (app_train->examples !=NULL) openlayer->setExample(app_train->examples[iex]);
-                    /* Apply the layer */
-                    openlayer->applyFWD(u->state[iex]);
-                } 
-            }
-        }
-
+        evalInit(core_train, app_train);
         braid_Drive(core_train);
-        braid_GetRNorms(core_train, &nreq, &rnorm);
-        /* Evaluat objective function */
         evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
+        braid_GetRNorms(core_train, &nreq, &rnorm);
 
 
         /* Solve adjoint equation with XBraid */
@@ -716,15 +697,15 @@ int main (int argc, char *argv[])
         braid_SetPrintLevel(core_adj, braid_printlevel);
         evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
-        braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
-        /* Derivative of opening layer */
         evalInitDiff(core_adj, app_train);
+        braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
 
         /* --- Validation data: Get accuracy --- */
 
         if ( validationlevel > 0 )
         {
             braid_SetPrintLevel( core_val, 1);
+            evalInit(core_val, app_val);
             braid_Drive(core_val);
             /* Get loss and accuracy */
             _braid_UGetLast(core_val, &ubase);
@@ -821,6 +802,7 @@ int main (int argc, char *argv[])
         {
             /* Compute new objective function value for current trial step */
             braid_SetPrintLevel(core_train, 0);
+            evalInit(core_train, app_train);
             braid_Drive(core_train);
             evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
@@ -882,6 +864,7 @@ int main (int argc, char *argv[])
     {
         if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
         braid_SetPrintLevel( core_val, 0);
+        evalInit(core_val, app_val);
         braid_Drive(core_val);
         /* Get loss and accuracy */
         _braid_UGetLast(core_val, &ubase);

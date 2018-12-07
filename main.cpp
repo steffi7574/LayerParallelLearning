@@ -686,6 +686,25 @@ int main (int argc, char *argv[])
         /* Solve state equation with braid */
         nreq = -1;
         braid_SetPrintLevel(core_train, braid_printlevel);
+
+        /* Apply initial condition if warm_restart (i.e. iter>0)*/
+        if (_braid_CoreElt(core_train, warm_restart)) 
+        {
+            _braid_UGetVectorRef(core_train, 0, 0, &ubase);
+            if (ubase != NULL) // only true on first processor 
+            {
+                u = ubase->userVector;
+                Layer* openlayer = app_train->network->getLayer(-1);
+                for (int iex = 0; iex < app_train->nexamples; iex++)
+                {
+                    /* set example */
+                    if (app_train->examples !=NULL) openlayer->setExample(app_train->examples[iex]);
+                    /* Apply the layer */
+                    openlayer->applyFWD(u->state[iex]);
+                } 
+            }
+        }
+
         braid_Drive(core_train);
         braid_GetRNorms(core_train, &nreq, &rnorm);
         /* Evaluat objective function */

@@ -699,6 +699,8 @@ evalInitDiff(braid_Core core_adj,
     _braid_UGetLast(core_adj, &ubase); 
     if (ubase != NULL) // This is true only on first processor (reverted ranks!)
     {
+        openlayer->resetBar();
+        
         /* Apply opening layer backwards for all examples */ 
         for (int iex = 0; iex < nexamples; iex++)
         {

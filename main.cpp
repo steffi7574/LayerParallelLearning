@@ -546,9 +546,7 @@ int main (int argc, char *argv[])
 
     /* Create network and layers */
     network = new Network(nlayers,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nhiddenlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
-
-    /* Get local and global number of design variables. */ 
-    ndesign_local  = network->getnDesignLocal();
+    ndesign_local  = network->getnDesign();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     int startid = ilower;

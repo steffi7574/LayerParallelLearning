@@ -60,7 +60,7 @@ Network::Network(int    nLayersGlobal,
 
 
     /* --- Create the layers --- */
-    ndesign_loc = 0;
+    ndesign = 0;
 
     /* Create Opening layer */
     if (startlayerID == 0)
@@ -68,8 +68,8 @@ Network::Network(int    nLayersGlobal,
         /* Create the opening layer */
         int index = -1;
         openlayer = createLayer(index, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
-        ndesign_loc += openlayer->getnDesign();
-        // printf("Create opening layer %d, ndesign_loc %d \n", index, openlayer->getnDesign());
+        ndesign += openlayer->getnDesign();
+        // printf("Create opening layer %d, ndesign %d \n", index, openlayer->getnDesign());
     }
 
    /* Create intermediate layers and classification layer */
@@ -79,14 +79,14 @@ Network::Network(int    nLayersGlobal,
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
-        ndesign_loc += layers[storeID]->getnDesign();
-        // printf("creating hidden/class layer %d/%d, ndesign_loc%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
+        ndesign += layers[storeID]->getnDesign();
+        // printf("creating hidden/class layer %d/%d, ndesign%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
 
 
     /* Allocate memory for network design and gradient variables */
-    design   = new MyReal[ndesign_loc];
-    gradient = new MyReal[ndesign_loc];
+    design   = new MyReal[ndesign];
+    gradient = new MyReal[ndesign];
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
@@ -150,7 +150,7 @@ MyReal Network::getLoss() { return loss; }
 
 MyReal Network::getAccuracy() { return accuracy; }
 
-int Network::getnDesignLocal() { return ndesign_loc; }
+int Network::getnDesign() { return ndesign; }
 
 MyReal* Network::getDesign() { return design; }
        

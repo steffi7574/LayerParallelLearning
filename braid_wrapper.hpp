@@ -16,7 +16,6 @@ typedef struct _braid_App_struct
     int      nexamples;  /* Number of data examples */
     MyReal** examples;   /* Data examples */
     MyReal** labels;     /* Labels for the data examples */
-    int      ndesign_layermax;  /* Max. number of design vars over all layers */
 
     braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */
 } my_App;

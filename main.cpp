@@ -43,7 +43,6 @@ int main (int argc, char *argv[])
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
-    int      ndesign_layermax;          /**< Max. number of design variables over all hidden layers */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
     MyReal  *design=0;            /**< On root process: Global design vector */
     MyReal  *gradient=0;          /**< On root process: Global gradient vector */
@@ -549,10 +548,8 @@ int main (int argc, char *argv[])
     network = new Network(nlayers,ilower, iupper, nfeatures, nclasses, nchannels, activation, T/(MyReal)nhiddenlayers, gamma_tik, gamma_ddt, gamma_class, weights_open_init, networkType, type_openlayer);
 
     /* Get local and global number of design variables. */ 
-    ndesign_local          = network->getnDesignLocal();
-    int myndesign_layermax = network->getnDesignLayermax();
+    ndesign_local  = network->getnDesignLocal();
     MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&myndesign_layermax, &ndesign_layermax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     int startid = ilower;
     if (ilower == 0) startid = -1;
@@ -575,20 +572,18 @@ int main (int argc, char *argv[])
     MPI_GatherVector(network->getDesign(), ndesign_local, design, MASTER_NODE, MPI_COMM_WORLD);
 
     /* Initialize xbraid's app structure */
-    app_train->primalcore       = core_train;
-    app_train->myid             = myid;
-    app_train->network          = network;
-    app_train->nexamples        = ntraining;
-    app_train->examples         = train_examples;
-    app_train->labels           = train_labels;
-    app_train->ndesign_layermax = ndesign_layermax;
-    app_val->primalcore       = core_val;
-    app_val->myid             = myid;
-    app_val->network          = network;
-    app_val->nexamples        = nvalidation;
-    app_val->examples         = val_examples;
-    app_val->labels           = val_labels;
-    app_val->ndesign_layermax = ndesign_layermax;
+    app_train->primalcore  = core_train;
+    app_train->myid        = myid;
+    app_train->network     = network;
+    app_train->nexamples   = ntraining;
+    app_train->examples    = train_examples;
+    app_train->labels      = train_labels;
+    app_val->primalcore    = core_val;
+    app_val->myid          = myid;
+    app_val->network       = network;
+    app_val->nexamples     = nvalidation;
+    app_val->examples      = val_examples;
+    app_val->labels        = val_labels;
 
 
     /* Initialize hessian approximation on first processor */

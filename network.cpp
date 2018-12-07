@@ -252,24 +252,6 @@ Layer* Network::getLayer(int layerindex)
     return layer;
 }
 
-int Network::getnDesignLayermax()
-{
-    int ndesignlayer;
-    int max = 0;
-
-    /* Loop over all local layers */
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
-    {
-        if (ilayer < nlayers_global-2) // excludes classification layer
-        {
-            /* Update maximum */
-            ndesignlayer = layers[getLocalID(ilayer)]->getnDesign();
-            if ( ndesignlayer > max)  max = ndesignlayer;
-        }
-    }
-
-    return max;
-}
 
 void Network::initialize(MyReal Weight_open_init,
                          MyReal Weight_init,

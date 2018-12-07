@@ -36,10 +36,6 @@ Network::Network(int    nLayersGlobal,
     startlayerID     = StartLayerID;
     endlayerID       = EndLayerID;
     nlayers_local    = endlayerID - startlayerID + 1;
-    openlayer        = NULL;
-    layers           = NULL;
-    layer_left       = NULL;
-    layer_right      = NULL;
 
     nchannels        = nChannels;
     dt               = deltaT;
@@ -58,29 +54,17 @@ Network::Network(int    nLayersGlobal,
         exit(1);
     }
 
+    printf("creating layers startid %d endid %d, nlayer_local %d\n", startlayerID, endlayerID, nlayers_local);
 
-    /* --- Create the layers --- */
-    ndesign = 0;
-
-    /* Create Opening layer */
-    if (startlayerID == 0)
-    {
-        /* Create the opening layer */
-        int index = -1;
-        openlayer = createLayer(index, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
-        ndesign += openlayer->getnDesign();
-        // printf("Create opening layer %d, ndesign %d \n", index, openlayer->getnDesign());
-    }
-
-   /* Create intermediate layers and classification layer */
+   /* --- Create the layers --- */
     layers  = new Layer*[nlayers_local];
+    ndesign = 0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
         ndesign += layers[storeID]->getnDesign();
-        // printf("creating hidden/class layer %d/%d, ndesign%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
 
 
@@ -90,12 +74,10 @@ Network::Network(int    nLayersGlobal,
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
-    // printf("Left neighbour %d\n", leftID);
     layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
-    // printf("Right neighbour %d\n", rightID);
     layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
 }             
 
@@ -105,27 +87,22 @@ Network::Network(int    nLayersGlobal,
 
 Network::~Network()
 {
-    /* Delete openlayer */
-    if (openlayer != NULL) delete openlayer;
-
-    /* Delete intermediate and classification layers */
+    /* Delete the layers */
     for (int ilayer = 0; ilayer < nlayers_local; ilayer++)
     {
         delete layers[ilayer];
     }
     delete [] layers;
-
-    /* Delete design and gradient */
     delete [] design;
     delete [] gradient;
 
-    /* Delete neighbouring layer information */
     if (layer_left != NULL)
     {
         delete [] layer_left->getWeights();
         delete [] layer_left->getWeightsBar();
         delete layer_left;
     }
+
     if (layer_right != NULL)
     {
         delete [] layer_right->getWeights();
@@ -159,7 +136,7 @@ MyReal* Network::getGradient() { return gradient; }
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID()   { return endlayerID; }
 
-Layer* Network::createLayer(int    index, 
+Layer* Network::createLayer(int    ilayer, 
                             int    nFeatures,
                             int    nClasses,
                             int    Activation,
@@ -171,7 +148,7 @@ Layer* Network::createLayer(int    index,
                             int    type_openlayer)
 {
     Layer* layer = 0;
-    if (index == -1)  // Opening layer
+    if (ilayer == 0)  // Opening layer
     {
         switch ( networkType )
         {
@@ -198,23 +175,23 @@ Layer* Network::createLayer(int    index,
                 break;
         }
     }
-    else if (0 <= index && index < nlayers_global-2) // Intermediate layer
+    else if (0 < ilayer && ilayer < nlayers_global-1) // Intermediate layer
     {
         switch ( networkType )
         {
             case DENSE:
-                layer = new DenseLayer(index, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
+                layer = new DenseLayer(ilayer, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
                 break;
             case CONVOLUTIONAL:
                 // TODO: Fix
                 int convolution_size = 3;
-                layer = new ConvLayer(index, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
+                layer = new ConvLayer(ilayer, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
                 break;
         }
     }
-    else if (index == nlayers_global-2) // Classification layer 
+    else if (ilayer == nlayers_global-1) // Classification layer 
     {
-        layer = new ClassificationLayer(index, nchannels, nClasses, Gamma_class);
+        layer = new ClassificationLayer(ilayer, nchannels, nClasses, Gamma_class);
     }
     else
     {
@@ -228,19 +205,15 @@ Layer* Network::getLayer(int layerindex)
 {
     Layer* layer;
 
-    if (layerindex == -1)  // opening layer
-    {
-        layer = openlayer;
-    }
-    else if (layerindex == startlayerID - 1)  
+    if (layerindex == startlayerID - 1)
     {
         layer = layer_left;
     } 
-    else if (startlayerID <= layerindex && layerindex <= endlayerID) 
+    else if (startlayerID <= layerindex && layerindex <= endlayerID)
     {
         layer = layers[getLocalID(layerindex)];
     }
-    else if (layerindex == endlayerID + 1)  
+    else if (layerindex == endlayerID + 1)
     {
         layer = layer_right;
     }
@@ -265,29 +238,13 @@ void Network::initialize(MyReal Weight_open_init,
 
     /* Initialize  the layer weights and bias  */
     int istart = 0;
-
-    /* Opening layer on first processor */
-    if (startlayerID == 0)
-    {
-        /* Set memory location for design and scale design by the factor */
-        factor = Weight_open_init;
-        openlayer->initialize(&(design[istart]), &(gradient[istart]), factor);
-
-        /* if set, overwrite opening design from file */
-        if (strcmp(weightsopenfile, "NONE") != 0)
-        {
-           sprintf(filename, "%s/%s", datafolder, weightsopenfile);
-           read_vector(filename, &(design[istart]), openlayer->getnDesign());
-        }
-
-        /* Increase counter */ 
-        istart += openlayer->getnDesign();
-    }
-
-    /* Intermediate (hidden) and classification layers */
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
-        if (ilayer < nlayers_global-1) // Intermediate layer
+        if (ilayer == 0)  // Opening layer
+        {
+            factor = Weight_open_init;
+        }
+        else if (0 < ilayer && ilayer < nlayers_global-1) // Intermediate layer
         {
             factor = Weight_init;
         }
@@ -295,17 +252,25 @@ void Network::initialize(MyReal Weight_open_init,
         {
             factor = Classification_init;
         }
-
-        /* Set memory location and scale the current design by the factor */
         int storeID = getLocalID(ilayer);
+
+        /* Scale the current design by the factor */
         layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), factor);
 
-        /* if set, overwrite classification design from file */
+        /* if set, read opening or classification layer */
         if (ilayer == nlayers_global-1)
         {
             if (strcmp(weightsclassificationfile, "NONE") != 0)
             {
                 sprintf(filename, "%s/%s", datafolder, weightsclassificationfile);
+                read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
+            }
+        }
+        if (ilayer == 0)
+        {
+            if (strcmp(weightsopenfile, "NONE") != 0)
+            {
+                sprintf(filename, "%s/%s", datafolder, weightsopenfile);
                 read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
             }
         }

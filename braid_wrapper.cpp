@@ -664,7 +664,7 @@ evalObjective(braid_Core core,
             loss     += loss_loc;
             accuracy += accur_loc;
         }
-        // printf("%d: layer %d using %1.14e \n", app->myid, layer->getIndex(), layer->getWeights()[0]);
+        // printf("%d: layerid %d using %1.14e, tik %1.14e, ddt %1.14e, loss %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], regultik, regulddt, loss_loc);
     }
 
 
@@ -706,7 +706,7 @@ evalObjectiveDiff(braid_Core core_adj,
             /* Reset the gradient before updating it */
             uprimal->layer->resetBar();
 
-            // printf("%d: Eval objective_diff at ilayer %d using %1.14e primal %1.14e\n", app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0], uprimal->state[1][1]);
+            // printf("%d: objective_diff at ilayer %d using %1.14e primal %1.14e\n", app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0], uprimal->state[1][1]);
 
             /* Derivative of classification */
             uprimal->layer->evalClassification_diff(app->nexamples, uprimal->state, uadjoint->state, app->labels, 1);
@@ -739,6 +739,7 @@ evalInitDiff(braid_Core core_adj,
             /* TODO: Don't feed applyBWD with NULL! */
             openlayer->applyBWD(NULL, ubase->userVector->state[iex], 1); 
         }
+
         // printf("%d: Init_diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", app->myid, openlayer->getIndex(), openlayer->getWeights()[3], ubase->userVector->state[1][1], openlayer->getWeightsBar()[0] );
 
         /* Derivative of Tikhonov Regularization */

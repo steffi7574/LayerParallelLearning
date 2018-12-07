@@ -364,6 +364,9 @@ class ClassificationLayer : public Layer
  */
 class ConvLayer : public Layer {
 
+     int csize2;
+     int fcsize;
+
   public:
       ConvLayer(int     idx,
                 int     dimI,
@@ -386,8 +389,13 @@ class ConvLayer : public Layer {
                       int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k,              // column index
-                      int     img_size_sqrt,  // sqrt of the image size
-                      bool    transpose);     // apply the tranpose of the kernel
+                      int     img_size_sqrt); // sqrt of the image size
+
+      MyReal apply_conv_trans(MyReal* state,        // state vector to apply convolution to 
+                      int     output_conv,    // output convolution
+                      int     j,              // row index
+                      int     k,              // column index
+                      int     img_size_sqrt); // sqrt of the image size
 
       /** 
        * This method is designed to be used only in the applyBWD. It computes the

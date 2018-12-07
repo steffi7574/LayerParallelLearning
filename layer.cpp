@@ -1008,6 +1008,9 @@ ConvLayer::ConvLayer(int     idx,
    csize = csize_in;
    nconv = nconv_in;
 
+   fcsize = floor(csize/2.0);
+   csize2 = csize*csize;
+
    // nweights = csize*csize*nconv*nconv;
    // ndesign = nweights + dimI/nconv; // must add to account for the bias
 }
@@ -1037,7 +1040,6 @@ updateWeightDerivative(MyReal* state,
                        int k,            /* pixel index */
                        int img_size_sqrt)
 {
-   int fcsize = floor(csize/2.0);
    for(int input_image = 0; input_image < nconv; input_image++) {
       int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
    
@@ -1046,7 +1048,7 @@ updateWeightDerivative(MyReal* state,
       {
          for(int t = -fcsize; t <= fcsize; t++)
          {
-            int wght_idx = output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+            int wght_idx = output_conv*csize2*nconv + input_image*csize2 + ( s+fcsize)*csize + ( t+fcsize);
             if(    ((j+s) >= 0)
                 && ((j+s) < img_size_sqrt) 
                 && ((k+t) >= 0) 
@@ -1065,28 +1067,10 @@ MyReal ConvLayer::apply_conv(MyReal* state,
                              int output_conv,  /* output convolution */
                              int j,            /* pixel index */
                              int k,            /* pixel index */
-                             int img_size_sqrt,
-                             bool transpose)
+                             int img_size_sqrt)
 {
    MyReal val = 0.0;
    MyReal * weights_local = weights;
-   int fcsize = floor(csize/2.0);
-
-   /*
-      // for testing
-      if(false)
-      {
-         weights_local = new MyReal[csize*csize];
-         MyReal value = 0.1;
-         for(int s = -fcsize; s <= fcsize; s++) {
-            for(int t = -fcsize; t <= fcsize; t++) {
-               int wght_idx =  (t+fcsize)*csize + (s+fcsize);
-               weights_local[wght_idx] = value;
-               value += 0.1;
-            }
-         }
-      }
-   */
 
    /* loop over all the images */
    for(int input_image = 0; input_image < nconv; input_image++) {
@@ -1096,30 +1080,51 @@ MyReal ConvLayer::apply_conv(MyReal* state,
       {
          for(int t = -fcsize; t <= fcsize; t++)
          {
-            int offset = transpose 
-                         ? -s*img_size_sqrt - t
-                         :  s*img_size_sqrt + t;
-            int wght_idx =  output_conv*csize*csize*nconv + input_image*csize*csize + ( s+fcsize)*csize + ( t+fcsize);
+            int offset = s*img_size_sqrt + t;
+            int wght_idx =  output_conv*csize2*nconv + input_image*csize2 + ( s+fcsize)*csize + ( t+fcsize);
    
             // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
-            if(not transpose) {
-              if(   ((j+s) >= 0) 
-                 && ((j+s) < img_size_sqrt) 
-                 && ((k+t) >= 0) 
-                 && ((k+t) < img_size_sqrt))
-              {
-                 val += state[center_index + offset]*weights_local[wght_idx];
-              }
-            }
-            else
+            if(   ((j+s) >= 0) 
+                && ((j+s) < img_size_sqrt) 
+                && ((k+t) >= 0) 
+                && ((k+t) < img_size_sqrt))
             {
-              if(    ((j-s) >= 0) 
-                  && ((j-s) < img_size_sqrt) 
-                  && ((k-t) >= 0) 
-                  && ((k-t) < img_size_sqrt))
-              {
-                 val += state[center_index + offset]*weights_local[wght_idx];
-              }
+              val += state[center_index + offset]*weights_local[wght_idx];
+            }
+         }
+      }
+   }
+
+   return val;
+}
+
+MyReal ConvLayer::apply_conv_trans(MyReal* state, 
+                             int output_conv,  /* output convolution */
+                             int j,            /* pixel index */
+                             int k,            /* pixel index */
+                             int img_size_sqrt)
+{
+   MyReal val = 0.0;
+   MyReal * weights_local = weights;
+
+   /* loop over all the images */
+   for(int input_image = 0; input_image < nconv; input_image++) {
+      int center_index = input_image*img_size_sqrt*img_size_sqrt + j*img_size_sqrt + k;
+      
+      for(int s = -fcsize; s <= fcsize; s++)
+      {
+         for(int t = -fcsize; t <= fcsize; t++)
+         {
+            int offset = -s*img_size_sqrt - t;
+            int wght_idx =  output_conv*csize2*nconv + input_image*csize2 + ( s+fcsize)*csize + ( t+fcsize);
+   
+            // this conditional prevent you from running off the rails, no that the transpose version is negative (correct?)
+            if(    ((j-s) >= 0) 
+                && ((j-s) < img_size_sqrt) 
+                && ((k-t) >= 0) 
+                && ((k-t) < img_size_sqrt))
+            {
+               val += state[center_index + offset]*weights_local[wght_idx];
             }
          }
       }
@@ -1134,8 +1139,6 @@ void ConvLayer::applyFWD(MyReal* state)
    int img_size = dim_In / nconv;
    int img_size_sqrt = round(sqrt(img_size));
 
-   const bool no_transpose = false;
-
    for(int i = 0; i < nconv; i++)
    {
       for(int j = 0; j < img_size_sqrt; j++)
@@ -1144,7 +1147,7 @@ void ConvLayer::applyFWD(MyReal* state)
          {
             int state_index = i*img_size + j*img_size_sqrt + k;
 
-            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt, no_transpose) + bias[j*img_size_sqrt+k];
+            update[state_index] = apply_conv(state, i, j, k, img_size_sqrt) + bias[j*img_size_sqrt+k];
          }
       }
    }
@@ -1221,7 +1224,7 @@ void ConvLayer::applyBWD(MyReal* state,
              int state_index = i*img_size + j*img_size_sqrt + k;
 
              /* compute the affine transformation */
-             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt,no_transpose) + bias[j*img_size_sqrt+k];
+             update[state_index]     = apply_conv(state, i, j, k, img_size_sqrt) + bias[j*img_size_sqrt+k];
 
              /* derivative of the update, this is the contribution from old time */
              update_bar[state_index] = dt * dactivation(update[state_index]) * state_bar[state_index];
@@ -1246,7 +1249,7 @@ void ConvLayer::applyBWD(MyReal* state,
             if (compute_gradient) updateWeightDerivative(state,update_bar,i,j,k,img_size_sqrt);
 
             // next adjoint step
-            state_bar[state_index] = state_bar[state_index] + apply_conv(update_bar, i, j, k, img_size_sqrt,transpose);
+            state_bar[state_index] = state_bar[state_index] + apply_conv_trans(update_bar, i, j, k, img_size_sqrt);
          }
       }
 

@@ -1035,7 +1035,7 @@ ConvLayer::~ConvLayer() {}
  * Where state_bar _must_ be at the old time. Note that the adjoint variable
  * state_bar carries withit all the information of the objective derivative.
  */
-double ConvLayer::
+MyReal ConvLayer::
 updateWeightDerivative(MyReal* state, 
 		       MyReal* update_bar, 
                        int output_conv,  /* output convolution */
@@ -1063,56 +1063,74 @@ updateWeightDerivative(MyReal* state,
    const int fcsize_t = fcsize_t_u-fcsize_t_l;
 
    int center_index = j*img_size_sqrt+k;
-   int input_wght_idx = output_conv*csize2*nconv;
+   int input_wght_idx = output_conv*csize2*nconv + fcsize*(csize+1);
+
+   int offset   =  fcsize_t_l + img_size_sqrt*fcsize_s_l;
+   int wght_idx =  fcsize_t_l+         csize*fcsize_s_l;
+
+   int offset_adj   = - fcsize_t_l_adj - img_size_sqrt*fcsize_s_l_adj;
+   int wght_idx_adj =   fcsize_t_l_adj +         csize*fcsize_s_l_adj;
 
    for(int input_image = 0; input_image < nconv; input_image++, 
                                                  center_index+= img_size,
                                                  input_wght_idx+=csize2)  
    {
-      double update_val = update_bar[center_index]; 
+      MyReal update_val = update_bar[center_index]; 
 
+      MyReal * state_base       = state      + center_index+ offset;
+      MyReal * weights_bar_base = weights_bar + input_wght_idx + wght_idx;
+
+      MyReal * update_base  = update_bar  + center_index + offset_adj; 
+      MyReal * weights_base = weights     + input_wght_idx + wght_idx_adj;
+
+      // weight derivative
+      for(int s = 0; s <= fcsize_s; s++, 
+                                    state_base+=img_size_sqrt, 
+                                    weights_bar_base+=csize,
+                                    update_base-=img_size_sqrt, 
+                                    weights_base+=csize)
       {
-        int offset   = center_index + fcsize_t_l;
-        int wght_idx = input_wght_idx+fcsize*(csize+1) + fcsize_t_l;
+        MyReal * state_local       = state_base;
+        MyReal * weights_bar_local = weights_bar_base;
 
-        double * state_base       = state       + offset   + img_size_sqrt*fcsize_s_l;
-        double * weights_bar_base = weights_bar + wght_idx +         csize*fcsize_s_l;
+        MyReal * update_local  = update_base;
+        MyReal * weights_local = weights_base;
 
-        // weight derivative
-        for(int s = 0; s <= fcsize_s; s++, state_base+=img_size_sqrt, 
-            weights_bar_base+=csize)
+        for(int t = 0; t <= fcsize_t; t++,
+                                      state_local++,
+                                      weights_bar_local++,
+                                      update_local--,
+                                      weights_local++)
         {
-          double * state_local = state_base;
-          double * weights_bar_local = weights_bar_base;
-          for(int t = 0; t <= fcsize_t; t++,
-              state_local++,
-              weights_bar_local++)
-          {
-            (*weights_bar_local) += update_val*(*state_local);
-          }
+          (*weights_bar_local) += update_val*(*state_local);
+          val += (*update_local)*(*weights_local);
         }
       }
 
+/*
       {
-        int offset   = center_index   - fcsize_t_l_adj;
-        int wght_idx = input_wght_idx + fcsize*(csize+1) + fcsize_t_l_adj;
+        int offset_adj   = center_index   - fcsize_t_l_adj;
+        int wght_idx_adj = input_wght_idx + fcsize*(csize+1) + fcsize_t_l_adj;
 
-        double * update_base   = update_bar  + offset   - img_size_sqrt*fcsize_s_l_adj;
-        double * weights_base = weights     + wght_idx +         csize*fcsize_s_l_adj;
+        MyReal * update_base   = update_bar  + offset_adj   - img_size_sqrt*fcsize_s_l_adj;
+        MyReal * weights_base = weights     + wght_idx_adj +         csize*fcsize_s_l_adj;
 
-        for(int s = 0; s <= fcsize_s; s++, update_base-=img_size_sqrt, 
+        for(int s = 0; s <= fcsize_s; s++, 
+                                           update_base-=img_size_sqrt, 
                                            weights_base+=csize)
         {
-          double * update_local = update_base;
-          double * weights_local = weights_base;
+          MyReal * update_local = update_base;
+          MyReal * weights_local = weights_base;
 
-          for(int t = 0; t <= fcsize_t; t++,update_local--,
-                                            weights_local++)
+          for(int t = 0; t <= fcsize_t; t++,
+                                        update_local--,
+                                        weights_local++)
           {
             val += (*update_local)*(*weights_local);
           }
         }
       }
+*/
    }
 
    return val;
@@ -1139,25 +1157,22 @@ MyReal ConvLayer::apply_conv(MyReal* state,
    const int fcsize_s = fcsize_s_u-fcsize_s_l;
    const int fcsize_t = fcsize_t_u-fcsize_t_l;
 
-   int center_index = j*img_size_sqrt+k;
-   int input_wght_idx = output_conv*csize2*nconv;
+   int center_index   = j*img_size_sqrt+k+fcsize_t_l + img_size_sqrt*fcsize_s_l;
+   int input_wght_idx = output_conv*csize2*nconv +fcsize*(csize+1) + fcsize_t_l+csize*fcsize_s_l;
 
    /* loop over all the images */
    for(int input_image = 0; input_image < nconv; input_image++, 
                                                  center_index+= img_size,
                                                  input_wght_idx+=csize2)  
    {
-      int offset   = center_index + fcsize_t_l;
-      int wght_idx = input_wght_idx+fcsize*(csize+1) + fcsize_t_l;
-
-      double * state_base   = state     + offset   + img_size_sqrt*fcsize_s_l;
-      double * weights_base = weights   + wght_idx +         csize*fcsize_s_l;
+      MyReal * state_base   = state     + center_index; 
+      MyReal * weights_base = weights   + input_wght_idx;
 
       for(int s = 0; s <= fcsize_s; s++, state_base+=img_size_sqrt, 
                                          weights_base+=csize)
       {
-         double * state_local = state_base;
-         double * weights_local = weights_base;
+         MyReal * state_local = state_base;
+         MyReal * weights_local = weights_base;
 
          for(int t = 0; t <= fcsize_t; t++,state_local++,weights_local++)
          {
@@ -1199,14 +1214,14 @@ MyReal ConvLayer::apply_conv_trans(MyReal* state,
       int offset   = center_index   - fcsize_t_l;
       int wght_idx = input_wght_idx + fcsize*(csize+1) + fcsize_t_l;
 
-      double * state_base   = state   + offset   - img_size_sqrt*fcsize_s_l;
-      double * weights_base = weights + wght_idx +         csize*fcsize_s_l;
+      MyReal * state_base   = state   + offset   - img_size_sqrt*fcsize_s_l;
+      MyReal * weights_base = weights + wght_idx +         csize*fcsize_s_l;
 
       for(int s = 0; s <= fcsize_s; s++, state_base-=img_size_sqrt, 
                                          weights_base+=csize)
       {
-         double * state_local = state_base;
-         double * weights_local = weights_base;
+         MyReal * state_local = state_base;
+         MyReal * weights_local = weights_base;
 
          for(int t = 0; t <= fcsize_t; t++,state_local--,weights_local++)
          {
@@ -1225,11 +1240,15 @@ void ConvLayer::applyFWD(MyReal* state)
    {
       for(int j = 0; j < img_size_sqrt; j++)
       {
-         for(int k = 0; k < img_size_sqrt; k++)
-         {
-            int state_index = i*img_size + j*img_size_sqrt + k;
+         int state_index = i*img_size + j*img_size_sqrt;
+         MyReal * update_local = update + state_index;
+         MyReal * bias_local = bias+j*img_size_sqrt;
 
-            update[state_index] = apply_conv(state, i, j, k) + bias[j*img_size_sqrt+k];
+         for(int k = 0; k < img_size_sqrt; k++,
+                                           update_local++,
+                                           bias_local++)
+         {
+            (*update_local) = apply_conv(state, i, j, k) + (*bias_local);
          }
       }
    }
@@ -1296,15 +1315,21 @@ void ConvLayer::applyBWD(MyReal* state,
       /* loop over full image */
       for(int j = 0; j < img_size_sqrt; j++)
       {
-         for(int k = 0; k < img_size_sqrt; k++)
-         {
-             int state_index = i*img_size + j*img_size_sqrt + k;
+         int state_index = i*img_size + j*img_size_sqrt;
+         MyReal * state_bar_local = state_bar + state_index;
+         MyReal * update_bar_local = update_bar + state_index;
+         MyReal * bias_local = bias+j*img_size_sqrt;
 
+         for(int k = 0; k < img_size_sqrt; k++,
+                                           state_bar_local++,
+                                           update_bar_local++,
+                                           bias_local++)
+         {
              /* compute the affine transformation */
-             double local_update     = apply_conv(state, i, j, k) + bias[j*img_size_sqrt+k];
+             MyReal local_update     = apply_conv(state, i, j, k) + (*bias_local);
 
              /* derivative of the update, this is the contribution from old time */
-             update_bar[state_index] = dt * dactivation(local_update) * state_bar[state_index];
+             (*update_bar_local) = dt * dactivation(local_update) * (*state_bar_local);
          }
       }
    }
@@ -1315,23 +1340,26 @@ void ConvLayer::applyBWD(MyReal* state,
       /* loop over full image */
       for(int j = 0; j < img_size_sqrt; j++)
       {
-         for(int k = 0; k < img_size_sqrt; k++)
+         int state_index = i*img_size + j*img_size_sqrt;
+
+         MyReal * state_bar_local = state_bar + state_index;
+         MyReal * update_bar_local = update_bar + state_index;
+         MyReal * bias_bar_local = bias_bar+j*img_size_sqrt;
+
+         for(int k = 0; k < img_size_sqrt; k++,
+                                           state_bar_local++,
+                                           update_bar_local++,
+                                           bias_bar_local++)
          {
-            int state_index = i*img_size + j*img_size_sqrt + k;
-
-            // bias derivative
-            double deriv_value = 0.0;
-            if (compute_gradient) {
-              bias_bar[j*img_size_sqrt+k] += update_bar[state_index];
-
-              deriv_value = updateWeightDerivative(state,update_bar,i,j,k);
+            if (compute_gradient) 
+            {
+               (*bias_bar_local) += (*update_bar_local);
+ 
+               (*state_bar_local) += updateWeightDerivative(state,update_bar,i,j,k);
             }
             else {
-              deriv_value = apply_conv_trans(update_bar, i, j, k);
+               (*state_bar_local) +=  apply_conv_trans(update_bar, i, j, k);
             }
-
-            // next adjoint step
-            state_bar[state_index] = state_bar[state_index] + deriv_value;
          }
       }
 

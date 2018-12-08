@@ -388,7 +388,7 @@ class ConvLayer : public Layer {
                     MyReal* state_bar,
                     int     compute_gradient);
 
-      MyReal apply_conv(MyReal* state,        // state vector to apply convolution to 
+      inline MyReal apply_conv(MyReal* state,        // state vector to apply convolution to 
                       int     output_conv,    // output convolution
                       int     j,              // row index
                       int     k);             // column index
@@ -415,7 +415,7 @@ class ConvLayer : public Layer {
        *
        * On exit this method modifies weights_bar
        */
-      MyReal updateWeightDerivative(
+      inline MyReal updateWeightDerivative(
                       MyReal* state,          // state vector
                       MyReal * update_bar,    // combines derivative and adjoint info (see comments)
                       int     output_conv,    // output convolution

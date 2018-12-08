@@ -1256,7 +1256,8 @@ void ConvLayer::applyFWD(MyReal* state)
    /* Apply step */
    for (int io = 0; io < dim_Out; io++)
    {
-      state[io] = state[io] + dt * activation(update[io]);
+      // state[io] = state[io] + dt * activation(update[io]);
+      state[io] = state[io] + dt * tanh(update[io]);
    }
 }
 
@@ -1329,7 +1330,8 @@ void ConvLayer::applyBWD(MyReal* state,
              MyReal local_update     = apply_conv(state, i, j, k) + (*bias_local);
 
              /* derivative of the update, this is the contribution from old time */
-             (*update_bar_local) = dt * dactivation(local_update) * (*state_bar_local);
+             // (*update_bar_local) = dt * dactivation(local_update) * (*state_bar_local);
+             (*update_bar_local) = dt * (1.0-pow(tanh(local_update),2)) * (*state_bar_local);
          }
       }
    }

@@ -14,7 +14,7 @@ int GetTimeStepIndex(braid_App app,
 int GetPrimalIndex(braid_App app,
                    int       ts)
 {
-    int idx = app->network->getnLayers()-2 - ts;
+    int idx = app->network->getnLayersGlobal() - 2 - ts;
     return idx;
 }       
 
@@ -663,7 +663,7 @@ evalObjective(braid_Core core,
         regul += layer->evalRegulDDT(app->network->getLayer(ilayer-1), app->network->getDT());
 
         /* At last layer: Classification and Loss evaluation */ 
-        if (ilayer == app->network->getnLayers()-2)
+        if (ilayer == app->network->getnLayersGlobal()-2)
         {
             _braid_UGetVectorRef(core, 0, ilayer, &ubase);
             u = ubase->userVector;

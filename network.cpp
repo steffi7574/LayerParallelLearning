@@ -136,7 +136,7 @@ Network::~Network()
 
 int Network::getnChannels() { return nchannels; }
 
-int Network::getnLayers() { return nlayers_global; }
+int Network::getnLayersGlobal() { return nlayers_global; }
 
 MyReal Network::getDT() { return dt; }
 

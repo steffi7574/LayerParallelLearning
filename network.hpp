@@ -55,7 +55,7 @@ class Network
       int getnChannels();
 
       /* Get global number of layers */
-      int getnLayers();
+      int getnLayersGlobal();
 
       /* Get initial time step size */
       MyReal getDT();

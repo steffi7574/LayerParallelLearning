@@ -16,10 +16,6 @@
 #include "network.hpp"
 
 #define MASTER_NODE 0
-#define USE_BFGS  1
-#define USE_LBFGS 2
-#define USE_IDENTITY  3
-
 
 int main (int argc, char *argv[])
 {
@@ -65,7 +61,7 @@ int main (int argc, char *argv[])
     int      ls_maxiter;          /**< Max. number of linesearch iterations */
     MyReal   ls_factor;           /**< Reduction factor for linesearch */
     MyReal   ls_param;            /**< Parameter in wolfe condition test */
-    int      hessian_approx;      /**< Hessian approximation (USE_BFGS or L-BFGS) */
+    int      hessianapprox_type;      /**< flag for Hessian approximation */
     int      lbfgs_stages;        /**< Number of stages of L-bfgs method */
     int      validationlevel;     /**< level for determine frequency of validation computations */
     /* --- PinT --- */
@@ -151,7 +147,7 @@ int main (int argc, char *argv[])
     weights_init       = 0.0;
     weights_class_init = 0.001;
     type_openlayer     = 0;
-    hessian_approx     = USE_LBFGS;
+    hessianapprox_type = HessianApprox::LBFGS;
     lbfgs_stages       = 20;
     validationlevel    = 1;
     datafolder         = "NONE";
@@ -398,15 +394,15 @@ int main (int argc, char *argv[])
         {
             if ( strcmp(co->value, "BFGS") == 0 )
             {
-                hessian_approx = USE_BFGS;
+                hessianapprox_type = HessianApprox::BFGS;
             }
             else if (strcmp(co->value, "L-BFGS") == 0 )
             {
-                hessian_approx = USE_LBFGS;
+                hessianapprox_type = HessianApprox::LBFGS;
             }
             else if (strcmp(co->value, "Identity") == 0 )
             {
-                hessian_approx = USE_IDENTITY;
+                hessianapprox_type = HessianApprox::IDENTITY;
             }
             else
             {
@@ -564,15 +560,15 @@ int main (int argc, char *argv[])
     HessianApprox  *hessian = 0;
     if (myid == MASTER_NODE)
     {
-        switch (hessian_approx)
+        switch (hessianapprox_type)
         {
-            case USE_BFGS:
+            case HessianApprox::BFGS:
                 hessian = new BFGS(ndesign_global);
                 break;
-            case USE_LBFGS: 
+            case HessianApprox::LBFGS: 
                 hessian = new L_BFGS(ndesign_global, lbfgs_stages);
                 break;
-            case USE_IDENTITY:
+            case HessianApprox::IDENTITY:
                 hessian = new Identity(ndesign_global);
         }
     }
@@ -633,7 +629,7 @@ int main (int argc, char *argv[])
         fprintf(optimfile, "#                weights_init         %f \n", weights_init);
         fprintf(optimfile, "#                weights_open_init    %f \n", weights_open_init);
         fprintf(optimfile, "#                weights_class_init   %f \n", weights_class_init) ;
-        fprintf(optimfile, "#                hessian_approx       %d \n", hessian_approx);
+        fprintf(optimfile, "#                hessianapprox_type   %d \n", hessianapprox_type);
         fprintf(optimfile, "#                lbfgs_stages         %d \n", lbfgs_stages);
         fprintf(optimfile, "#                validationlevel      %d \n", validationlevel);
         fprintf(optimfile, "\n");

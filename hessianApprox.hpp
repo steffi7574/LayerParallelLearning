@@ -12,6 +12,8 @@ class HessianApprox {
       int dimN;             /* Dimension of the gradient vector */
 
    public:
+      enum hessiantype{BFGS=1, LBFGS=2, IDENTITY=3}; /* List available hessian types */
+
       HessianApprox();
       virtual ~HessianApprox();
 

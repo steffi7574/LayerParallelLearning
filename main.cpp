@@ -39,11 +39,10 @@ int main (int argc, char *argv[])
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal  *design=0;            /**< On root process: Global design vector */
-    MyReal  *gradient=0;          /**< On root process: Global gradient vector */
-    MyReal  *design0=0;           /**< On root process: Old design at last iteration */
-    MyReal  *gradient0=0;         /**< On root process: Old gradient at last iteration*/
-    MyReal  *descentdir=0;        /**< On root process: Direction for design updates */
+    MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
+    MyReal  *design0=0;           /**< Old design at previous iteration */
+    MyReal  *gradient0=0;         /**< Old gradient at previous iteration*/
+    MyReal  *descentdir=0;        /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
     MyReal   gamma_tik;           /**< Parameter for Tikhonov regularization of the weights and bias*/
@@ -100,7 +99,7 @@ int main (int argc, char *argv[])
     char* activname;
     char *datafolder, *ftrain_ex, *fval_ex, *ftrain_labels, *fval_labels;
     char *weightsopenfile, *weightsclassificationfile;
-    MyReal mygnorm, stepsize, ls_objective;
+    MyReal stepsize, ls_objective;
     int nreq = -1;
     int ls_iter;
     braid_BaseVector ubase;
@@ -530,16 +529,15 @@ int main (int argc, char *argv[])
     if (myid == MASTER_NODE)
     {
         srand(1.0);
-        design = new MyReal[ndesign_global];
+        design_init = new MyReal[ndesign_global];
         for (int i = 0; i < ndesign_global; i++)
         {
-            design[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
+            design_init[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
         }
     }
-    MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+    MPI_ScatterVector(design_init, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
     network->initialize(weights_open_init, weights_init, weights_class_init, datafolder, weightsopenfile, weightsclassificationfile);
     network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
-    MPI_GatherVector(network->getDesign(), ndesign_local, design, MASTER_NODE, MPI_COMM_WORLD);
 
     /* Initialize xbraid's app structure */
     app_train->primalcore  = core_train;
@@ -558,29 +556,22 @@ int main (int argc, char *argv[])
 
     /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian = 0;
-    if (myid == MASTER_NODE)
+    switch (hessianapprox_type)
     {
-        switch (hessianapprox_type)
-        {
-            case HessianApprox::BFGS:
-                hessian = new BFGS(ndesign_global);
-                break;
-            case HessianApprox::LBFGS: 
-                hessian = new L_BFGS(ndesign_global, lbfgs_stages);
-                break;
-            case HessianApprox::IDENTITY:
-                hessian = new Identity(ndesign_global);
-        }
+        case HessianApprox::BFGS:
+            hessian = new BFGS(ndesign_local);
+            break;
+        case HessianApprox::LBFGS: 
+            hessian = new L_BFGS(ndesign_local, lbfgs_stages);
+            break;
+        case HessianApprox::IDENTITY:
+            hessian = new Identity(ndesign_local);
     }
 
-    /* Allocate other optimization vars on first processor */
-    if (myid == MASTER_NODE)
-    {
-        gradient   = new MyReal[ndesign_global];
-        design0    = new MyReal[ndesign_global];
-        gradient0  = new MyReal[ndesign_global];
-        descentdir = new MyReal[ndesign_global];
-    }
+    /* Allocate old design and gradient vector and descentdirection */
+    design0    = new MyReal[ndesign_local];
+    gradient0  = new MyReal[ndesign_local];
+    descentdir = new MyReal[ndesign_local];
 
     /* Initialize optimization parameters */
     ls_param    = 1e-4;
@@ -689,13 +680,10 @@ int main (int argc, char *argv[])
 
         /* --- Optimization control and output ---*/
 
-        /* Compute and communicate gradient and its norm */
-        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
-        mygnorm = vec_normsq(ndesign_local, network->getGradient());
-        MPI_Allreduce(&mygnorm, &gnorm, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-        gnorm = sqrt(gnorm);
+        /* Compute global gradient norm */
+        gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
 
-        // /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
+        /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
         MyReal losstrain_out  = 0.0; 
         MyReal lossval_out    = 0.0; 
         MyReal accurtrain_out = 0.0; 
@@ -733,41 +721,32 @@ int main (int argc, char *argv[])
             }
             break;
         }
+
+
         /* --- Design update --- */
 
-        stepsize = stepsize_init;
-        /* Compute search direction on first processor */
-        if (myid == MASTER_NODE)
+        /* Compute search direction */
+        hessian->updateMemory(iter, network->getDesign(), design0, network->getGradient(), gradient0);
+        hessian->computeDescentDir(iter, network->getGradient(), descentdir);
+        
+        /* Store design and gradient into *0 vectors */
+        vec_copy(ndesign_local, network->getDesign(), design0);
+        vec_copy(ndesign_local, network->getGradient(), gradient0);
+
+        /* Compute wolfe condition */
+        wolfe = vecdot_par(ndesign_local, network->getGradient(), descentdir, MPI_COMM_WORLD);
+
+        /* Update the design using the initial stepsize */
+        for (int id = 0; id < ndesign_local; id++)
         {
-            /* Update the (L-)BFGS memory */
-            hessian->updateMemory(iter, design, design0, gradient, gradient0);
-            /* Compute descent direction */
-            hessian->computeDescentDir(iter, gradient, descentdir);
-            
-            // write_vector("gradient.dat", gradient, ndesign_global);
-            // write_vector("descentdir.dat", descentdir, ndesign_global);
-
-            /* Store design and gradient into *0 vectors */
-            vec_copy(ndesign_global, design, design0);
-            vec_copy(ndesign_global, gradient, gradient0);
-
-            /* Compute wolfe condition */
-            wolfe = vecdot(ndesign_global, gradient, descentdir);
-
-            /* Update the global design using the initial stepsize */
-            for (int id = 0; id < ndesign_global; id++)
-            {
-                design[id] -= stepsize * descentdir[id];
-            }
+            network->getDesign()[id] -= stepsize_init * descentdir[id];
         }
 
-        /* Broadcast/Scatter the new design and and  wolfe condition to all processors */
-        MPI_Bcast(&wolfe, 1, MPI_MyReal, MASTER_NODE, MPI_COMM_WORLD);
-        MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
+        /* Communicate design across neighbouring processors (ghostlayers) */
         network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
-
         /* --- Backtracking linesearch --- */
+        stepsize = stepsize_init;
         for (ls_iter = 0; ls_iter < ls_maxiter; ls_iter++)
         {
             /* Compute new objective function value for current trial step */
@@ -796,19 +775,12 @@ int main (int argc, char *argv[])
                 stepsize = stepsize * ls_factor;
 
                 /* Compute new design using new stepsize */
-                if (myid == MASTER_NODE)
+                for (int id = 0; id < ndesign_local; id++)
                 {
-                    /* Go back a portion of the step */
-                    for (int id = 0; id < ndesign_global; id++)
-                    {
-                        design[id] += stepsize * descentdir[id];
-                    }
+                    network->getDesign()[id] += stepsize * descentdir[id];
                 }
-                MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
                 network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
- 
             }
- 
         }
  
         // /* Print some statistics */
@@ -1011,15 +983,13 @@ int main (int argc, char *argv[])
     free(app_train);
     free(app_val);
 
-    if (myid == MASTER_NODE)
-    {
-        delete hessian;
-        delete [] design0;
-        delete [] gradient0;
-        delete [] gradient;
-        delete [] design;
-        delete [] descentdir;
-    }
+    delete hessian;
+    delete [] design_init;
+    delete [] design0;
+    delete [] gradient0;
+    delete [] descentdir;
+
+    // delete optimizer;
 
     for (int ix = 0; ix<ntraining; ix++)
     {

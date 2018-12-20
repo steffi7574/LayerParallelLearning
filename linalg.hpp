@@ -1,20 +1,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "defs.hpp"
+#include <mpi.h>
 #pragma once
-
-/**
- * Compute Matrix-vector product Hx
- * In: dimension dimN
- *     square Matrix H (flattened into a vector)
- *     vector x
- * Out: H*x will be stored in Hx
- */
-void matvec(int     dimN,
-            MyReal* H, 
-            MyReal* x,
-            MyReal* Hx);
-
 
 
 /**
@@ -26,6 +14,20 @@ void matvec(int     dimN,
 MyReal vecdot(int     dimN,
               MyReal* x,
               MyReal* y);
+
+
+/**
+ * Parallel dot-product xTy, invokes an MPI_Allreduce call 
+ * In: dimension dimN
+ *     vectors x and y of dimemsion dimN
+ *     MPI communicator 
+ * Out: returns global xTy on all procs
+ */
+MyReal vecdot_par(int     dimN,
+                  MyReal* x,
+                  MyReal* y,
+                  MPI_Comm comm);
+
 
 /**
  * Return the maximum value of a vector 
@@ -41,12 +43,18 @@ int argvecmax(int     dimN,
               MyReal* x);
 
 
+/**
+ * Computes square of the l2-norm of x
+ */
+MyReal vecnormsq(int      dimN,
+                 MyReal   *x);
 
 /**
- * Return square of the l2-norm of the vector x
+ * Parallel l2-norm computation, invokes an MPI_Allreduce x
  */
-MyReal vec_normsq(int    dimN,
-                  MyReal *x);
+MyReal vecnorm_par(int      dimN,
+                   MyReal   *x,
+                   MPI_Comm comm);
 
 
 /**
@@ -64,3 +72,17 @@ void vecvecT(int N,
              MyReal* x,
              MyReal* y,
              MyReal* XYT);
+
+/**
+ * Compute Matrix-vector product Hx
+ * In: dimension dimN
+ *     square Matrix H (flattened into a vector)
+ *     vector x
+ * Out: H*x will be stored in Hx
+ */
+void matvec(int     dimN,
+            MyReal* H, 
+            MyReal* x,
+            MyReal* Hx);
+
+

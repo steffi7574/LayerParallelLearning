@@ -1,23 +1,19 @@
 #include "linalg.hpp"
 
-void matvec(int dimN,
-            MyReal* H, 
-            MyReal* x,
-            MyReal* Hx)
+
+MyReal vecdot_par(int     dimN,
+                  MyReal* x,
+                  MyReal* y,
+                  MPI_Comm comm)
 {
-    MyReal sum_j;
 
-    for (int i=0; i<dimN; i++)
-    {
-       sum_j = 0.0;
-       for (int j=0; j<dimN; j++)
-       {
-          sum_j +=  H[i*dimN+j] * x[j];
-       }
-       Hx[i] = sum_j;
-    } 
-}                           
+    MyReal localdot, globaldot; 
 
+    localdot = vecdot(dimN, x,y);
+    MPI_Allreduce(&localdot, &globaldot, 1, MPI_MyReal, MPI_SUM, comm);
+
+    return globaldot;
+}              
 
 
 MyReal vecdot(int     dimN,
@@ -65,17 +61,28 @@ int argvecmax(int     dimN,
     return i_max;
 }
 
-
-MyReal vec_normsq(int    dimN,
-                  MyReal *x)
+MyReal vecnormsq(int      dimN,
+                 MyReal   *x)
 {
-    MyReal norm = 0.0;
+    MyReal normsq = 0.0;
     for (int i = 0; i<dimN; i++)
     {
-        norm += pow(x[i],2);
+        normsq += pow(x[i],2);
     }
+    return normsq;
+}               
 
-    return norm;
+MyReal vecnorm_par(int      dimN,
+                   MyReal   *x,
+                   MPI_Comm comm)
+{
+    MyReal localnorm, globalnorm;
+
+    localnorm = vecnormsq(dimN, x);
+    MPI_Allreduce(&localnorm, &globalnorm, 1, MPI_MyReal, MPI_SUM, comm);
+    globalnorm = sqrt(globalnorm);
+
+    return globalnorm;
 }
 
 int vec_copy(int N, 
@@ -103,4 +110,22 @@ void vecvecT(int N,
       }
    }
 }
+
+void matvec(int dimN,
+            MyReal* H, 
+            MyReal* x,
+            MyReal* Hx)
+{
+    MyReal sum_j;
+
+    for (int i=0; i<dimN; i++)
+    {
+       sum_j = 0.0;
+       for (int j=0; j<dimN; j++)
+       {
+          sum_j +=  H[i*dimN+j] * x[j];
+       }
+       Hx[i] = sum_j;
+    } 
+}                           
 

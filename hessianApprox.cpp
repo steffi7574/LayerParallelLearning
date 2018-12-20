@@ -83,7 +83,7 @@ void L_BFGS::computeDescentDir(int     iter,
    {
       imemory = i % M;
       /* Compute alpha */
-      alpha[imemory] = rho[imemory] * vecdot(dimN, s[imemory], descdir);
+      alpha[imemory] = rho[imemory] * vecdot_par(dimN, s[imemory], descdir, MPI_COMM_WORLD);
       /* Update the descdir */
       for (int idir = 0; idir < dimN; idir++)
       {
@@ -102,7 +102,7 @@ void L_BFGS::computeDescentDir(int     iter,
   {
     imemory = i % M;
     /* Compute beta */
-    beta = rho[imemory] * vecdot(dimN, y[imemory], descdir);
+    beta = rho[imemory] * vecdot_par(dimN, y[imemory], descdir, MPI_COMM_WORLD);
     /* Update the descdir */
     for (int idir = 0; idir < dimN; idir++)
     {
@@ -137,8 +137,8 @@ void L_BFGS::updateMemory(int     iter,
      }
 
      /* Update rho and H0 */
-     yTs = vecdot(dimN, y[imemory], s[imemory]);
-     yTy = vecdot(dimN, y[imemory], y[imemory]);
+     yTs = vecdot_par(dimN, y[imemory], s[imemory], MPI_COMM_WORLD);
+     yTy = vecdot_par(dimN, y[imemory], y[imemory], MPI_COMM_WORLD);
      if (yTs == 0.0) 
      {
        printf("  Warning: resetting yTs to 1.\n");
@@ -169,6 +169,11 @@ BFGS::BFGS(int N)
     Hy = new MyReal[N];
     A  = new MyReal[N*N];
     B  = new MyReal[N*N];
+
+    /* Sanity check */
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    if (size > 1) printf("\n\n ERROR: Parallel BFGS not implemented.\n BFGS updates will be LOCAL to each processor -> block-BFGS. \n\n");
 }
 
 void BFGS::setIdentity()

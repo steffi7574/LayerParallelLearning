@@ -21,13 +21,14 @@ class Network
       int     startlayerID;         /* ID of the first layer on that processor */
       int     endlayerID;           /* ID of the last layer on that processor */
 
-      int     ndesign;              /* Number of design variables (local) */
+      int     ndesign_loc;          /* Number of design vars of this network (local on this proc) */
       MyReal* design;               /* Local vector of design variables*/
       MyReal* gradient;             /* Local Gradient */
 
-      Layer** layers;               /* Array of network layers */
-      Layer*  layer_left;           /* Copy of last layer of right-neighbouring processor */
-      Layer*  layer_right;          /* Copy of first layer of left-neighbouring processor */
+      Layer*  openlayer;            /* At first processor: openinglayer, else: NULL */
+      Layer** layers;               /* Array of hidden layers and classification layer at last processor */
+      Layer*  layer_left;           /* Copy of last layer of left-neighbouring processor */
+      Layer*  layer_right;          /* Copy of first layer of right-neighbouring processor */
    
    public: 
       enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
@@ -54,7 +55,7 @@ class Network
       int getnChannels();
 
       /* Get global number of layers */
-      int getnLayers();
+      int getnLayersGlobal();
 
       /* Get initial time step size */
       MyReal getDT();
@@ -79,8 +80,14 @@ class Network
       int getEndLayerID();
 
       /**
-       *  Returns the total number of design variables (weights and biases at all layers) */
-      int getnDesign();
+       *  Return number of design variables (local on this processor) */
+      int getnDesignLocal();
+
+      /** 
+       * Return max. number of layer's ndesign on this processor 
+       * excluding opening and classification layer 
+       */
+      int getnDesignLayermax();
 
       /**
        * Get the layer at a certain layer index, i.e. a certain time step

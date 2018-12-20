@@ -16,45 +16,34 @@ Network::Network()
    layer_right    = NULL;
 }
 
-Network::Network(int    nLayersGlobal,
-                 int    StartLayerID, 
-                 int    EndLayerID, 
-                 int    nFeatures,
-                 int    nClasses,
-                 int    nChannels, 
-                 int    Activation,
-                 MyReal deltaT,
-                 MyReal gamma_tik, 
-                 MyReal gamma_ddt, 
-                 MyReal gamma_class,
-                 MyReal Weight_open_init,
-                 int    networkType,
-                 int    type_openlayer)
+Network::Network(int     StartLayerID, 
+                 int     EndLayerID,
+                 Config* config)
 {
     /* Initilizize */
-    nlayers_global   = nLayersGlobal;
     startlayerID     = StartLayerID;
     endlayerID       = EndLayerID;
     nlayers_local    = endlayerID - startlayerID + 1;
+    nlayers_global   = config->nlayers;
     openlayer        = NULL;
     layers           = NULL;
     layer_left       = NULL;
     layer_right      = NULL;
 
-    nchannels        = nChannels;
-    dt               = deltaT;
+    nchannels        = config->nchannels;
+    dt               = (config->T) / (MyReal)(config->nlayers-2);  // nlayers-2 = nhiddenlayers
     loss             = 0.0;
     accuracy         = 0.0;
 
 
     /* Sanity check */
-    if (nFeatures > nchannels ||
-        nClasses  > nchannels)
+    if (config->nfeatures > nchannels ||
+        config->nclasses  > nchannels)
     {
         printf("ERROR! Choose a wider netword!\n");
-        printf(" -- nFeatures = %d\n", nFeatures);
-        printf(" -- nChannels = %d\n", nChannels);
-        printf(" -- nClasses = %d\n", nClasses);
+        printf(" -- nFeatures = %d\n", config->nfeatures);
+        printf(" -- nChannels = %d\n", config->nchannels);
+        printf(" -- nClasses = %d\n", config->nclasses);
         exit(1);
     }
 
@@ -67,7 +56,7 @@ Network::Network(int    nLayersGlobal,
     {
         /* Create the opening layer */
         int index = -1;
-        openlayer = createLayer(index, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
+        openlayer = createLayer(index, config);
         ndesign_loc += openlayer->getnDesign();
         // printf("Create opening layer %d, ndesign_loc %d \n", index, openlayer->getnDesign());
     }
@@ -78,7 +67,7 @@ Network::Network(int    nLayersGlobal,
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
-        layers[storeID] = createLayer(ilayer, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
+        layers[storeID] = createLayer(ilayer, config);
         ndesign_loc += layers[storeID]->getnDesign();
         // printf("creating hidden/class layer %d/%d, ndesign_loc%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
@@ -90,11 +79,11 @@ Network::Network(int    nLayersGlobal,
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
-    layer_left = createLayer(leftID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
+    layer_left = createLayer(leftID, config);
 
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
-    layer_right = createLayer(rightID, nFeatures, nClasses, Activation, gamma_tik, gamma_ddt, gamma_class, Weight_open_init, networkType, type_openlayer);
+    layer_right = createLayer(rightID, config);
 }             
 
   
@@ -158,62 +147,54 @@ MyReal* Network::getGradient() { return gradient; }
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID()   { return endlayerID; }
 
-Layer* Network::createLayer(int    index, 
-                            int    nFeatures,
-                            int    nClasses,
-                            int    Activation,
-                            MyReal Gamma_tik,
-                            MyReal Gamma_ddt,
-                            MyReal Gamma_class,
-                            MyReal Weight_open_init,
-                            int    networkType,
-                            int    type_openlayer)
+Layer* Network::createLayer(int     index,
+                            Config *config)
 {
     Layer* layer = 0;
     if (index == -1)  // Opening layer
     {
-        switch ( networkType )
-        {
+        switch ( config->network_type )
+{
             case DENSE: 
-                if (Weight_open_init == 0.0)
+                if (config->weights_open_init == 0.0)
                 {
-                   layer  = new OpenExpandZero(nFeatures, nchannels);
+                   layer  = new OpenExpandZero(config->nfeatures, nchannels);
                 }
                 else
                 {
-                   layer = new OpenDenseLayer(nFeatures, nchannels, Activation, Gamma_tik);
+                   layer = new OpenDenseLayer(config->nfeatures, nchannels, config->activation, config->gamma_tik);
                 }
                 break;
             case CONVOLUTIONAL:
                 /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
-                if (type_openlayer == 0)
+                if (config->openlayer_type == 0)
                 {
-                   layer = new OpenConvLayer(nFeatures, nchannels);
+                   layer = new OpenConvLayer(config->nfeatures, nchannels);
                 }
-                else if (type_openlayer == 1)
+                else if (config->openlayer_type == 1)
                 {
-                   layer = new OpenConvLayerMNIST(nFeatures, nchannels);
+                   layer = new OpenConvLayerMNIST(config->nfeatures, nchannels);
                 }
                 break;
         }
     }
     else if (0 <= index && index < nlayers_global-2) // Intermediate layer
     {
-        switch ( networkType )
+        switch ( config->network_type )
         {
             case DENSE:
-                layer = new DenseLayer(index, nchannels, nchannels, dt, Activation, Gamma_tik, Gamma_ddt);
+                layer = new DenseLayer(index, nchannels, nchannels, dt, config->activation, config->gamma_tik, config->gamma_ddt);
                 break;
             case CONVOLUTIONAL:
                 // TODO: Fix
                 int convolution_size = 3;
-                layer = new ConvLayer(index, nchannels, nchannels, convolution_size, nchannels/nFeatures, dt, Activation, Gamma_tik, Gamma_ddt);
+                layer = new ConvLayer(index, nchannels, nchannels, convolution_size, nchannels/config->nfeatures, dt, config->activation, config->gamma_tik, config->gamma_ddt);
                 break;
         }
     }
     else if (index == nlayers_global-2) // Classification layer 
     {
-        layer = new ClassificationLayer(index, nchannels, nClasses, Gamma_class);
+        layer = new ClassificationLayer(index, nchannels, config->nclasses, config->gamma_class);
     }
     else
     {
@@ -270,12 +251,7 @@ int Network::getnDesignLayermax()
     return max;
 }
 
-void Network::initialize(MyReal Weight_open_init,
-                         MyReal Weight_init,
-                         MyReal Classification_init,
-                         char   *datafolder,
-                         char   *weightsopenfile,
-                         char   *weightsclassificationfile)
+void Network::initialize(Config *config)
 {
     MyReal factor;
     char   filename[255];
@@ -287,13 +263,13 @@ void Network::initialize(MyReal Weight_open_init,
     if (startlayerID == 0)
     {
         /* Set memory location for design and scale design by the factor */
-        factor = Weight_open_init;
+        factor = config->weights_open_init;
         openlayer->initialize(&(design[istart]), &(gradient[istart]), factor);
 
         /* if set, overwrite opening design from file */
-        if (strcmp(weightsopenfile, "NONE") != 0)
+        if (strcmp(config->weightsopenfile, "NONE") != 0)
         {
-           sprintf(filename, "%s/%s", datafolder, weightsopenfile);
+           sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
            read_vector(filename, &(design[istart]), openlayer->getnDesign());
         }
 
@@ -306,11 +282,11 @@ void Network::initialize(MyReal Weight_open_init,
     {
         if (ilayer < nlayers_global-1) // Intermediate layer
         {
-            factor = Weight_init;
+            factor = config->weights_init;
         }
         else // Classification layer 
         {
-            factor = Classification_init;
+            factor = config->weights_class_init;
         }
 
         /* Set memory location and scale the current design by the factor */
@@ -320,9 +296,9 @@ void Network::initialize(MyReal Weight_open_init,
         /* if set, overwrite classification design from file */
         if (ilayer == nlayers_global-1)
         {
-            if (strcmp(weightsclassificationfile, "NONE") != 0)
+            if (strcmp(config->weightsclassificationfile, "NONE") != 0)
             {
-                sprintf(filename, "%s/%s", datafolder, weightsclassificationfile);
+                sprintf(filename, "%s/%s", config->datafolder, config->weightsclassificationfile);
                 read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
             }
         }

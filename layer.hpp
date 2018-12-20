@@ -4,6 +4,7 @@
 #include <math.h>
 #include "linalg.hpp"
 #include "defs.hpp"
+#include "config.hpp"
 
 
 #pragma once
@@ -41,8 +42,6 @@ class Layer
       MyReal *update_bar;                  /* Auxilliary for computing bwd update */
 
    public:
-      /* Available activation functions */
-      enum activation{TANH, RELU, SMRELU};  
 
       /* Available layer types */
       enum layertype{OPENZERO=0, OPENDENSE=1, DENSE=2, CLASSIFICATION=3, OPENCONV=4, OPENCONVMNIST=5, CONVOLUTION=6};

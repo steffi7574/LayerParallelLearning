@@ -4,6 +4,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <string.h>
+#include "config.hpp"
 #include "util.hpp"
 #pragma once
 
@@ -31,24 +32,12 @@ class Network
       Layer*  layer_right;          /* Copy of first layer of right-neighbouring processor */
    
    public: 
-      enum networkType{DENSE, CONVOLUTIONAL}; /* Types of networks */
 
       Network();
-      Network(int    nLayersGlobal,
-              int    StartLayerID, 
-              int    EndLayerID, 
-              int    nFeatures,
-              int    nClasses,
-              int    nChannels, 
-              int    Activation,
-              MyReal deltaT,
-              MyReal gamma_tik, 
-              MyReal gamma_ddt, 
-              MyReal gamma_class,
-              MyReal Weight_open_init,
-	        int    networkType,
-	        int    type_openlayer);
-     
+      Network(int     StartLayerID, 
+              int     EndLayerID,
+              Config* config); 
+    
       ~Network();
 
       /* Get number of channels */
@@ -101,25 +90,12 @@ class Network
        * Default: Scales random initialization from main with the given factors
        * If set, reads in opening and classification weights from file
        */
-      void initialize(MyReal Weight_open_init,
-                      MyReal Weight_init,
-                      MyReal Classification_init,
-                      char   *datafolder,
-                      char   *weightsopenfile,
-                      char   *weightsclassificationfile);
+      void initialize(Config *config);
 
 
-      Layer* createLayer(int    index, 
-                         int    nfeatures,
-                         int    nclasses,
-                         int    Activation,
-                         MyReal gamma_tik,
-                         MyReal gamma_ddt,
-                         MyReal gamma_class,
-                         MyReal weights_open_init,
-			       int    NetworkType,
-                         int    Type_OpenLayer);
-     
+      Layer* createLayer(int     index, 
+                         Config *config);
+    
         
       /* Replace the layer with one that is received from the left neighbouring processor */  
       void MPI_CommunicateNeighbours(MPI_Comm comm);

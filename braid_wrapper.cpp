@@ -2,6 +2,26 @@
 // #include "codi.hpp"
 // #include "lib.hpp"
 
+
+void braid_SetConfigOptions(braid_Core core, 
+                            Config*    config)
+{
+    braid_SetMaxLevels(core, config->braid_maxlevels);
+    braid_SetMinCoarse(core, config->braid_mincoarse);
+    braid_SetPrintLevel( core, config->braid_printlevel);
+    braid_SetCFactor(core,  0, config->braid_cfactor0);
+    braid_SetCFactor(core, -1, config->braid_cfactor);
+    braid_SetAccessLevel(core, config->braid_accesslevel);
+    braid_SetMaxIter(core, config->braid_maxiter);
+    braid_SetSkip(core, config->braid_setskip);
+    if (config->braid_fmg){
+        braid_SetFMG(core);
+    }
+    braid_SetNRelax(core, -1, config->braid_nrelax);
+    braid_SetNRelax(core,  0, config->braid_nrelax0);
+    braid_SetAbsTol(core, config->braid_abstol);
+}
+
 int GetTimeStepIndex(braid_App app, 
                      MyReal    t)
 {

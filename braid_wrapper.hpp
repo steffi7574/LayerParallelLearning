@@ -33,6 +33,10 @@ typedef struct _braid_Vector_struct
    MyReal sendflag;  
 } my_Vector;
 
+/* Set braid options */
+void braid_SetConfigOptions(braid_Core core, 
+                            Config     *config);
+
 
 /* Compute time step index from given time */
 int GetTimeStepIndex(braid_App app, 

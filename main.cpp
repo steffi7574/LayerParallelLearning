@@ -148,56 +148,19 @@ int main (int argc, char *argv[])
     app_train = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
+    /* Store all primal points */
+    braid_SetStorage(core_train, 0);
+    /* Revert ranks for solveadjointwithxbraid */
     braid_SetRevertedRanks(core_adj, 1);
 
     /* Init XBraid for validation data */
     app_val = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
 
-    /* Store all points for primal */
-    braid_SetStorage(core_train, 0);
-    braid_SetStorage(core_adj, -1);
-    braid_SetStorage(core_val, -1);
     /* Set all Braid parameters */
-    braid_SetMaxLevels(core_train, config->braid_maxlevels);
-    braid_SetMaxLevels(core_val,   config->braid_maxlevels);
-    braid_SetMaxLevels(core_adj,   config->braid_maxlevels);
-    braid_SetMinCoarse(core_train, config->braid_mincoarse);
-    braid_SetMinCoarse(core_val,   config->braid_mincoarse);
-    braid_SetMinCoarse(core_adj,   config->braid_mincoarse);
-    braid_SetPrintLevel( core_train, config->braid_printlevel);
-    braid_SetPrintLevel( core_val,   config->braid_printlevel);
-    braid_SetPrintLevel( core_adj,   config->braid_printlevel);
-    braid_SetCFactor(core_train,  0, config->braid_cfactor0);
-    braid_SetCFactor(core_val,    0, config->braid_cfactor0);
-    braid_SetCFactor(core_adj,    0, config->braid_cfactor0);
-    braid_SetCFactor(core_train, -1, config->braid_cfactor);
-    braid_SetCFactor(core_val,   -1, config->braid_cfactor);
-    braid_SetCFactor(core_adj,   -1, config->braid_cfactor);
-    braid_SetAccessLevel(core_train, config->braid_accesslevel);
-    braid_SetAccessLevel(core_val,   config->braid_accesslevel);
-    braid_SetAccessLevel(core_adj,   config->braid_accesslevel);
-    braid_SetMaxIter(core_train, config->braid_maxiter);
-    braid_SetMaxIter(core_val,   config->braid_maxiter);
-    braid_SetMaxIter(core_adj,   config->braid_maxiter);
-    braid_SetSkip(core_train, config->braid_setskip);
-    braid_SetSkip(core_val,   config->braid_setskip);
-    braid_SetSkip(core_adj,   config->braid_setskip);
-    if (config->braid_fmg){
-        braid_SetFMG(core_train);
-        braid_SetFMG(core_val);
-        braid_SetFMG(core_adj);
-    }
-    braid_SetNRelax(core_train, -1, config->braid_nrelax);
-    braid_SetNRelax(core_val,   -1, config->braid_nrelax);
-    braid_SetNRelax(core_adj,   -1, config->braid_nrelax);
-    braid_SetNRelax(core_train,  0, config->braid_nrelax0);
-    braid_SetNRelax(core_val,    0, config->braid_nrelax0);
-    braid_SetNRelax(core_adj,    0, config->braid_nrelax0);
-    braid_SetAbsTol(core_train, config->braid_abstol);
-    braid_SetAbsTol(core_val,   config->braid_abstol);
-    braid_SetAbsTol(core_adj,   config->braid_abstol);
-
+    braid_SetConfigOptions(core_train, config);
+    braid_SetConfigOptions(core_adj, config);
+    braid_SetConfigOptions(core_val, config);
 
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);

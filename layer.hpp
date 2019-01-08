@@ -5,6 +5,7 @@
 #include "linalg.hpp"
 #include "defs.hpp"
 #include "config.hpp"
+#include "dataset.hpp"
 
 
 #pragma once
@@ -178,9 +179,8 @@ class Layer
       /**
        * On classification layer: applies the classification and evaluates loss/accuracy 
        */
-      virtual void evalClassification(int      nexamples, 
+      virtual void evalClassification(DataSet* data, 
                                       MyReal** state,
-                                      MyReal** labels, 
                                       MyReal*  loss_ptr, 
                                       MyReal*  accuracy_ptr,
                                       int      output);
@@ -188,11 +188,10 @@ class Layer
       /**
        * On classification layer: derivative of evalClassification 
        */
-      virtual void evalClassification_diff(int      nexamples, 
-                                          MyReal** primalstate,
-                                          MyReal** adjointstate,
-                                          MyReal** labels, 
-                                          int      compute_gradient);
+      virtual void evalClassification_diff(DataSet* data, 
+                                           MyReal** primalstate,
+                                           MyReal** adjointstate,
+                                           int      compute_gradient);
 
       /* ReLu Activation and derivative */
       MyReal ReLu_act(MyReal x);
@@ -304,18 +303,16 @@ class ClassificationLayer : public Layer
                           MyReal* state_bar,
                           int     compute_gradient);
 
-            void evalClassification(int      nexamples, 
+            void evalClassification(DataSet* data,
                                     MyReal** state,
-                                    MyReal** labels, 
                                     MyReal*  loss_ptr, 
                                     MyReal*  accuracy_ptr,
                                     int      output);
 
 
-            void evalClassification_diff(int      nexamples, 
+            void evalClassification_diff(DataSet* data,
                                          MyReal** primalstate,
                                          MyReal** adjointstate,
-                                         MyReal** labels, 
                                          int      compute_gradient);
 
             /**

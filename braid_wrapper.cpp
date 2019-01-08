@@ -49,7 +49,7 @@ my_Step(braid_App        app,
     MyReal tstart, tstop;
     MyReal deltaT;
 
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
@@ -96,7 +96,7 @@ my_Init(braid_App     app,
         braid_Vector *u_ptr)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
 
 
     /* Initialize the state */
@@ -119,7 +119,7 @@ my_Init(braid_App     app,
         for (int iex = 0; iex < nexamples; iex++)
         {
             /* set example */
-            if (app->examples !=NULL) openlayer->setExample(app->examples[iex]);
+            openlayer->setExample(app->data->getExample(iex));
 
             /* Apply the layer */
             openlayer->applyFWD(u->state[iex]);
@@ -147,7 +147,7 @@ my_Clone(braid_App     app,
 {
     // my_Vector *v;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
  
     /* Allocate the vector */
     my_Vector* v = (my_Vector *) malloc(sizeof(my_Vector));
@@ -173,7 +173,7 @@ int
 my_Free(braid_App    app,
         braid_Vector u)
 {
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
 
     for (int iex = 0; iex < nexamples; iex++)
     {
@@ -194,7 +194,7 @@ my_Sum(braid_App     app,
        braid_Vector  y)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
 
     for (int iex = 0; iex < nexamples; iex++)
     {
@@ -213,7 +213,7 @@ my_SpatialNorm(braid_App     app,
                MyReal       *norm_ptr)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
 
     MyReal dot = 0.0;
     for (int iex = 0; iex < nexamples; iex++)
@@ -244,7 +244,7 @@ my_BufSize(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int nchannels        = app->network->getnChannels();
-    int nexamples        = app->nexamples;
+    int nexamples        = app->data->getnElements();
     int ndesign_layermax = app->ndesign_layermax;
    
     /* Gather number of variables */
@@ -268,7 +268,7 @@ my_BufPack(braid_App           app,
     int size;
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
     
     /* Store network state */
     int idx = 0;
@@ -325,7 +325,7 @@ my_BufUnpack(braid_App           app,
 
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
     Layer *tmplayer = 0;
     
     //  /* Allocate the vector */
@@ -427,7 +427,7 @@ my_Step_Adj(braid_App        app,
     int    primaltimestep;
     braid_BaseVector ubaseprimal;
     braid_Vector     uprimal;
-    int    nexamples = app->nexamples;
+    int    nexamples = app->data->getnElements();
 
     /* Update gradient only on the finest grid */
     braid_StepStatusGetLevel(status, &level);
@@ -483,7 +483,7 @@ my_Init_Adj(braid_App     app,
 {
     braid_BaseVector uprimal;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
     MyReal *aux     = new MyReal[nchannels];
 
     int finegrid         = 0;
@@ -519,7 +519,7 @@ my_Init_Adj(braid_App     app,
         layer->resetBar();
 
         /* Derivative of classification */
-        layer->evalClassification_diff(app->nexamples, primalstate, u->state, app->labels, 1);
+        layer->evalClassification_diff(app->data, primalstate, u->state, 1);
 
 
         /* Derivative of tikhonov regularization) */
@@ -540,7 +540,7 @@ my_BufSize_Adj(braid_App           app,
                braid_BufferStatus  bstatus)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
    
     *size_ptr = nchannels*nexamples*sizeof(MyReal);
     return 0;
@@ -557,7 +557,7 @@ my_BufPack_Adj(braid_App           app,
     int size;
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
     
     /* Store network state */
     int idx = 0;
@@ -587,7 +587,7 @@ my_BufUnpack_Adj(braid_App           app,
 
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->nexamples;
+    int nexamples = app->data->getnElements();
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
@@ -620,12 +620,13 @@ evalInit(braid_Core core,
          braid_App   app)
 {
     Layer* openlayer = app->network->getLayer(-1);
-    int    nexamples = app->nexamples;
+    int    nexamples = app->data->getnElements();
     braid_BaseVector ubase;
     braid_Vector     u;
 
 
     /* Apply initial condition if warm_restart (otherwise it is set in my_Init() */
+    /* can not be set here if !(warm_restart) because braid_grid is created only in braid_drive(). */
     if (_braid_CoreElt(core, warm_restart)) 
     {
         /* Get vector at t == 0 */
@@ -638,7 +639,7 @@ evalInit(braid_Core core,
             for (int iex = 0; iex < nexamples; iex++)
             {
                 /* set example */
-                if (app->examples !=NULL) openlayer->setExample(app->examples[iex]);
+                openlayer->setExample(app->data->getExample(iex));
 
                 /* Apply the layer */
                 openlayer->applyFWD(u->state[iex]);
@@ -687,7 +688,7 @@ evalObjective(braid_Core core,
         {
             _braid_UGetVectorRef(core, 0, ilayer, &ubase);
             u = ubase->userVector;
-            layer->evalClassification(app->nexamples, u->state, app->labels, &loss_loc, &accur_loc,0);
+            layer->evalClassification(app->data, u->state, &loss_loc, &accur_loc,0);
             loss     += loss_loc;
             accuracy += accur_loc;
         }
@@ -719,6 +720,7 @@ evalObjectiveDiff(braid_Core core_adj,
     /* Only gradient for primal time step N here. Other time steps are in my_Step_adj. */
 
     /* If warm_restart: set adjoint initial condition here. Otherwise it's set in my_Init_Adj */
+    /* It can not be done here if drive() has not been called before, because the braid grid is allocated only at the beginning of drive() */
     if (warm_restart)
     {
         /* Get primal and adjoint state */
@@ -736,7 +738,7 @@ evalObjectiveDiff(braid_Core core_adj,
             // printf("%d: objective_diff at ilayer %d using %1.14e primal %1.14e\n", app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0], uprimal->state[1][1]);
 
             /* Derivative of classification */
-            uprimal->layer->evalClassification_diff(app->nexamples, uprimal->state, uadjoint->state, app->labels, 1);
+            uprimal->layer->evalClassification_diff(app->data, uprimal->state, uadjoint->state, 1);
 
             /* Derivative of tikhonov regularization) */
             uprimal->layer->evalTikh_diff(1.0);
@@ -750,7 +752,7 @@ evalInitDiff(braid_Core core_adj,
              braid_App  app)
 {
     Layer* openlayer = app->network->getLayer(-1);
-    int    nexamples = app->nexamples;
+    int    nexamples = app->data->getnElements();
     braid_BaseVector ubase;
 
     /* Get \bar y^0 (which is the LAST xbraid vector, stored on proc 0) */
@@ -762,7 +764,7 @@ evalInitDiff(braid_Core core_adj,
         /* Apply opening layer backwards for all examples */ 
         for (int iex = 0; iex < nexamples; iex++)
         {
-            openlayer->setExample(app->examples[iex]);
+            openlayer->setExample(app->data->getExample(iex));
             /* TODO: Don't feed applyBWD with NULL! */
             openlayer->applyBWD(NULL, ubase->userVector->state[iex], 1); 
         }

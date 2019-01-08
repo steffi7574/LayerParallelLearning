@@ -6,6 +6,7 @@
 #include "_braid.h"
 #include "network.hpp"
 #include "layer.hpp"
+#include "dataset.hpp"
 #pragma once
 
 /* Define the app structure */
@@ -13,9 +14,7 @@ typedef struct _braid_App_struct
 {
     int      myid;       /* Processor rank*/
     Network* network;    /* Pointer to the DNN Network Block (local layer storage) */
-    int      nexamples;  /* Number of data examples */
-    MyReal** examples;   /* Data examples */
-    MyReal** labels;     /* Labels for the data examples */
+    DataSet* data;       /* Pointer to the Data set */
     int      ndesign_layermax;  /* Max. number of design vars over all layers */
 
     braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */

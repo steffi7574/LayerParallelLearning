@@ -93,7 +93,7 @@ class Config {
       /* Reads the config options from file */
       int readFromFile(char* configfilename);
 
-      /* Writes config options to the file */
+      /* Writes config options to the file (File must be open!) */
       int writeToFile(FILE* outfile);
 
 };

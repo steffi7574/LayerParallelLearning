@@ -345,9 +345,8 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
 void Layer::setExample(MyReal* example_ptr) {}
 
 
-void Layer::evalClassification(int      nexamples, 
+void Layer::evalClassification(DataSet* data,
                                MyReal** state,
-                               MyReal** labels, 
                                MyReal*  loss_ptr, 
                                MyReal*  accuracy_ptr,
                                int      output)
@@ -357,10 +356,9 @@ void Layer::evalClassification(int      nexamples,
 }
 
 
-void Layer::evalClassification_diff(int      nexamples, 
+void Layer::evalClassification_diff(DataSet* data, 
                                     MyReal** primalstate,
                                     MyReal** adjointstate,
-                                    MyReal** labels, 
                                     int      compute_gradient) {}                                
 
 
@@ -846,9 +844,8 @@ int ClassificationLayer::prediction(MyReal* data_Out,
    return success;
 }
 
-void ClassificationLayer::evalClassification(int      nexamples, 
+void ClassificationLayer::evalClassification(DataSet* data, 
                                              MyReal** state,
-                                             MyReal** labels, 
                                              MyReal*  loss_ptr, 
                                              MyReal*  accuracy_ptr,
                                              int      output)
@@ -861,12 +858,9 @@ void ClassificationLayer::evalClassification(int      nexamples,
     /* open file for printing predicted file */
     if (output) classfile = fopen("classprediction.dat", "w");
 
-    /* Sanity check */
-    if (labels == NULL) printf("\n\n: ERROR: No labels for classification... \n\n");
-
     loss    = 0.0;
     success = 0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < data->getnElements(); iex++)
     {
         /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
         for (int ic = 0; ic < dim_In; ic++)
@@ -876,13 +870,13 @@ void ClassificationLayer::evalClassification(int      nexamples,
         /* Apply classification on tmpstate */
         applyFWD(tmpstate);
         /* Evaluate Loss */
-        loss          += crossEntropy(tmpstate, labels[iex]);
-        success_local  = prediction(tmpstate, labels[iex], &class_id);
+        loss          += crossEntropy(tmpstate, data->getLabel(iex));
+        success_local  = prediction(tmpstate, data->getLabel(iex), &class_id);
         success       += success_local;
         if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
     }
-    loss     = 1. / nexamples * loss;
-    accuracy = 100.0 * ( (MyReal) success ) / nexamples;
+    loss     = 1. / data->getnElements() * loss;
+    accuracy = 100.0 * ( (MyReal) success ) / data->getnElements();
     // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
 
     /* Return */
@@ -895,12 +889,12 @@ void ClassificationLayer::evalClassification(int      nexamples,
 }       
 
 
-void ClassificationLayer::evalClassification_diff(int      nexamples, 
+void ClassificationLayer::evalClassification_diff(DataSet* data, 
                                                   MyReal** primalstate,
                                                   MyReal** adjointstate,
-                                                  MyReal** labels, 
                                                   int      compute_gradient)
 {
+    int    nexamples = data->getnElements();
     MyReal loss_bar = 1./nexamples; 
     
     for (int iex = 0; iex < nexamples; iex++)
@@ -913,7 +907,7 @@ void ClassificationLayer::evalClassification_diff(int      nexamples,
         applyFWD(tmpstate);
 
         /* Derivative of Loss and classification. */
-        crossEntropy_diff(tmpstate, adjointstate[iex], labels[iex], loss_bar);
+        crossEntropy_diff(tmpstate, adjointstate[iex], data->getLabel(iex), loss_bar);
         applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
     }
     // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);

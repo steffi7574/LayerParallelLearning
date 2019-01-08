@@ -27,7 +27,7 @@ class Network
       MyReal* gradient;             /* Local Gradient */
 
       Layer*  openlayer;            /* At first processor: openinglayer, else: NULL */
-      Layer** layers;               /* Array of hidden layers and classification layer at last processor */
+      Layer** layers;               /* Array of hidden layers (includes classification layer at last processor */
       Layer*  layer_left;           /* Copy of last layer of left-neighbouring processor */
       Layer*  layer_right;          /* Copy of first layer of right-neighbouring processor */
    

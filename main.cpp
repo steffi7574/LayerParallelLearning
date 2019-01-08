@@ -9,21 +9,18 @@
 #include "hessianApprox.hpp"
 #include "util.hpp"
 #include "layer.hpp"
-#include "braid.h"
-#include "_braid.h"
 #include "braid_wrapper.hpp"
 #include "config.hpp"
 #include "network.hpp"
+#include "dataset.hpp"
 
 #define MASTER_NODE 0
 
 int main (int argc, char *argv[])
 {
     /* --- Data set --- */
-    MyReal **train_examples = NULL;   /**< Traning examples */
-    MyReal **train_labels   = NULL;   /**< Training labels*/
-    MyReal **val_examples   = NULL;   /**< Validation examples */
-    MyReal **val_labels     = NULL;   /**< Validation labels*/
+    DataSet *trainingdata;
+    DataSet *validationdata;
     /* --- Network --- */
     int      nhiddenlayers;           /**< Number of hidden layers = number of xbraid steps */
     Network *network;                 /**< DNN Network architecture */
@@ -108,38 +105,13 @@ int main (int argc, char *argv[])
     sprintf(val_ex_filename,    "%s/%s", config->datafolder, config->fval_ex);
     sprintf(val_lab_filename,   "%s/%s", config->datafolder, config->fval_labels);
 
-    /* Read training and validation examples */
-    if (myid == 0)   // examples are only needed on opening layer, i.e. first proc
-    {
-        train_examples = new MyReal* [config->ntraining];
-        val_examples   = new MyReal* [config->nvalidation];
-        for (int ix = 0; ix<config->ntraining; ix++)
-        {
-            train_examples[ix] = new MyReal[config->nfeatures];
-        }
-        for (int ix = 0; ix<config->nvalidation; ix++)
-        {
-            val_examples[ix] = new MyReal[config->nfeatures];
-        }
-        read_matrix(train_ex_filename, train_examples, config->ntraining,   config->nfeatures);
-        read_matrix(val_ex_filename,   val_examples,   config->nvalidation, config->nfeatures);
-    }
-    /* Read in training and validation labels */
-    if (myid == size - 1)  // labels are only needed on classification layer, i.e. last proc
-    {
-        train_labels = new MyReal* [config->ntraining];
-        val_labels   = new MyReal* [config->nvalidation];
-        for (int ix = 0; ix<config->ntraining; ix++)
-        {
-            train_labels[ix]   = new MyReal[config->nclasses];
-        }
-        for (int ix = 0; ix<config->nvalidation; ix++)
-        {
-            val_labels[ix]   = new MyReal[config->nclasses];
-        }
-        read_matrix(train_lab_filename, train_labels, config->ntraining,   config->nclasses);
-        read_matrix(val_lab_filename,   val_labels,   config->nvalidation, config->nclasses);
-    }
+    /* Allocate and read training and validation data */
+    trainingdata = new DataSet(size, myid, config->ntraining,   config->nfeatures, config->nclasses);
+    trainingdata->readData(train_ex_filename, train_lab_filename);
+
+    validationdata = new DataSet(size, myid, config->nvalidation, config->nfeatures, config->nclasses);
+    validationdata->readData(val_ex_filename, val_lab_filename);
+
 
     /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
     nhiddenlayers = config->nlayers - 2;
@@ -197,16 +169,12 @@ int main (int argc, char *argv[])
     app_train->primalcore       = core_train;
     app_train->myid             = myid;
     app_train->network          = network;
-    app_train->nexamples        = config->ntraining;
-    app_train->examples         = train_examples;
-    app_train->labels           = train_labels;
+    app_train->data             = trainingdata;
     app_train->ndesign_layermax = ndesign_layermax;
     app_val->primalcore       = core_val;
     app_val->myid             = myid;
     app_val->network          = network;
-    app_val->nexamples        = config->nvalidation;
-    app_val->examples         = val_examples;
-    app_val->labels           = val_labels;
+    app_val->data             = validationdata;
     app_val->ndesign_layermax = ndesign_layermax;
 
 
@@ -290,7 +258,7 @@ int main (int argc, char *argv[])
             if (ubase != NULL) // This is true only on last processor
             {
                 u = ubase->userVector;
-                u->layer->evalClassification(config->nvalidation, u->state, val_labels, &loss_val, &accur_val, 0);
+                u->layer->evalClassification(validationdata, u->state, &loss_val, &accur_val, 0);
             }
         }
 
@@ -430,7 +398,7 @@ int main (int argc, char *argv[])
         if (ubase != NULL) // This is only true on last processor 
         {
             u = ubase->userVector;
-            u->layer->evalClassification(config->nvalidation, u->state, val_labels, &loss_val, &accur_val, 1);
+            u->layer->evalClassification(validationdata, u->state, &loss_val, &accur_val, 1);
             printf("Final validation accuracy:  %2.2f%%\n", accur_val);
         }
     }
@@ -609,35 +577,9 @@ int main (int argc, char *argv[])
     delete [] gradient0;
     delete [] descentdir;
 
-    /* Delete training and validation examples on first proc */
-    if (myid == 0)
-    {
-        for (int ix = 0; ix<config->ntraining; ix++)
-        {
-            delete [] train_examples[ix];
-        }
-        for (int ix = 0; ix<config->nvalidation; ix++)
-        {
-            delete [] val_examples[ix];
-        }
-        delete [] train_examples;
-        delete [] val_examples;
-    }
-    /* Delete training and validation labels on last proc */
-    if (myid == size - 1)
-    {
-        for (int ix = 0; ix<config->ntraining; ix++)
-        {
-            delete [] train_labels[ix];
-        }
-        for (int ix = 0; ix<config->nvalidation; ix++)
-        {
-            delete [] val_labels[ix];
-        }
-        delete [] train_labels;
-        delete [] val_labels;
-    }
-
+    /* Delete training and validation examples  */
+    delete trainingdata;
+    delete validationdata;
 
     /* Close optim file */
     if (myid == MASTER_NODE)

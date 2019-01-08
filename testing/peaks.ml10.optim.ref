@@ -1,0 +1,46 @@
+# Problem setup: datafolder           data 
+#                training examples    Ytrain_orig.dat 
+#                training labels      Ctrain_orig.dat 
+#                validation examples  Yval_orig.dat 
+#                validation labels    Cval_orig.dat 
+#                ntraining            5000 
+#                nvalidation          200 
+#                nfeatures            2 
+#                nclasses             5 
+#                nchannels            8 
+#                nlayers              30 
+#                T                    5.000000 
+#                network type         dense 
+#                Activation           SmoothReLU 
+#                openlayer type       1 
+# XBraid setup:  max levels           10 
+#                min coarse           10 
+#                coasening            2 
+#                coasening (level 0)  2 
+#                max. braid iter      15 
+#                abs. tol             1e-15 
+#                abs. toladj          1e-15 
+#                print level          1 
+#                access level         0 
+#                skip?                0 
+#                fmg?                 0 
+#                nrelax (level 0)     0 
+#                nrelax               1 
+# Optimization:  gamma_tik            1e-07 
+#                gamma_ddt            1e-07 
+#                gamma_class          1e-07 
+#                stepsize             1.000000 
+#                max. optim iter      5 
+#                gtol                 1e-04 
+#                max. ls iter         20 
+#                ls factor            0.500000 
+#                weights_init         0.001000 
+#                weights_open_init    0.000000 
+#                weights_class_init   0.001000 
+#                hessianapprox_type   L-BFGS 
+#                lbfgs_stages         20 
+#                validationlevel      1 
+
+#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)
+000  1.05945173e-16  2.16263486e-16  1.60941989767865e+00  1.60941989720218e+00  5.47547521438104e-01  1.000000   0        20.18%      21.00%     2.1
+001  1.40413713e-18  1.17427257e-17  1.38071340186226e+00  1.38071338639356e+00  3.06051904945440e-01  1.000000   0        48.00%      46.50%     4.5

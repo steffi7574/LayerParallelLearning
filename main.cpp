@@ -258,7 +258,7 @@ int main (int argc, char *argv[])
             if (ubase != NULL) // This is true only on last processor
             {
                 u = ubase->userVector;
-                u->layer->evalClassification(validationdata, u->state, &loss_val, &accur_val, 0);
+                network->evalClassification(validationdata, u->state, &loss_val, &accur_val, 0);
             }
         }
 
@@ -398,7 +398,7 @@ int main (int argc, char *argv[])
         if (ubase != NULL) // This is only true on last processor 
         {
             u = ubase->userVector;
-            u->layer->evalClassification(validationdata, u->state, &loss_val, &accur_val, 1);
+            network->evalClassification(validationdata, u->state, &loss_val, &accur_val, 1);
             printf("Final validation accuracy:  %2.2f%%\n", accur_val);
         }
     }

@@ -5,7 +5,6 @@
 #include "linalg.hpp"
 #include "defs.hpp"
 #include "config.hpp"
-#include "dataset.hpp"
 
 
 #pragma once
@@ -176,23 +175,6 @@ class Layer
                             MyReal* state_bar,
                             int     compute_gradient) = 0;
 
-      /**
-       * On classification layer: applies the classification and evaluates loss/accuracy 
-       */
-      virtual void evalClassification(DataSet* data, 
-                                      MyReal** state,
-                                      MyReal*  loss_ptr, 
-                                      MyReal*  accuracy_ptr,
-                                      int      output);
-
-      /**
-       * On classification layer: derivative of evalClassification 
-       */
-      virtual void evalClassification_diff(DataSet* data, 
-                                           MyReal** primalstate,
-                                           MyReal** adjointstate,
-                                           int      compute_gradient);
-
       /* ReLu Activation and derivative */
       MyReal ReLu_act(MyReal x);
       MyReal dReLu_act(MyReal x);
@@ -288,7 +270,6 @@ class ClassificationLayer : public Layer
 {
       protected: 
             MyReal* probability;          /* vector of pedicted class probabilities */
-            MyReal* tmpstate;             /* temporarily holding the state */ 
             
       public:
             ClassificationLayer(int    idx,
@@ -302,18 +283,6 @@ class ClassificationLayer : public Layer
             void applyBWD(MyReal* state,
                           MyReal* state_bar,
                           int     compute_gradient);
-
-            void evalClassification(DataSet* data,
-                                    MyReal** state,
-                                    MyReal*  loss_ptr, 
-                                    MyReal*  accuracy_ptr,
-                                    int      output);
-
-
-            void evalClassification_diff(DataSet* data,
-                                         MyReal** primalstate,
-                                         MyReal** adjointstate,
-                                         int      compute_gradient);
 
             /**
              * Evaluate the cross entropy function 

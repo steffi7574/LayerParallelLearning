@@ -6,6 +6,7 @@
 #include <string.h>
 #include "config.hpp"
 #include "util.hpp"
+#include "dataset.hpp"
 #pragma once
 
 
@@ -99,6 +100,23 @@ class Network
         
       /* Replace the layer with one that is received from the left neighbouring processor */  
       void MPI_CommunicateNeighbours(MPI_Comm comm);
+
+     /**
+       * Applies the classification and evaluates loss/accuracy 
+       */
+      void evalClassification(DataSet* data, 
+                              MyReal** state,
+                              MyReal*  loss_ptr, 
+                              MyReal*  accuracy_ptr,
+                              int      output);
+
+      /**
+       * On classification layer: derivative of evalClassification 
+       */
+      void evalClassification_diff(DataSet* data, 
+                                   MyReal** primalstate,
+                                   MyReal** adjointstate,
+                                   int      compute_gradient);
 
 };
 

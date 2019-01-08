@@ -519,8 +519,7 @@ my_Init_Adj(braid_App     app,
         layer->resetBar();
 
         /* Derivative of classification */
-        layer->evalClassification_diff(app->data, primalstate, u->state, 1);
-
+        app->network->evalClassification_diff(app->data, primalstate, u->state, 1);
 
         /* Derivative of tikhonov regularization) */
         layer->evalTikh_diff(1.0);
@@ -688,7 +687,7 @@ evalObjective(braid_Core core,
         {
             _braid_UGetVectorRef(core, 0, ilayer, &ubase);
             u = ubase->userVector;
-            layer->evalClassification(app->data, u->state, &loss_loc, &accur_loc,0);
+            app->network->evalClassification(app->data, u->state, &loss_loc, &accur_loc,0);
             loss     += loss_loc;
             accuracy += accur_loc;
         }
@@ -738,7 +737,7 @@ evalObjectiveDiff(braid_Core core_adj,
             // printf("%d: objective_diff at ilayer %d using %1.14e primal %1.14e\n", app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0], uprimal->state[1][1]);
 
             /* Derivative of classification */
-            uprimal->layer->evalClassification_diff(app->data, uprimal->state, uadjoint->state, 1);
+            app->network->evalClassification_diff(app->data, uprimal->state, uadjoint->state, 1);
 
             /* Derivative of tikhonov regularization) */
             uprimal->layer->evalTikh_diff(1.0);

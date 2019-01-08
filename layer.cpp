@@ -345,23 +345,6 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
 void Layer::setExample(MyReal* example_ptr) {}
 
 
-void Layer::evalClassification(DataSet* data,
-                               MyReal** state,
-                               MyReal*  loss_ptr, 
-                               MyReal*  accuracy_ptr,
-                               int      output)
-{
-    *loss_ptr     = 0.0;
-    *accuracy_ptr = 0.0;
-}
-
-
-void Layer::evalClassification_diff(DataSet* data, 
-                                    MyReal** primalstate,
-                                    MyReal** adjointstate,
-                                    int      compute_gradient) {}                                
-
-
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
                        int     dimO,
@@ -640,13 +623,11 @@ ClassificationLayer::ClassificationLayer(int    idx,
     gamma_tik = gammatik;
     /* Allocate the probability vector */
     probability = new MyReal[dimO];
-    tmpstate    = new MyReal[dim_In];
 }
 
 ClassificationLayer::~ClassificationLayer()
 {
     delete [] probability;
-    delete [] tmpstate;
 }
 
 
@@ -844,75 +825,7 @@ int ClassificationLayer::prediction(MyReal* data_Out,
    return success;
 }
 
-void ClassificationLayer::evalClassification(DataSet* data, 
-                                             MyReal** state,
-                                             MyReal*  loss_ptr, 
-                                             MyReal*  accuracy_ptr,
-                                             int      output)
-{
-    MyReal loss, accuracy;
-    int    class_id;
-    int    success, success_local;
-    FILE*  classfile;
-
-    /* open file for printing predicted file */
-    if (output) classfile = fopen("classprediction.dat", "w");
-
-    loss    = 0.0;
-    success = 0;
-    for (int iex = 0; iex < data->getnElements(); iex++)
-    {
-        /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
-        for (int ic = 0; ic < dim_In; ic++)
-        {
-            tmpstate[ic] = state[iex][ic];
-        }
-        /* Apply classification on tmpstate */
-        applyFWD(tmpstate);
-        /* Evaluate Loss */
-        loss          += crossEntropy(tmpstate, data->getLabel(iex));
-        success_local  = prediction(tmpstate, data->getLabel(iex), &class_id);
-        success       += success_local;
-        if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
-    }
-    loss     = 1. / data->getnElements() * loss;
-    accuracy = 100.0 * ( (MyReal) success ) / data->getnElements();
-    // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
-
-    /* Return */
-    *loss_ptr      = loss;
-    *accuracy_ptr  = accuracy;
-
-    if (output) fclose(classfile);
-    if (output) printf("Prediction file written: classprediction.dat\n");
-
-}       
-
-
-void ClassificationLayer::evalClassification_diff(DataSet* data, 
-                                                  MyReal** primalstate,
-                                                  MyReal** adjointstate,
-                                                  int      compute_gradient)
-{
-    int    nexamples = data->getnElements();
-    MyReal loss_bar = 1./nexamples; 
-    
-    for (int iex = 0; iex < nexamples; iex++)
-    {
-        /* Recompute the Classification */
-        for (int ic = 0; ic < dim_In; ic++)
-        {
-            tmpstate[ic] = primalstate[iex][ic];
-        }
-        applyFWD(tmpstate);
-
-        /* Derivative of Loss and classification. */
-        crossEntropy_diff(tmpstate, adjointstate[iex], data->getLabel(iex), loss_bar);
-        applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
-    }
-    // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
-
-}  
+  
 
 MyReal Layer::ReLu_act(MyReal x)
 {

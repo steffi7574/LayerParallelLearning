@@ -423,3 +423,100 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     if(sendfirst!=0) delete [] sendfirst;
     if(recvfirst!=0) delete [] recvfirst;
 }
+
+
+void Network::evalClassification(DataSet* data, 
+                                 MyReal** state,
+                                 MyReal*  loss_ptr, 
+                                 MyReal*  accuracy_ptr,
+                                 int      output)
+{
+    MyReal *tmpstate = new MyReal[nchannels];
+    
+    MyReal loss, accuracy;
+    int    class_id;
+    int    success, success_local;
+    FILE*  classfile;
+    ClassificationLayer* classificationlayer;
+    
+
+    /* Get classification layer */
+    classificationlayer = dynamic_cast<ClassificationLayer*>(getLayer(nlayers_global - 2));
+    if (classificationlayer == NULL) 
+    {
+        printf("\n ERROR: Network can't access classification layer!\n\n");
+        exit(1);
+    }
+
+    /* open file for printing predicted file */
+    if (output) classfile = fopen("classprediction.dat", "w");
+
+    loss    = 0.0;
+    success = 0;
+    for (int iex = 0; iex < data->getnElements(); iex++)
+    {
+        /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+            tmpstate[ic] = state[iex][ic];
+        }
+        /* Apply classification on tmpstate */
+        classificationlayer->applyFWD(tmpstate);
+        /* Evaluate Loss */
+        loss          += classificationlayer->crossEntropy(tmpstate, data->getLabel(iex));
+        success_local  = classificationlayer->prediction(tmpstate, data->getLabel(iex), &class_id);
+        success       += success_local;
+        if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
+    }
+    loss     = 1. / data->getnElements() * loss;
+    accuracy = 100.0 * ( (MyReal) success ) / data->getnElements();
+    // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
+
+    /* Return */
+    *loss_ptr      = loss;
+    *accuracy_ptr  = accuracy;
+
+    if (output) fclose(classfile);
+    if (output) printf("Prediction file written: classprediction.dat\n");
+
+    delete [] tmpstate;
+}       
+
+
+void Network::evalClassification_diff(DataSet* data, 
+                                      MyReal** primalstate,
+                                      MyReal** adjointstate,
+                                      int      compute_gradient)
+{
+    MyReal *tmpstate = new MyReal[nchannels];
+    ClassificationLayer* classificationlayer;
+    
+    /* Get classification layer */
+    classificationlayer = dynamic_cast<ClassificationLayer*>(getLayer(nlayers_global - 2));
+    if (classificationlayer == NULL) 
+    {
+        printf("\n ERROR: Network can't access classification layer!\n\n");
+        exit(1);
+    }
+
+    int    nexamples = data->getnElements();
+    MyReal loss_bar = 1./nexamples; 
+    
+    for (int iex = 0; iex < nexamples; iex++)
+    {
+        /* Recompute the Classification */
+        for (int ic = 0; ic < nchannels; ic++)
+        {
+            tmpstate[ic] = primalstate[iex][ic];
+        }
+        classificationlayer->applyFWD(tmpstate);
+
+        /* Derivative of Loss and classification. */
+        classificationlayer->crossEntropy_diff(tmpstate, adjointstate[iex], data->getLabel(iex), loss_bar);
+        classificationlayer->applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
+    }
+    // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
+
+    delete [] tmpstate;
+
+}

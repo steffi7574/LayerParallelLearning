@@ -615,8 +615,8 @@ my_BufUnpack_Adj(braid_App           app,
 }
 
 void
-evalInit(braid_Core core,
-         braid_App   app)
+braid_evalInit(braid_Core core,
+               braid_App   app)
 {
     Layer* openlayer = app->network->getLayer(-1);
     int    nexamples = app->data->getnElements();
@@ -649,11 +649,11 @@ evalInit(braid_Core core,
 
 
 void
-evalObjective(braid_Core core,
-              braid_App   app,
-              MyReal     *objective_ptr,
-              MyReal     *loss_ptr,
-              MyReal     *accuracy_ptr)
+braid_evalObjective(braid_Core core,
+                    braid_App   app,
+                    MyReal     *objective_ptr,
+                    MyReal     *loss_ptr,
+                    MyReal     *accuracy_ptr)
 {
     MyReal objective = 0.0;
     MyReal regul     = 0.0;
@@ -708,8 +708,8 @@ evalObjective(braid_Core core,
 
 
 void
-evalObjectiveDiff(braid_Core core_adj,
-                  braid_App  app)
+braid_evalObjectiveDiff(braid_Core core_adj,
+                        braid_App  app)
 {
 
     braid_BaseVector  ubaseprimal, ubaseadjoint;
@@ -747,8 +747,8 @@ evalObjectiveDiff(braid_Core core_adj,
 
 
 void 
-evalInitDiff(braid_Core core_adj,
-             braid_App  app)
+braid_evalInitDiff(braid_Core core_adj,
+                   braid_App  app)
 {
     Layer* openlayer = app->network->getLayer(-1);
     int    nexamples = app->data->getnElements();

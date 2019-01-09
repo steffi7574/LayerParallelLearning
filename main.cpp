@@ -56,7 +56,9 @@ int main (int argc, char *argv[])
     struct rusage r_usage;
     MyReal StartTime, StopTime, myMB, globalMB; 
     MyReal UsedTime = 0.0;
-    char  optimfilename[255];
+    char optimfilename[255];
+    char train_ex_filename[255], train_lab_filename[255];
+    char val_ex_filename[255], val_lab_filename[255];
     FILE *optimfile = 0;   
     MyReal stepsize, ls_objective;
     int nreq = -1;
@@ -96,10 +98,6 @@ int main (int argc, char *argv[])
     /*--- INITIALIZATION ---*/
 
     /* Set the data file names */
-    char train_ex_filename[255];
-    char train_lab_filename[255];
-    char val_ex_filename[255];
-    char val_lab_filename[255];
     sprintf(train_ex_filename,  "%s/%s", config->datafolder, config->ftrain_ex);
     sprintf(train_lab_filename, "%s/%s", config->datafolder, config->ftrain_labels);
     sprintf(val_ex_filename,    "%s/%s", config->datafolder, config->fval_ex);
@@ -233,17 +231,17 @@ int main (int argc, char *argv[])
         /* Solve state equation with braid */
         nreq = -1;
         braid_SetPrintLevel(core_train, config->braid_printlevel);
-        evalInit(core_train, app_train);
+        braid_evalInit(core_train, app_train);
         braid_Drive(core_train);
-        evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
+        braid_evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
         braid_GetRNorms(core_train, &nreq, &rnorm);
 
         /* Solve adjoint equation with XBraid */
         nreq = -1;
         braid_SetPrintLevel(core_adj, config->braid_printlevel);
-        evalObjectiveDiff(core_adj, app_train);
+        braid_evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
-        evalInitDiff(core_adj, app_train);
+        braid_evalInitDiff(core_adj, app_train);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
 
         /* --- Validation data: Get accuracy --- */
@@ -251,7 +249,7 @@ int main (int argc, char *argv[])
         if ( config->validationlevel > 0 )
         {
             braid_SetPrintLevel( core_val, 1);
-            evalInit(core_val, app_val);
+            braid_evalInit(core_val, app_val);
             braid_Drive(core_val);
             /* Get loss and accuracy */
             _braid_UGetLast(core_val, &ubase);
@@ -336,9 +334,9 @@ int main (int argc, char *argv[])
         {
             /* Compute new objective function value for current trial step */
             braid_SetPrintLevel(core_train, 0);
-            evalInit(core_train, app_train);
+            braid_evalInit(core_train, app_train);
             braid_Drive(core_train);
-            evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
+            braid_evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
             MyReal test = objective - ls_param * stepsize * wolfe;
             if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
@@ -391,7 +389,7 @@ int main (int argc, char *argv[])
     {
         if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
         braid_SetPrintLevel( core_val, 0);
-        evalInit(core_val, app_val);
+        braid_evalInit(core_val, app_val);
         braid_Drive(core_val);
         /* Get loss and accuracy */
         _braid_UGetLast(core_val, &ubase);

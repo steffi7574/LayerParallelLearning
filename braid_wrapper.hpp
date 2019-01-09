@@ -147,23 +147,23 @@ my_BufUnpack_Adj(braid_App           app,
 
 
 void
-evalInit(braid_Core core,
+braid_evalInit(braid_Core core,
          braid_App   app);
 
 
 void  
-evalObjective(braid_Core  core,
-              braid_App   app,     
-              MyReal     *objective,
-              MyReal     *loss_ptr,
-              MyReal     *accuracy_ptr);
+braid_evalObjective(braid_Core  core,
+                    braid_App   app,     
+                    MyReal     *objective,
+                    MyReal     *loss_ptr,
+                    MyReal     *accuracy_ptr);
 
 
 void
-evalObjectiveDiff(braid_Core core_adj,
-                  braid_App  app);
+braid_evalObjectiveDiff(braid_Core core_adj,
+                        braid_App  app);
 
 
 void 
-evalInitDiff(braid_Core core_adj,
-             braid_App  app);
+braid_evalInitDiff(braid_Core core_adj,
+                   braid_App  app);

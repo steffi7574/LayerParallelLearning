@@ -49,7 +49,7 @@ my_Step(braid_App        app,
     MyReal tstart, tstop;
     MyReal deltaT;
 
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
    
     /* Get the time-step size and current time index*/
     braid_StepStatusGetTstartTstop(status, &tstart, &tstop);
@@ -63,7 +63,7 @@ my_Step(braid_App        app,
     // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n", app->myid, ts_start, tstart, ts_stop, tstop, u->layer->getIndex(), u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());
 
     /* apply the layer for all examples */
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         /* Apply the layer */
         u->layer->applyFWD(u->state[iex]);
@@ -96,13 +96,13 @@ my_Init(braid_App     app,
         braid_Vector *u_ptr)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
 
 
     /* Initialize the state */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new MyReal*[nexamples];
-    for (int iex = 0; iex < nexamples; iex++)
+    u->state = new MyReal*[nbatch];
+    for (int iex = 0; iex < nbatch; iex++)
     {
         u->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
@@ -116,7 +116,7 @@ my_Init(braid_App     app,
     {
         Layer* openlayer = app->network->getLayer(-1);
         // printf("%d: Init %f: layer %d using %1.14e state %1.14e, %d\n", app->myid, t, openlayer->getIndex(), openlayer->getWeights()[3], u->state[1][1], openlayer->getnDesign());
-        for (int iex = 0; iex < nexamples; iex++)
+        for (int iex = 0; iex < nbatch; iex++)
         {
             /* set example */
             openlayer->setExample(app->data->getExample(iex));
@@ -147,12 +147,12 @@ my_Clone(braid_App     app,
 {
     // my_Vector *v;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
  
     /* Allocate the vector */
     my_Vector* v = (my_Vector *) malloc(sizeof(my_Vector));
-    v->state = new MyReal*[nexamples];
-    for (int iex = 0; iex < nexamples; iex++)
+    v->state = new MyReal*[nbatch];
+    for (int iex = 0; iex < nbatch; iex++)
     {
         v->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
@@ -173,9 +173,9 @@ int
 my_Free(braid_App    app,
         braid_Vector u)
 {
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
 
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         delete [] u->state[iex];
     }
@@ -194,9 +194,9 @@ my_Sum(braid_App     app,
        braid_Vector  y)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
 
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -213,14 +213,14 @@ my_SpatialNorm(braid_App     app,
                MyReal       *norm_ptr)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
 
     MyReal dot = 0.0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         dot += vecdot(nchannels, u->state[iex], u->state[iex]);
     }
-   *norm_ptr = sqrt(dot) / nexamples;
+   *norm_ptr = sqrt(dot) / nbatch;
 
    return 0;
 }
@@ -244,11 +244,11 @@ my_BufSize(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int nchannels        = app->network->getnChannels();
-    int nexamples        = app->data->getnElements();
+    int nbatch        = app->data->getnBatch();
     int ndesign_layermax = app->ndesign_layermax;
    
     /* Gather number of variables */
-    int nuvector     = nchannels*nexamples;
+    int nuvector     = nchannels*nbatch;
     int nlayerinfo   = 12;
     int nlayerdesign = ndesign_layermax;
 
@@ -268,11 +268,11 @@ my_BufPack(braid_App           app,
     int size;
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
     
     /* Store network state */
     int idx = 0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -280,7 +280,7 @@ my_BufPack(braid_App           app,
            idx++;
         }
     }
-    size = nchannels*nexamples*sizeof(MyReal);
+    size = nchannels*nbatch*sizeof(MyReal);
 
     int nweights = u->layer->getnWeights();
     int nbias    = u->layer->getDimBias();
@@ -325,20 +325,20 @@ my_BufUnpack(braid_App           app,
 
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
     Layer *tmplayer = 0;
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new MyReal*[nexamples];
-    for (int iex = 0; iex < nexamples; iex++)
+    u->state = new MyReal*[nbatch];
+    for (int iex = 0; iex < nbatch; iex++)
     {
         u->state[iex] = new MyReal[nchannels];
     }
 
     /* Unpack the buffer */
     int idx = 0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -427,7 +427,7 @@ my_Step_Adj(braid_App        app,
     int    primaltimestep;
     braid_BaseVector ubaseprimal;
     braid_Vector     uprimal;
-    int    nexamples = app->data->getnElements();
+    int    nbatch = app->data->getnBatch();
 
     /* Update gradient only on the finest grid */
     braid_StepStatusGetLevel(status, &level);
@@ -451,7 +451,7 @@ my_Step_Adj(braid_App        app,
 
     /* Take one step backwards, updates adjoint state and gradient, if desired. */
     uprimal->layer->setDt(deltaT);
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         uprimal->layer->applyBWD(uprimal->state[iex], u->state[iex], compute_gradient); 
     }
@@ -483,7 +483,7 @@ my_Init_Adj(braid_App     app,
 {
     braid_BaseVector uprimal;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
     MyReal *aux     = new MyReal[nchannels];
 
     int finegrid         = 0;
@@ -495,8 +495,8 @@ my_Init_Adj(braid_App     app,
 
     /* Allocate the adjoint vector and set to zero */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new MyReal*[nexamples];
-    for (int iex = 0; iex < nexamples; iex++)
+    u->state = new MyReal*[nbatch];
+    for (int iex = 0; iex < nbatch; iex++)
     {
         u->state[iex] = new MyReal[nchannels];
         for (int ic = 0; ic < nchannels; ic++)
@@ -539,9 +539,9 @@ my_BufSize_Adj(braid_App           app,
                braid_BufferStatus  bstatus)
 {
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
    
-    *size_ptr = nchannels*nexamples*sizeof(MyReal);
+    *size_ptr = nchannels*nbatch*sizeof(MyReal);
     return 0;
 }
 
@@ -556,11 +556,11 @@ my_BufPack_Adj(braid_App           app,
     int size;
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
     
     /* Store network state */
     int idx = 0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -568,7 +568,7 @@ my_BufPack_Adj(braid_App           app,
            idx++;
         }
     }
-    size = nchannels*nexamples*sizeof(MyReal);
+    size = nchannels*nbatch*sizeof(MyReal);
 
     braid_BufferStatusSetSize( bstatus, size);
  
@@ -586,19 +586,19 @@ my_BufUnpack_Adj(braid_App           app,
 
     MyReal *dbuffer   = (MyReal*) buffer;
     int nchannels = app->network->getnChannels();
-    int nexamples = app->data->getnElements();
+    int nbatch = app->data->getnBatch();
     
     //  /* Allocate the vector */
     my_Vector* u = (my_Vector *) malloc(sizeof(my_Vector));
-    u->state = new MyReal*[nexamples];
-    for (int iex = 0; iex < nexamples; iex++)
+    u->state = new MyReal*[nbatch];
+    for (int iex = 0; iex < nbatch; iex++)
     {
         u->state[iex] = new MyReal[nchannels];
     }
 
     /* Unpack the buffer */
     int idx = 0;
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         for (int ic = 0; ic < nchannels; ic++)
         {
@@ -619,7 +619,7 @@ braid_evalInit(braid_Core core,
                braid_App   app)
 {
     Layer* openlayer = app->network->getLayer(-1);
-    int    nexamples = app->data->getnElements();
+    int    nbatch = app->data->getnBatch();
     braid_BaseVector ubase;
     braid_Vector     u;
 
@@ -635,7 +635,7 @@ braid_evalInit(braid_Core core,
             u = ubase->userVector;
 
             /* Apply opening layer */
-            for (int iex = 0; iex < nexamples; iex++)
+            for (int iex = 0; iex < nbatch; iex++)
             {
                 /* set example */
                 openlayer->setExample(app->data->getExample(iex));
@@ -751,7 +751,7 @@ braid_evalInitDiff(braid_Core core_adj,
                    braid_App  app)
 {
     Layer* openlayer = app->network->getLayer(-1);
-    int    nexamples = app->data->getnElements();
+    int    nbatch = app->data->getnBatch();
     braid_BaseVector ubase;
 
     /* Get \bar y^0 (which is the LAST xbraid vector, stored on proc 0) */
@@ -761,7 +761,7 @@ braid_evalInitDiff(braid_Core core_adj,
         openlayer->resetBar();
         
         /* Apply opening layer backwards for all examples */ 
-        for (int iex = 0; iex < nexamples; iex++)
+        for (int iex = 0; iex < nbatch; iex++)
         {
             openlayer->setExample(app->data->getExample(iex));
             /* TODO: Don't feed applyBWD with NULL! */

@@ -23,7 +23,7 @@ DataSet::DataSet(int MPISize,
    navail   = nelements;
 
    /* Sanity check */
-   assert(nbatch <= nelements);
+   if (nbatch > nelements) nbatch = nelements;
 
    /* Allocate feature vectors on first processor */
    if (MPIrank == 0)
@@ -93,20 +93,20 @@ DataSet::~DataSet()
 }
 
 
-int DataSet::getnElements() { return nelements; }
+int DataSet::getnBatch() { return nbatch; }
 
 MyReal* DataSet::getExample(int id) 
 { 
    if (examples == NULL) return NULL;
-   
-   return examples[id]; 
+
+   return examples[batchIDs[id]]; 
 }
 
 MyReal* DataSet::getLabel(int id) 
 { 
    if (labels == NULL) return NULL;
    
-   return labels[id]; 
+   return labels[batchIDs[id]]; 
 }
 
 void DataSet::readData(char* examplefile, char* labelfile)
@@ -123,6 +123,7 @@ void DataSet::readData(char* examplefile, char* labelfile)
 void DataSet::selectBatch(int batch_type)
 {
    int irand, rand_range;
+   int tmp;
    MPI_Request sendreq, recvreq;
    MPI_Status status;
 
@@ -147,8 +148,10 @@ void DataSet::selectBatch(int batch_type)
                /* Set the batchID */
                batchIDs[ibatch] = availIDs[irand];
 
-               /* Remove the ID from available IDs (by replacing it with the last available id and reducing the range) */
+               /* Remove the ID from available IDs (by swapping it with the last available id and reducing the range) */
+               tmp = availIDs[irand];
                availIDs[irand] = availIDs[rand_range];
+               availIDs[rand_range] = tmp;
                rand_range--;
             }
 
@@ -173,3 +176,15 @@ void DataSet::selectBatch(int batch_type)
    }
 }
 
+
+void DataSet::printBatch()
+{
+   if (batchIDs != NULL)  // only first and last processor
+   {
+      printf("%d:\n", MPIrank);
+      for (int ibatch = 0; ibatch < nbatch; ibatch++)
+      {
+         printf("%d, %04d\n", ibatch, batchIDs[ibatch]);
+      }
+   }
+}

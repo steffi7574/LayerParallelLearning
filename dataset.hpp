@@ -39,14 +39,13 @@ class DataSet {
       /* Destructor */
       ~DataSet();
 
-      /* Return the number of elements in the data set */
-      int getnElements();
+      /* Return the batch size*/
+      int getnBatch();
 
-
-      /* Return the feature vector of a certain id, if stored on this processor (else NULL) */
+      /* Return the feature vector of a certain batchID. If not stored on this processor, return NULL */
       MyReal* getExample(int id);
 
-      /* Return the label vector of a certain id, if stored on this processor (else NULL)*/
+      /* Return the label vector of a certain batchID. If not stored on this processor, return NULL */
       MyReal* getLabel(int id);
 
       /* Read data from file */
@@ -55,4 +54,8 @@ class DataSet {
 
       /* Select the current batch from all available IDs, either deterministic or stochastic */
       void selectBatch(int batch_type);
+
+
+      /* print current batch to screen */
+      void printBatch();
 };

@@ -453,7 +453,7 @@ void Network::evalClassification(DataSet* data,
 
     loss    = 0.0;
     success = 0;
-    for (int iex = 0; iex < data->getnElements(); iex++)
+    for (int iex = 0; iex < data->getnBatch(); iex++)
     {
         /* Copy values so that they are not overwrittn (they are needed for adjoint)*/
         for (int ic = 0; ic < nchannels; ic++)
@@ -468,8 +468,8 @@ void Network::evalClassification(DataSet* data,
         success       += success_local;
         if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
     }
-    loss     = 1. / data->getnElements() * loss;
-    accuracy = 100.0 * ( (MyReal) success ) / data->getnElements();
+    loss     = 1. / data->getnBatch() * loss;
+    accuracy = 100.0 * ( (MyReal) success ) / data->getnBatch();
     // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
 
     /* Return */
@@ -499,10 +499,10 @@ void Network::evalClassification_diff(DataSet* data,
         exit(1);
     }
 
-    int    nexamples = data->getnElements();
-    MyReal loss_bar = 1./nexamples; 
+    int    nbatch = data->getnBatch();
+    MyReal loss_bar = 1./nbatch; 
     
-    for (int iex = 0; iex < nexamples; iex++)
+    for (int iex = 0; iex < nbatch; iex++)
     {
         /* Recompute the Classification */
         for (int ic = 0; ic < nchannels; ic++)

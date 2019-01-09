@@ -24,7 +24,7 @@ typedef struct _braid_App_struct
 /* Define the state vector at one time-step */
 typedef struct _braid_Vector_struct
 {
-   MyReal **state;   /* Network state at one layer, dimensions: nexamples * nchannels */
+   MyReal **state;   /* Network state at one layer, dimensions: nbatch * nchannels */
 
    Layer* layer;     /* Pointer to layer information (local design part) */
 

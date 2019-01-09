@@ -229,6 +229,7 @@ int main (int argc, char *argv[])
         
         /* Set up the current batch */
         trainingdata->selectBatch(config->batch_type);
+        // trainingdata->printBatch();
 
         /* Solve state equation with braid */
         nreq = -1;

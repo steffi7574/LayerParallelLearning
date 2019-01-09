@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import sys 
+import sys
+import argparse
 import os
 import copy
 import subprocess
@@ -8,35 +9,44 @@ import string
 from config import *
 from util import *
 
+# Define the command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-c', '--case', help='name of test case', default='peaks')
+parser.add_argument('-ml', '--maxlevels', type=int, nargs='+', help='braid_maxlevels to be tested',  default=[1,10])
+parser.add_argument('-npt', '--nprocs', type=int, nargs='+', help='number of processors to be tested',  default=[1,2,5])
 
-# Specify testcase
-case = "peaks"
+# Parse command line arguments
+args = parser.parse_args()
+case = args.case
+nptlist  = args.nprocs
+braid_maxlevelslist = args.maxlevels
+print("Testing case \"" + case +  "\", npt=" + str(nptlist) + ", braid_maxlevels=" + str(braid_maxlevelslist))
+
+# Specify the output file to compare
+outfile = "optim.dat"
 
 # Get the global config file
 config = Config(case + ".cfg")
-
-# Specify the configuration to be tested
-braid_maxlevelslist = [1,10]
-
-# Specify number of processors to be tested
-nptlist = [1,2,5]
 
 # Iterate over configuration
 for j,ml in enumerate(braid_maxlevelslist):
 
     # Iterate over number of processors
     for i,npt in enumerate(nptlist):
+
+        # Set the test case name 
+        testname = case + ".npt" + str(npt) + ".ml" + str(ml) 
     
         # Create testing folder
-        testname = case + "test_ml" + str(ml) + "_npt" + str(npt)
-        if os.path.exists(testname):
+        testfoldername = "test." + testname
+        if os.path.exists(testfoldername):
            pass
         else:
-           os.mkdir(testname)
+           os.mkdir(testfoldername)
        
         # create a link to training and validation data
         datafolder = "../" + config.datafolder
-        make_link(datafolder, testname + "/" + config.datafolder)
+        make_link(datafolder, testfoldername + "/" + config.datafolder)
         
         # Set the new configuration
         konfig = copy.deepcopy(config)
@@ -44,10 +54,10 @@ for j,ml in enumerate(braid_maxlevelslist):
     
         # create the config file
         testconfig = testname + ".cfg"
-        konfig.dump(testname + "/" + testconfig)
+        konfig.dump(testfoldername + "/" + testconfig)
         
         # run the test
-        os.chdir(testname)
+        os.chdir(testfoldername)
         runcommand = "mpirun -n " + str(npt) + " ../../main " + testconfig + " > tmp"
         print("Running Test: " + testname)
         #print("  " + runcommand)
@@ -55,13 +65,12 @@ for j,ml in enumerate(braid_maxlevelslist):
         os.chdir("../")
         
         # compare output file to the reference
-        refname = case + ".ml" + str(ml) + ".optim.ref"
-        err = comparefiles(refname, testname + "/optim.dat")
+        refname = testname  + "." + outfile 
+        err = comparefiles(refname, testfoldername + "/" + outfile)
         
         # Print result
         if (err > 0):
             print("  !!! Test failed !!!")
-            print("  vimdiff " + refname + " " + testname + "/optim.dat")
+            print("  vimdiff " + refname + " " + testfoldername + "/" + outfile)
         else:
             print("  Test passed!")
-        

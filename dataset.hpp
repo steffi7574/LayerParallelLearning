@@ -1,12 +1,13 @@
+#include <assert.h>
 #include "util.hpp"
 #include "defs.hpp"
+#include "config.hpp"
 #pragma once
 
 class DataSet {
 
+
    protected:
-      int MPIsize;           /* Size of the global communicator */
-      int MPIrank;           /* Processors rank */
 
       int nelements;         /* Number of data elements */
       int nfeatures;         /* Number of features per element */
@@ -15,6 +16,16 @@ class DataSet {
       MyReal **examples;    /* Array of Feature vectors (dim: nelements x nfeatures) */
       MyReal **labels;      /* Array of Label vectors (dim: nelements x nlabels) */
 
+      int  nbatch;          /* Size of the batch */
+      int *batchIDs;        /* Array of batch indicees */
+      
+   private:
+      int MPIsize;           /* Size of the global communicator */
+      int MPIrank;           /* Processors rank */
+
+      int* availIDs;          /* Auxilliary: holding available batchIDs when generating a batch */
+      int  navail;            /* Auxilliary: holding number of currently available batchIDs */
+
    public: 
 
       /* Constructor */
@@ -22,7 +33,8 @@ class DataSet {
               int MPIRank,
               int nElements, 
               int nFeatures, 
-              int nLabels);
+              int nLabels,
+              int nBatch);
 
       /* Destructor */
       ~DataSet();
@@ -40,4 +52,7 @@ class DataSet {
       /* Read data from file */
       void readData(char* examplefile,
                     char* labelfile);
+
+      /* Select the current batch from all available IDs, either deterministic or stochastic */
+      void selectBatch(int batch_type);
 };

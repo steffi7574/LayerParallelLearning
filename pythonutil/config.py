@@ -176,6 +176,7 @@ def read_config(filename):
                 case("optim_maxiter") or \
                 case("ls_maxiter") or \
                 case("lbfgs_stages") or \
+                case("nbatch") or \
                 case("validationlevel") :
                 data_dict[this_param] = int(this_value)
                 break
@@ -207,6 +208,7 @@ def read_config(filename):
                case("weightsclassificationfile") or \
                case("network_type") or \
                case("type_openlayer") or \
+               case("batchtype") or \
                case("hessian_approx") :
                data_dict[this_param] = this_value
                break

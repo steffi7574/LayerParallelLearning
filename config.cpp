@@ -2,8 +2,6 @@
 
 
 
-
-
 Config::Config()
 {
 
@@ -50,6 +48,8 @@ Config::Config()
     braid_nrelax       = 1;
 
     /* Optimization */
+    batch_type         = DETERMINISTIC;
+    nbatch             = ntraining;      // full batch 
     gamma_tik          = 1e-07;
     gamma_ddt          = 1e-07;
     gamma_class        = 1e-07;
@@ -229,6 +229,26 @@ int Config::readFromFile(char* configfilename)
         {
            braid_nrelax0 = atoi(co->value);
         }
+        else if (strcmp(co->key, "batchtype") == 0 )
+        {
+            if ( strcmp(co->value, "deterministic") == 0 )
+            {
+                batch_type = DETERMINISTIC;
+            }
+            else if (strcmp(co->value, "stochastic") == 0 )
+            {
+                batch_type = STOCHASTIC;
+            }
+            else
+            {
+                printf("Invalid optimization type! Should be either 'deterministic' or 'stochastic'!");
+                return -1;
+            }
+        }
+        else if ( strcmp(co->key, "nbatch") == 0 )
+        {
+           nbatch = atoi(co->value);
+        }
         else if ( strcmp(co->key, "gamma_tik") == 0 )
         {
             gamma_tik = atof(co->value);
@@ -372,7 +392,7 @@ Config::config_option* Config::parsefile(char* path) {
 
 int Config::writeToFile(FILE* outfile)
 {
-   char *activname, *networktypename, *hessetypename;
+   char *activname, *networktypename, *hessetypename, *optimtypename;
 
    /* Get names of some int options */
    switch (activation)
@@ -414,7 +434,17 @@ int Config::writeToFile(FILE* outfile)
       default:
          hessetypename = "invalid!";
    }
-
+   switch (batch_type)
+   {
+      case DETERMINISTIC:
+         optimtypename = "deterministic";
+         break;
+      case STOCHASTIC:
+         optimtypename = "stochastic";
+         break;
+      default:
+         optimtypename = "invalid!";
+   }
 
    /* print config option */ 
    fprintf(outfile, "# Problem setup: datafolder           %s \n",   datafolder);
@@ -445,7 +475,9 @@ int Config::writeToFile(FILE* outfile)
    fprintf(outfile, "#                fmg?                 %d \n",   braid_fmg);
    fprintf(outfile, "#                nrelax (level 0)     %d \n",   braid_nrelax0);
    fprintf(outfile, "#                nrelax               %d \n",   braid_nrelax);
-   fprintf(outfile, "# Optimization:  gamma_tik            %1.e \n", gamma_tik);
+   fprintf(outfile, "# Optimization:  optimization type    %s \n",   optimtypename);
+   fprintf(outfile, "#                nbatch               %d \n",   nbatch);
+   fprintf(outfile, "#                gamma_tik            %1.e \n", gamma_tik);
    fprintf(outfile, "#                gamma_ddt            %1.e \n", gamma_ddt);
    fprintf(outfile, "#                gamma_class          %1.e \n", gamma_class);
    fprintf(outfile, "#                stepsize             %f \n",   stepsize_init);

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <mpi.h>
 
-// #include "lib.hpp"
 #include "defs.hpp"
 #include "hessianApprox.hpp"
 #include "util.hpp"

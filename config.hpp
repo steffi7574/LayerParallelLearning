@@ -9,6 +9,9 @@ enum activation{TANH, RELU, SMRELU};
 /* Available network types */
 enum networkType{DENSE, CONVOLUTIONAL}; 
 
+/* Available batch types */
+enum batchtype{DETERMINISTIC, STOCHASTIC};
+
 /* Available hessian approximation types */
 enum hessiantype{BFGS_SERIAL, LBFGS, IDENTITY};
 
@@ -71,6 +74,8 @@ class Config {
       int    braid_nrelax0;
 
       /* Optimization */
+      int    batch_type;
+      int    nbatch;
       MyReal gamma_tik;
       MyReal gamma_ddt;
       MyReal gamma_class;

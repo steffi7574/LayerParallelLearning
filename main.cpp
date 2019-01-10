@@ -31,7 +31,7 @@ int main (int argc, char *argv[])
     MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
     MyReal  *design0=0;           /**< Old design at previous iteration */
     MyReal  *gradient0=0;         /**< Old gradient at previous iteration*/
-    MyReal  *descentdir=0;        /**< Direction for design updates */
+    MyReal  *ascentdir=0;        /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
     MyReal   rnorm;               /**< Space-time Norm of the state variables */
@@ -190,10 +190,10 @@ int main (int argc, char *argv[])
             hessian = new Identity(ndesign_local);
     }
 
-    /* Allocate old design and gradient vector and descentdirection */
+    /* Allocate old design and gradient vector and ascentdirection */
     design0    = new MyReal[ndesign_local];
     gradient0  = new MyReal[ndesign_local];
-    descentdir = new MyReal[ndesign_local];
+    ascentdir = new MyReal[ndesign_local];
 
     /* Initialize optimization parameters */
     ls_param    = 1e-4;
@@ -310,17 +310,17 @@ int main (int argc, char *argv[])
 
         /* Compute search direction */
         hessian->updateMemory(iter, network->getDesign(), design0, network->getGradient(), gradient0);
-        hessian->computeDescentDir(iter, network->getGradient(), descentdir);
+        hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
         
         /* Store design and gradient into *0 vectors */
         vec_copy(ndesign_local, network->getDesign(), design0);
         vec_copy(ndesign_local, network->getGradient(), gradient0);
 
         /* Compute wolfe condition */
-        wolfe = vecdot_par(ndesign_local, network->getGradient(), descentdir, MPI_COMM_WORLD);
+        wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir, MPI_COMM_WORLD);
 
         /* Update the design using the initial stepsize */
-        network->updateDesign( -1.0*config->stepsize_init, descentdir, MPI_COMM_WORLD);
+        network->updateDesign( -1.0*config->stepsize_init, ascentdir, MPI_COMM_WORLD);
 
         /* --- Backtracking linesearch --- */
         stepsize = config->stepsize_init;
@@ -353,7 +353,7 @@ int main (int argc, char *argv[])
                 stepsize = stepsize * config->ls_factor;
 
                 /* Compute new design using new stepsize */
-                network->updateDesign(stepsize, descentdir, MPI_COMM_WORLD);
+                network->updateDesign(stepsize, ascentdir, MPI_COMM_WORLD);
             }
         }
  
@@ -563,7 +563,7 @@ int main (int argc, char *argv[])
     delete [] design_init;
     delete [] design0;
     delete [] gradient0;
-    delete [] descentdir;
+    delete [] ascentdir;
 
     /* Delete training and validation examples  */
     delete trainingdata;

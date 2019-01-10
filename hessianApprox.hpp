@@ -19,7 +19,7 @@ class HessianApprox {
       /**
        * Compute the BFGS descent direction 
        */
-      virtual void computeDescentDir(int     k, 
+      virtual void computeAscentDir(int     k, 
                                MyReal* currgrad, 
                                MyReal* descdir) = 0;   
 
@@ -50,7 +50,7 @@ class L_BFGS : public HessianApprox {
              int stage);        /* Constructor */
       ~L_BFGS();                /* Destructor */
 
-      void computeDescentDir(int     k, 
+      void computeAscentDir(int     k, 
                              MyReal* currgrad, 
                              MyReal* descdir);
 
@@ -82,7 +82,7 @@ class BFGS : public HessianApprox {
 
       void setIdentity();                    
 
-      void computeDescentDir(int     k, 
+      void computeAscentDir(int     k, 
                              MyReal* currgrad, 
                              MyReal* descdir);
 
@@ -104,7 +104,7 @@ class Identity : public HessianApprox{
       Identity(int N);
       ~Identity();
 
-      void computeDescentDir(int     k, 
+      void computeAscentDir(int     k, 
                              MyReal* currgrad, 
                              MyReal* descdir);
 

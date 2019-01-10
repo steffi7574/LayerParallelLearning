@@ -50,7 +50,7 @@ L_BFGS::~L_BFGS()
 
 
 
-void L_BFGS::computeDescentDir(int     iter,
+void L_BFGS::computeAscentDir(int     iter,
                                MyReal* currgrad,
                                MyReal* descdir)
 {
@@ -213,7 +213,7 @@ void BFGS::updateMemory(int     iter,
     }
 }
 
-void BFGS::computeDescentDir(int     iter, 
+void BFGS::computeAscentDir(int     iter, 
                              MyReal* currgrad, 
                              MyReal* descdir)
 {
@@ -295,7 +295,7 @@ void Identity::updateMemory(int     iter,
 
 
 
-void Identity::computeDescentDir(int     iter, 
+void Identity::computeAscentDir(int     iter, 
                                  MyReal* currgrad, 
                                  MyReal* descdir)
 {

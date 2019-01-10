@@ -29,8 +29,6 @@ int main (int argc, char *argv[])
     int      ndesign_layermax;          /**< Max. number of design variables over all hidden layers */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
     MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
-    MyReal  *design0=0;           /**< Old design at previous iteration */
-    MyReal  *gradient0=0;         /**< Old gradient at previous iteration*/
     MyReal  *ascentdir=0;        /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
@@ -181,18 +179,16 @@ int main (int argc, char *argv[])
     switch (config->hessianapprox_type)
     {
         case BFGS_SERIAL:
-            hessian = new BFGS(ndesign_local);
+            hessian = new BFGS(MPI_COMM_WORLD, ndesign_local);
             break;
         case LBFGS: 
-            hessian = new L_BFGS(ndesign_local, config->lbfgs_stages);
+            hessian = new L_BFGS(MPI_COMM_WORLD, ndesign_local, config->lbfgs_stages);
             break;
         case IDENTITY:
-            hessian = new Identity(ndesign_local);
+            hessian = new Identity(MPI_COMM_WORLD, ndesign_local);
     }
 
-    /* Allocate old design and gradient vector and ascentdirection */
-    design0    = new MyReal[ndesign_local];
-    gradient0  = new MyReal[ndesign_local];
+    /* Allocate ascent direction for design updates */
     ascentdir = new MyReal[ndesign_local];
 
     /* Initialize optimization parameters */
@@ -309,13 +305,9 @@ int main (int argc, char *argv[])
         /* --- Design update --- */
 
         /* Compute search direction */
-        hessian->updateMemory(iter, network->getDesign(), design0, network->getGradient(), gradient0);
+        hessian->updateMemory(iter, network->getDesign(), network->getGradient());
         hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
         
-        /* Store design and gradient into *0 vectors */
-        vec_copy(ndesign_local, network->getDesign(), design0);
-        vec_copy(ndesign_local, network->getGradient(), gradient0);
-
         /* Compute wolfe condition */
         wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir, MPI_COMM_WORLD);
 
@@ -561,8 +553,6 @@ int main (int argc, char *argv[])
     /* Delete optimization vars */
     delete hessian;
     delete [] design_init;
-    delete [] design0;
-    delete [] gradient0;
     delete [] ascentdir;
 
     /* Delete training and validation examples  */

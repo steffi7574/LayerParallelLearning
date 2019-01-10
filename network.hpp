@@ -118,5 +118,12 @@ class Network
                                    MyReal** adjointstate,
                                    int      compute_gradient);
 
+
+      /**
+       * Update the network design parameters: new_design = old_design + stepsize * direction
+       */
+      void updateDesign(MyReal   stepsize,
+                        MyReal  *direction,
+                        MPI_Comm comm);
 };
 

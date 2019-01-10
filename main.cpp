@@ -320,13 +320,7 @@ int main (int argc, char *argv[])
         wolfe = vecdot_par(ndesign_local, network->getGradient(), descentdir, MPI_COMM_WORLD);
 
         /* Update the design using the initial stepsize */
-        for (int id = 0; id < ndesign_local; id++)
-        {
-            network->getDesign()[id] -= config->stepsize_init * descentdir[id];
-        }
-
-        /* Communicate design across neighbouring processors (ghostlayers) */
-        network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+        network->updateDesign( -1.0*config->stepsize_init, descentdir, MPI_COMM_WORLD);
 
         /* --- Backtracking linesearch --- */
         stepsize = config->stepsize_init;
@@ -359,11 +353,7 @@ int main (int argc, char *argv[])
                 stepsize = stepsize * config->ls_factor;
 
                 /* Compute new design using new stepsize */
-                for (int id = 0; id < ndesign_local; id++)
-                {
-                    network->getDesign()[id] += stepsize * descentdir[id];
-                }
-                network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+                network->updateDesign(stepsize, descentdir, MPI_COMM_WORLD);
             }
         }
  

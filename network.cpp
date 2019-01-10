@@ -520,3 +520,17 @@ void Network::evalClassification_diff(DataSet* data,
     delete [] tmpstate;
 
 }
+
+void Network::updateDesign(MyReal   stepsize,
+                           MyReal  *direction,
+                           MPI_Comm comm)
+{
+    /* Update design locally on this network-block */
+    for (int id = 0; id < ndesign_loc; id++)
+    {
+        design[id] += stepsize * direction[id];
+    }
+
+    /* Communicate design across neighbouring processors (ghostlayers) */
+    MPI_CommunicateNeighbours(comm);
+}                   

@@ -344,6 +344,8 @@ void Layer::evalRegulDDT_diff(Layer* layer_prev,
 
 void Layer::setExample(MyReal* example_ptr) {}
 
+void Layer::setLabel(MyReal* example_ptr) {}
+
 
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,
@@ -631,6 +633,11 @@ ClassificationLayer::~ClassificationLayer()
 }
 
 
+void ClassificationLayer::setLabel(MyReal* label_ptr)
+{
+   label = label_ptr;
+}
+
 
 void ClassificationLayer::applyFWD(MyReal* state)
 {
@@ -732,8 +739,7 @@ void ClassificationLayer::normalize_diff(MyReal* data,
     data_bar[i_max] += max_b;
 }                                     
 
-MyReal ClassificationLayer::crossEntropy(MyReal *data_Out, 
-                                         MyReal *label) 
+MyReal ClassificationLayer::crossEntropy(MyReal *data_Out) 
 {
    MyReal label_pr, exp_sum;
    MyReal CELoss;
@@ -757,7 +763,6 @@ MyReal ClassificationLayer::crossEntropy(MyReal *data_Out,
       
 void ClassificationLayer::crossEntropy_diff(MyReal *data_Out, 
                                             MyReal *data_Out_bar,
-                                            MyReal *label,
                                             MyReal  loss_bar)
 {
     MyReal exp_sum, exp_sum_bar;
@@ -786,7 +791,6 @@ void ClassificationLayer::crossEntropy_diff(MyReal *data_Out,
 
 
 int ClassificationLayer::prediction(MyReal* data_Out, 
-                                    MyReal* label,
                                     int*    class_id_ptr)
 {
    MyReal exp_sum, max;

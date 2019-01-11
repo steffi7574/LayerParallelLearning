@@ -461,10 +461,11 @@ void Network::evalClassification(DataSet* data,
             tmpstate[ic] = state[iex][ic];
         }
         /* Apply classification on tmpstate */
+        classificationlayer->setLabel(data->getLabel(iex));
         classificationlayer->applyFWD(tmpstate);
         /* Evaluate Loss */
-        loss          += classificationlayer->crossEntropy(tmpstate, data->getLabel(iex));
-        success_local  = classificationlayer->prediction(tmpstate, data->getLabel(iex), &class_id);
+        loss          += classificationlayer->crossEntropy(tmpstate);
+        success_local  = classificationlayer->prediction(tmpstate, &class_id);
         success       += success_local;
         if (output) fprintf(classfile, "%d   %d\n", class_id, success_local );
     }
@@ -509,10 +510,11 @@ void Network::evalClassification_diff(DataSet* data,
         {
             tmpstate[ic] = primalstate[iex][ic];
         }
+        classificationlayer->setLabel(data->getLabel(iex));
         classificationlayer->applyFWD(tmpstate);
 
         /* Derivative of Loss and classification. */
-        classificationlayer->crossEntropy_diff(tmpstate, adjointstate[iex], data->getLabel(iex), loss_bar);
+        classificationlayer->crossEntropy_diff(tmpstate, adjointstate[iex],  loss_bar);
         classificationlayer->applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
     }
     // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0], primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);

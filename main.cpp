@@ -395,35 +395,33 @@ int main (int argc, char *argv[])
  * ==================================================================================*/
 #if 0
  
-   if (size == 1)
+    if (size == 1)
     {
-         int nconv_size = 3;
+         MyReal obj1, obj0;
+        //  int nconv_size = 3;
 
          printf("\n\n ============================ \n");
          printf(" Adjoint dot test: \n\n");
-         printf("   ndesign   = %d (calc = %d)\n",ndesign,
-                                                  nchannels*config->nclasses+config->nclasses // class layer
-                                                  +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/config->nfeatures)*(nchannels/config->nfeatures))); // con layers
-         printf("   nchannels = %d\n",nchannels);
-         printf("   nlayers   = %d\n",nlayers); 
-         printf("   conv_size = %d\n",nconv_size);
-         printf("   config->nclasses  = %d\n\n",config->nclasses);
+        //  printf("   ndesign   = %d (calc = %d)\n",ndesign,
+        //                                           nchannels*config->nclasses+config->nclasses // class layer
+        //                                           +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/config->nfeatures)*(nchannels/config->nfeatures))); // con layers
+        //  printf("   nchannels = %d\n",nchannels);
+        //  printf("   nlayers   = %d\n",nlayers); 
+        //  printf("   conv_size = %d\n",nconv_size);
+        //  printf("   config->nclasses  = %d\n\n",config->nclasses);
 
 
+        /* TODO: read some design */
 
-        //read_vector("somedesign.dat", design, ndesign_global);
-        //MPI_ScatterVector(design, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
-        //network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
-        
         /* Propagate through braid */ 
+        braid_evalInit(core_train, app_train);
         braid_Drive(core_train);
-        evalObjective(core_train, app_train, &obj0, &loss_train, &accur_train);
+        braid_evalObjective(core_train, app_train, &obj0, &loss_train, &accur_train);
 
         /* Eval gradient */
-        evalObjectiveDiff(core_adj, app_train);
+        braid_evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
-        MPI_GatherVector(network->getGradient(), ndesign_local, gradient, MASTER_NODE, MPI_COMM_WORLD);
- 
+        braid_evalInitDiff(core_adj, app_train);
 
 
         MyReal xtx = 0.0;
@@ -431,16 +429,16 @@ int main (int argc, char *argv[])
         for (int i = 0; i < ndesign_global; i++)
         {
             /* Sum up xtx */
-            xtx += gradient[i];
+            xtx += network->getGradient()[i];
             /* perturb into direction "only ones" */
-            app_train->network->getDesign()[i] += EPS;
+            network->getDesign()[i] += EPS;
         }
 
 
         /* New objective function evaluation */
+        braid_evalInit(core_train, app_train);
         braid_Drive(core_train);
-        MyReal obj1;
-        evalObjective(core_train, app_train, &obj1, &loss_train, &accur_train);
+        braid_evalObjective(core_train, app_train, &obj1, &loss_train, &accur_train);
 
         /* Finite differences */
         MyReal yty = (obj1 - obj0)/EPS;

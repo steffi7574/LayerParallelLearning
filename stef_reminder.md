@@ -1,7 +1,8 @@
 # TODO
 
-* Batch optimization: Allow for varying batches during optimization -> SGD and variants
-    - TODO: Adapt stepsize selection for SGD
+* Readme file that explains the recent changes and sgd usage
+
+* Optimizer class implementation 
 
 * Weights parametrization using splines
 

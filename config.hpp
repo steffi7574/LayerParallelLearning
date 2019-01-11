@@ -103,4 +103,6 @@ class Config {
       /* Writes config options to the file (File must be open!) */
       int writeToFile(FILE* outfile);
 
+      /* Returns a stepsize, depending on the selected stepsize type and current optimization iteration */
+      MyReal getStepsize(int optimiter);
 };

@@ -532,3 +532,24 @@ int Config::writeToFile(FILE* outfile)
 
    return 0;
 }
+
+
+
+MyReal Config::getStepsize(int optimiter)
+{
+    MyReal stepsize = 0.0;
+
+    switch (stepsize_type)
+    {
+        case FIXED:
+            stepsize = stepsize_init;
+            break;
+        case BACKTRACKINGLS:
+            stepsize = stepsize_init;   
+            break;
+        case ONEOVERK:
+            stepsize = 1.0 / (MyReal) (optimiter+1); // add one because optimiter starts with 0
+    }
+
+    return stepsize;
+}

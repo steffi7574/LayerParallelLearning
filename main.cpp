@@ -198,7 +198,7 @@ int main (int argc, char *argv[])
     objective   = 0.0;
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
-    stepsize    = config->stepsize_init;
+    stepsize    = config->getStepsize(0);
     ls_stepsize = stepsize;
 
     /* Open and prepare optimization output file*/
@@ -282,8 +282,8 @@ int main (int argc, char *argv[])
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, ls_stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
-            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, ls_stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }
 
@@ -314,48 +314,52 @@ int main (int argc, char *argv[])
         hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
         
         /* Update the design in negative ascent direction */
-        stepsize = -1.0 * config->stepsize_init;
-        network->updateDesign( stepsize, ascentdir, MPI_COMM_WORLD);
+        stepsize = config->getStepsize(iter);
+        network->updateDesign( -1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
 
 
         /* --- Backtracking linesearch --- */
 
-        /* Compute wolfe condition */
-        wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir, MPI_COMM_WORLD);
-
-        /* Start linesearch iterations */
-        ls_stepsize  = config->stepsize_init;
-        for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++)
+        if (config->stepsize_type == BACKTRACKINGLS)
         {
-            /* Compute new objective function value for current trial step */
-            braid_SetPrintLevel(core_train, 0);
-            braid_evalInit(core_train, app_train);
-            braid_Drive(core_train);
-            braid_evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
+            /* Compute wolfe condition */
+            wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir, MPI_COMM_WORLD);
 
-            test_obj = objective - ls_param * ls_stepsize * wolfe;
-            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
-            /* Test the wolfe condition */
-            if (ls_objective <= test_obj) 
+            /* Start linesearch iterations */
+            ls_stepsize  = config->getStepsize(iter);
+            stepsize     = ls_stepsize;
+            for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++)
             {
-                /* Success, use this new design */
-                break;
-            }
-            else
-            {
-                /* Test for line-search failure */
-                if (ls_iter == config->ls_maxiter - 1)
+                /* Compute new objective function value for current trial step */
+                braid_SetPrintLevel(core_train, 0);
+                braid_evalInit(core_train, app_train);
+                braid_Drive(core_train);
+                braid_evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
+
+                test_obj = objective - ls_param * ls_stepsize * wolfe;
+                if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
+                /* Test the wolfe condition */
+                if (ls_objective <= test_obj) 
                 {
-                    if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                    /* Success, use this new design */
                     break;
                 }
+                else
+                {
+                    /* Test for line-search failure */
+                    if (ls_iter == config->ls_maxiter - 1)
+                    {
+                        if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                        break;
+                    }
 
-                /* Go back part of the step */
-                stepsize = (1.0 - config->ls_factor) * ls_stepsize;
-                network->updateDesign(stepsize, ascentdir, MPI_COMM_WORLD);
+                    /* Go back part of the step */
+                    network->updateDesign((1.0 - config->ls_factor) * stepsize, ascentdir, MPI_COMM_WORLD);
 
-                /* Decrease the stepsize */
-                ls_stepsize = ls_stepsize * config->ls_factor;
+                    /* Decrease the stepsize */
+                    ls_stepsize = ls_stepsize * config->ls_factor;
+                    stepsize = ls_stepsize;
+                }
             }
         }
     }

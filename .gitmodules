@@ -1,3 +1,4 @@
 [submodule "xbraid"]
 	path = xbraid
 	url = https://github.com/XBraid/xbraid.git
+    ignore = dirty

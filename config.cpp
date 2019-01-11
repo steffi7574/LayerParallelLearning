@@ -53,6 +53,7 @@ Config::Config()
     gamma_tik          = 1e-07;
     gamma_ddt          = 1e-07;
     gamma_class        = 1e-07;
+    stepsize_type      = BACKTRACKINGLS;
     stepsize_init      = 1.0;
     maxoptimiter       = 500;
     gtol               = 1e-08;
@@ -229,7 +230,7 @@ int Config::readFromFile(char* configfilename)
         {
            braid_nrelax0 = atoi(co->value);
         }
-        else if (strcmp(co->key, "batchtype") == 0 )
+        else if (strcmp(co->key, "batch_type") == 0 )
         {
             if ( strcmp(co->value, "deterministic") == 0 )
             {
@@ -260,6 +261,26 @@ int Config::readFromFile(char* configfilename)
         else if ( strcmp(co->key, "gamma_class") == 0 )
         {
             gamma_class= atof(co->value);
+        }
+        else if (strcmp(co->key, "stepsize_type") == 0 )
+        {
+            if ( strcmp(co->value, "fixed") == 0 )
+            {
+                stepsize_type = FIXED;
+            }
+            else if (strcmp(co->value, "backtrackingLS") == 0 )
+            {
+                stepsize_type = BACKTRACKINGLS;
+            }
+            else if (strcmp(co->value, "oneoverk") == 0 )
+            {
+                stepsize_type = ONEOVERK;
+            }
+            else
+            {
+                printf("Invalid stepsize type! Should be either 'fixed' or 'backtrackingLS' or 'oneoverk' !");
+                return -1;
+            }
         }
         else if ( strcmp(co->key, "stepsize") == 0 )
         {
@@ -392,7 +413,7 @@ Config::config_option* Config::parsefile(char* path) {
 
 int Config::writeToFile(FILE* outfile)
 {
-   char *activname, *networktypename, *hessetypename, *optimtypename;
+   char *activname, *networktypename, *hessetypename, *optimtypename, *stepsizetypename;
 
    /* Get names of some int options */
    switch (activation)
@@ -445,6 +466,21 @@ int Config::writeToFile(FILE* outfile)
       default:
          optimtypename = "invalid!";
    }
+   switch (stepsize_type)
+   {
+      case FIXED:
+         stepsizetypename = "fixed";
+         break;
+      case BACKTRACKINGLS:
+         stepsizetypename = "backtracking line-search";
+         break;
+      case ONEOVERK:
+         stepsizetypename = "1/k";
+         break;
+      default:
+         stepsizetypename = "invalid!";
+   }
+
 
    /* print config option */ 
    fprintf(outfile, "# Problem setup: datafolder           %s \n",   datafolder);
@@ -480,6 +516,7 @@ int Config::writeToFile(FILE* outfile)
    fprintf(outfile, "#                gamma_tik            %1.e \n", gamma_tik);
    fprintf(outfile, "#                gamma_ddt            %1.e \n", gamma_ddt);
    fprintf(outfile, "#                gamma_class          %1.e \n", gamma_class);
+   fprintf(outfile, "#                stepsize type        %s \n",   stepsizetypename);
    fprintf(outfile, "#                stepsize             %f \n",   stepsize_init);
    fprintf(outfile, "#                max. optim iter      %d \n",   maxoptimiter);
    fprintf(outfile, "#                gtol                 %1.e \n", gtol);

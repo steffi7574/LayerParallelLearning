@@ -208,7 +208,8 @@ def read_config(filename):
                case("weightsclassificationfile") or \
                case("network_type") or \
                case("type_openlayer") or \
-               case("batchtype") or \
+               case("batch_type") or \
+               case("stepsize_type") or \
                case("hessian_approx") :
                data_dict[this_param] = this_value
                break

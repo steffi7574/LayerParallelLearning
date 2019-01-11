@@ -15,7 +15,8 @@ enum batchtype{DETERMINISTIC, STOCHASTIC};
 /* Available hessian approximation types */
 enum hessiantype{BFGS_SERIAL, LBFGS, IDENTITY};
 
-
+/* Available stepsize selection methods */
+enum stepsizetype{FIXED, BACKTRACKINGLS, ONEOVERK};
 
 class Config {
 
@@ -79,6 +80,7 @@ class Config {
       MyReal gamma_tik;
       MyReal gamma_ddt;
       MyReal gamma_class;
+      int    stepsize_type;
       MyReal stepsize_init;
       int    maxoptimiter;
       MyReal gtol;

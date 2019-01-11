@@ -31,6 +31,7 @@
 #                gamma_tik            1e-07 
 #                gamma_ddt            1e-07 
 #                gamma_class          1e-07 
+#                stepsize type        backtracking line-search 
 #                stepsize             1.000000 
 #                max. optim iter      20 
 #                gtol                 1e-04 

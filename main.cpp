@@ -58,7 +58,8 @@ int main (int argc, char *argv[])
     char train_ex_filename[255], train_lab_filename[255];
     char val_ex_filename[255], val_lab_filename[255];
     FILE *optimfile = 0;   
-    MyReal stepsize, ls_objective;
+    MyReal ls_stepsize, ls_objective, test_obj;
+    MyReal stepsize;
     int nreq = -1;
     int ls_iter;
     braid_BaseVector ubase;
@@ -199,6 +200,7 @@ int main (int argc, char *argv[])
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
     stepsize    = config->stepsize_init;
+    ls_stepsize = stepsize;
 
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
@@ -277,8 +279,8 @@ int main (int argc, char *argv[])
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
-            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, ls_stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, ls_stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }
 
@@ -308,14 +310,18 @@ int main (int argc, char *argv[])
         hessian->updateMemory(iter, network->getDesign(), network->getGradient());
         hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
         
+        /* Update the design in negative ascent direction */
+        stepsize = -1.0 * config->stepsize_init;
+        network->updateDesign( stepsize, ascentdir, MPI_COMM_WORLD);
+
+
+        /* --- Backtracking linesearch --- */
+
         /* Compute wolfe condition */
         wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir, MPI_COMM_WORLD);
 
-        /* Update the design using the initial stepsize */
-        network->updateDesign( -1.0*config->stepsize_init, ascentdir, MPI_COMM_WORLD);
-
-        /* --- Backtracking linesearch --- */
-        stepsize = config->stepsize_init;
+        /* Start linesearch iterations */
+        ls_stepsize  = config->stepsize_init;
         for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++)
         {
             /* Compute new objective function value for current trial step */
@@ -324,10 +330,10 @@ int main (int argc, char *argv[])
             braid_Drive(core_train);
             braid_evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
 
-            MyReal test = objective - ls_param * stepsize * wolfe;
-            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test);
+            test_obj = objective - ls_param * ls_stepsize * wolfe;
+            if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
             /* Test the wolfe condition */
-            if (ls_objective <= objective - ls_param * stepsize * wolfe ) 
+            if (ls_objective <= test_obj) 
             {
                 /* Success, use this new design */
                 break;
@@ -341,29 +347,14 @@ int main (int argc, char *argv[])
                     break;
                 }
 
-                /* Decrease the stepsize */
-                stepsize = stepsize * config->ls_factor;
-
-                /* Compute new design using new stepsize */
+                /* Go back part of the step */
+                stepsize = (1.0 - config->ls_factor) * ls_stepsize;
                 network->updateDesign(stepsize, ascentdir, MPI_COMM_WORLD);
+
+                /* Decrease the stepsize */
+                ls_stepsize = ls_stepsize * config->ls_factor;
             }
         }
- 
-        // /* Print some statistics */
-        // StopTime = MPI_Wtime();
-        // UsedTime = StopTime-StartTime;
-        // getrusage(RUSAGE_SELF,&r_usage);
-        // myMB = (MyReal) r_usage.ru_maxrss / 1024.0;
-        // MPI_Allreduce(&myMB, &globalMB, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-
-        // // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
-        // if (myid == MASTER_NODE)
-        // {
-        //     printf("\n");
-        //     printf(" Used Time:        %.2f seconds\n",UsedTime);
-        //     printf(" Global Memory:    %.2f MB\n", globalMB);
-        //     printf("\n");
-        // }
     }
 
     /* --- Run final validation and write prediction file --- */

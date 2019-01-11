@@ -2,3 +2,6 @@
 	path = xbraid
 	url = https://github.com/XBraid/xbraid.git
     ignore = dirty
+[submodule "optimlib"]
+	path = optimlib
+	url = git@github.com:steffi7574/optimlib.git

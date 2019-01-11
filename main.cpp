@@ -5,13 +5,14 @@
 #include <mpi.h>
 
 #include "defs.hpp"
-#include "hessianApprox.hpp"
+#include "optimizer.hpp"
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid_wrapper.hpp"
 #include "config.hpp"
 #include "network.hpp"
 #include "dataset.hpp"
+#include "opt_wrapper.hpp"
 
 #define MASTER_NODE 0
 
@@ -174,6 +175,10 @@ int main (int argc, char *argv[])
     app_val->ndesign_layermax = ndesign_layermax;
 
 
+    Optimizer* optimizer = new Optimizer();
+    myFunction* function = new myFunction();
+    
+
     /* Initialize hessian approximation on first processor */
     HessianApprox  *hessian = 0;
     switch (config->hessianapprox_type)
@@ -213,6 +218,7 @@ int main (int argc, char *argv[])
        /* Screen output */
        printf("\n#    || r ||          || r_adj ||      Objective             Loss                 || grad ||             Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
     }
+
 
 
 #if 1
@@ -563,6 +569,9 @@ int main (int argc, char *argv[])
     }
 
     delete config;
+
+    delete function;
+    delete optimizer;
 
     MPI_Finalize();
     return 0;

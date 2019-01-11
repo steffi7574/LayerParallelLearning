@@ -8,6 +8,8 @@ void myFunction::initialize(braid_Core core){}
 
 MyReal myFunction::evaluateObjective(MyReal* design)
 {
+
+   // network->getDesign() = design;
    return 0.0;
 }
 
@@ -16,6 +18,9 @@ MyReal myFunction::evaluateGradient(MyReal* design, MyReal* gradient)
 
    return 0.0;
 }
+
+void myFunction::callMeOncePerIter()
+{}
 
 // OptInterface::OptInterface(my_App*   myapptrain, 
 //                            my_App*   myappvalid,

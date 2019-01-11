@@ -17,6 +17,7 @@ class myFunction: public UserFunction
 
       MyReal evaluateObjective(MyReal* design);
       MyReal evaluateGradient(MyReal* design, MyReal* gradient);
+      void   callMeOncePerIter();
 };
 
 

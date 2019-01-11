@@ -159,6 +159,11 @@ class Layer
       virtual void setExample(MyReal* example_ptr);
 
       /**
+       * In classification layers: set pointer to the current label 
+       */
+      virtual void setLabel(MyReal* label_ptr);
+
+      /**
        * Forward propagation of an example 
        * In/Out: vector holding the current propagated example 
        */
@@ -269,6 +274,8 @@ class OpenExpandZero : public Layer
 class ClassificationLayer : public Layer
 {
       protected: 
+            MyReal* label;                /* Pointer to the current label vector */
+
             MyReal* probability;          /* vector of pedicted class probabilities */
             
       public:
@@ -277,6 +284,8 @@ class ClassificationLayer : public Layer
                                 int    dimO,
                                 MyReal gammatik);
             ~ClassificationLayer();
+
+            void setLabel(MyReal* label_ptr);
 
             void applyFWD(MyReal* state);
       
@@ -287,15 +296,13 @@ class ClassificationLayer : public Layer
             /**
              * Evaluate the cross entropy function 
              */
-            MyReal crossEntropy(MyReal *finalstate,
-                                MyReal *label);
+            MyReal crossEntropy(MyReal *finalstate);
 
             /** 
              * Algorithmic derivative of evaluating cross entropy loss
              */
             void crossEntropy_diff(MyReal *data_Out, 
                                    MyReal *data_Out_bar,
-                                   MyReal *label,
                                    MyReal  loss_bar);
 
             /**
@@ -304,7 +311,6 @@ class ClassificationLayer : public Layer
              * out: *class_id_ptr holding the predicted class 
              */
             int prediction(MyReal* data_out, 
-                           MyReal* label,
                            int*    class_id_ptr);
 
             /**
@@ -318,6 +324,7 @@ class ClassificationLayer : public Layer
              */ 
             void normalize_diff(MyReal* data, 
                                 MyReal* data_bar);
+
 };
 
 

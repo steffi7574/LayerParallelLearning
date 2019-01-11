@@ -1,11 +1,14 @@
-#include "linalg.hpp"
 #include "hessianApprox.hpp"
 
-HessianApprox::HessianApprox(){}
+HessianApprox::HessianApprox(MPI_Comm comm)
+{
+  dimN    = 0;
+  MPIcomm = comm;
+}
 HessianApprox::~HessianApprox(){}
 
 
-L_BFGS::L_BFGS(int N, int stages)
+L_BFGS::L_BFGS(MPI_Comm comm, int N, int stages) : HessianApprox(comm)
 {
    dimN = N;
    M    = stages;
@@ -31,6 +34,10 @@ L_BFGS::L_BFGS(int N, int stages)
    {
        rho[i] = 0.0;
    }
+
+   /* Allocate memory for storing design at previous iteration */
+   design_old   = new MyReal[dimN];
+   gradient_old = new MyReal[dimN];
 }
 
 
@@ -45,14 +52,17 @@ L_BFGS::~L_BFGS()
    }
    delete [] s;
    delete [] y;
+
+   delete [] design_old;
+   delete [] gradient_old;
 }
 
 
 
 
-void L_BFGS::computeDescentDir(int     iter,
-                               MyReal* currgrad,
-                               MyReal* descdir)
+void L_BFGS::computeAscentDir(int     iter,
+                              MyReal* gradient,
+                              MyReal* ascentdir)
 {
    int imemory;
    MyReal beta;
@@ -60,10 +70,10 @@ void L_BFGS::computeDescentDir(int     iter,
    int imax, imin;
 
 
-   /* Initialize the descdir with steepest descent */
+   /* Initialize the ascentdir with steepest descent */
    for (int idir = 0; idir < dimN; idir++)
    {
-      descdir[idir] = currgrad[idir];
+      ascentdir[idir] = gradient[idir];
    }
 
 
@@ -83,18 +93,18 @@ void L_BFGS::computeDescentDir(int     iter,
    {
       imemory = i % M;
       /* Compute alpha */
-      alpha[imemory] = rho[imemory] * vecdot_par(dimN, s[imemory], descdir, MPI_COMM_WORLD);
-      /* Update the descdir */
+      alpha[imemory] = rho[imemory] * vecdot_par(dimN, s[imemory], ascentdir, MPIcomm);
+      /* Update the ascentdir */
       for (int idir = 0; idir < dimN; idir++)
       {
-         descdir[idir] -= alpha[imemory] * y[imemory][idir];
+         ascentdir[idir] -= alpha[imemory] * y[imemory][idir];
       }
    }
 
-   /* scale the descdir by H0 */
+   /* scale the ascentdir by H0 */
    for (int idir = 0; idir < dimN; idir++)
    {
-     descdir[idir] *= H0;
+     ascentdir[idir] *= H0;
    }
 
   /* loop forwards through the l-bfgs memory */
@@ -102,11 +112,11 @@ void L_BFGS::computeDescentDir(int     iter,
   {
     imemory = i % M;
     /* Compute beta */
-    beta = rho[imemory] * vecdot_par(dimN, y[imemory], descdir, MPI_COMM_WORLD);
-    /* Update the descdir */
+    beta = rho[imemory] * vecdot_par(dimN, y[imemory], ascentdir, MPIcomm);
+    /* Update the ascentdir */
     for (int idir = 0; idir < dimN; idir++)
     {
-      descdir[idir] += s[imemory][idir] * (alpha[imemory] - beta);
+      ascentdir[idir] += s[imemory][idir] * (alpha[imemory] - beta);
     }
   }
 
@@ -117,28 +127,28 @@ void L_BFGS::computeDescentDir(int     iter,
 
 
 void L_BFGS::updateMemory(int     iter,
-                          MyReal* xnew,
-                          MyReal* xold,
-                          MyReal* gradnew,
-                          MyReal* gradold)
+                          MyReal* design,
+                          MyReal* gradient)
 {
 
-  /* Update lbfgs memory if iter > 0 */
+  /* Update lbfgs memory only if iter > 0 */
   if (iter > 0) 
   {
      MyReal yTy, yTs;
+
+     /* Get storing state */
      int imemory = (iter-1) % M ;
 
-        /* Update BFGS memory for s, y */
+     /* Update BFGS memory for s, y */
      for (int idir = 0; idir < dimN; idir++)
      {
-       y[imemory][idir] = gradnew[idir] - gradold[idir];
-       s[imemory][idir] = xnew[idir]    - xold[idir];
+       y[imemory][idir] = gradient[idir] - gradient_old[idir];
+       s[imemory][idir] = design[idir]   - design_old[idir];
      }
 
      /* Update rho and H0 */
-     yTs = vecdot_par(dimN, y[imemory], s[imemory], MPI_COMM_WORLD);
-     yTy = vecdot_par(dimN, y[imemory], y[imemory], MPI_COMM_WORLD);
+     yTs = vecdot_par(dimN, y[imemory], s[imemory], MPIcomm);
+     yTy = vecdot_par(dimN, y[imemory], y[imemory], MPIcomm);
      if (yTs == 0.0) 
      {
        printf("  Warning: resetting yTs to 1.\n");
@@ -151,12 +161,17 @@ void L_BFGS::updateMemory(int     iter,
      }
      rho[imemory] = 1. / yTs;
      H0 = yTs / yTy;
+
   }
+
+   /* Update old design and gradient */
+   vec_copy(dimN, design,   design_old);
+   vec_copy(dimN, gradient, gradient_old);
 }
 
 
 
-BFGS::BFGS(int N) 
+BFGS::BFGS(MPI_Comm comm, int N) : HessianApprox(comm)
 {
     dimN = N;
 
@@ -170,10 +185,14 @@ BFGS::BFGS(int N)
     A  = new MyReal[N*N];
     B  = new MyReal[N*N];
 
+    /* Allocate memory for storing design at previous iteration */
+    design_old   = new MyReal[dimN];
+    gradient_old = new MyReal[dimN];
+
     /* Sanity check */
     int size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    if (size > 1) printf("\n\n ERROR: Parallel BFGS not implemented.\n BFGS updates will be LOCAL to each processor -> block-BFGS. \n\n");
+    MPI_Comm_size(MPIcomm, &size);
+    if (size > 1) printf("\n\n WARNING: Parallel BFGS not implemented.\n BFGS updates will be LOCAL to each processor -> block-BFGS. \n\n");
 }
 
 void BFGS::setIdentity()
@@ -196,26 +215,26 @@ BFGS::~BFGS()
   delete [] A; 
   delete [] B; 
   delete [] Hy; 
+  delete [] design_old;
+  delete [] gradient_old;
 }
 
 
 void BFGS::updateMemory(int     iter,
-                        MyReal* xnew,
-                        MyReal* xold,
-                        MyReal* gradnew,
-                        MyReal* gradold)
+                        MyReal* design,
+                        MyReal* gradient)
 {
     /* Update BFGS memory for s, y */
     for (int idir = 0; idir < dimN; idir++)
     {
-      y[idir] = gradnew[idir] - gradold[idir];
-      s[idir] = xnew[idir]    - xold[idir];
+      y[idir] = gradient[idir] - gradient_old[idir];
+      s[idir] = design[idir]   - design_old[idir];
     }
 }
 
-void BFGS::computeDescentDir(int     iter, 
-                             MyReal* currgrad, 
-                             MyReal* descdir)
+void BFGS::computeAscentDir(int     iter, 
+                             MyReal* gradient, 
+                             MyReal* ascentdir)
 {
     MyReal yTy, yTs, H0;
     MyReal b, rho;
@@ -224,7 +243,7 @@ void BFGS::computeDescentDir(int     iter,
     if (iter == 0)
     {
       setIdentity();
-      matvec(dimN, Hessian, currgrad, descdir);
+      matvec(dimN, Hessian, gradient, ascentdir);
       return;
     }
 
@@ -276,11 +295,11 @@ void BFGS::computeDescentDir(int     iter,
 
     }
 
-    /* Compute the descdir */
-    matvec(dimN, Hessian, currgrad, descdir);
+    /* Compute the ascentdir */
+    matvec(dimN, Hessian, gradient, ascentdir);
 }
 
-Identity::Identity(int N) 
+Identity::Identity(MPI_Comm comm, int N) : HessianApprox(comm)
 {
   dimN = N;
 }
@@ -288,21 +307,19 @@ Identity::Identity(int N)
 Identity::~Identity(){}
 
 void Identity::updateMemory(int     iter,
-                            MyReal* xnew,
-                            MyReal* xold,
-                            MyReal* gradnew,
-                            MyReal* gradold){}
+                            MyReal* design,
+                            MyReal* gradient) {}
 
 
 
-void Identity::computeDescentDir(int     iter, 
-                                 MyReal* currgrad, 
-                                 MyReal* descdir)
+void Identity::computeAscentDir(int     iter, 
+                                 MyReal* gradient, 
+                                 MyReal* ascentdir)
 {
-  /* Steepest descent */
+  /*  Steepest descent */
   for (int i = 0; i<dimN; i++)
   {
-    descdir[i] = currgrad[i];
+    ascentdir[i] = gradient[i];
   }
 }                           
 

@@ -9,6 +9,7 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid_wrapper.hpp"
+#include "braid_wrapper_c++.hpp"
 #include "config.hpp"
 #include "network.hpp"
 #include "dataset.hpp"
@@ -111,6 +112,22 @@ int main (int argc, char *argv[])
 
     /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
     nhiddenlayers = config->nlayers - 2;
+
+
+
+
+    /* NEW NEW NEW */
+    /* Set up XBraid */
+    myBraidApp *primaltrainapp, *primalvalapp;
+    myAdjointBraidApp *adjointtrainapp;
+    primaltrainapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
+    adjointtrainapp = new myAdjointBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, primaltrainapp->getCore());
+    primalvalapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
+    /* NEW NEW NEW */
+
+
+    /* TODO: GetGridDistribution from core, init network, initialize apps! */
+
 
     /* Initializze primal and adjoint XBraid for training data */
     app_train = (my_App *) malloc(sizeof(my_App));
@@ -545,6 +562,11 @@ int main (int argc, char *argv[])
     if (config->validationlevel >= 0) braid_Destroy(core_val);
     free(app_train);
     free(app_val);
+
+
+    delete primaltrainapp;
+    delete adjointtrainapp;
+    delete primalvalapp;
 
     /* Delete optimization vars */
     delete hessian;

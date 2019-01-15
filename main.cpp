@@ -123,6 +123,9 @@ int main (int argc, char *argv[])
     primaltrainapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
     adjointtrainapp = new myAdjointBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, primaltrainapp->getCore());
     primalvalapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
+
+    /* Get xbraid's grid distribution */
+    primaltrainapp->GetGridDistribution(&ilower, &iupper);
     /* NEW NEW NEW */
 
 
@@ -148,7 +151,7 @@ int main (int argc, char *argv[])
     braid_SetConfigOptions(core_val, config);
 
     /* Get xbraid's grid distribution */
-    _braid_GetDistribution(core_train, &ilower, &iupper);
+    // _braid_GetDistribution(core_train, &ilower, &iupper);
 
     /* Create network and layers */
     network = new Network(ilower, iupper, config);
@@ -189,6 +192,7 @@ int main (int argc, char *argv[])
     app_val->network          = network;
     app_val->data             = validationdata;
     app_val->ndesign_layermax = ndesign_layermax;
+
 
 
     /* Initialize hessian approximation on first processor */

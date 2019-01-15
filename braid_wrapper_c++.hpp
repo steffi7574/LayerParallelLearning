@@ -93,6 +93,10 @@ class myBraidApp : public BraidApp
 
         /* Return the core */
         BraidCore* getCore();
+
+        /* Get xbraid's grid distribution */
+        void GetGridDistribution(int *ilower_ptr, 
+                                 int *iupper_ptr);
  
         /* Get output */
         void GetObjectiveLossAccuracy(MyReal *obj_ptr, 

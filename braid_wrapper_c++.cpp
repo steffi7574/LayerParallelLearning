@@ -105,6 +105,12 @@ void myBraidApp::initialize(Network* Networkptr,
 
 BraidCore* myBraidApp::getCore()  { return core; }
 
+void myBraidApp::GetGridDistribution(int *ilower_ptr, 
+                                     int *iupper_ptr)
+{
+    core->GetDistribution(ilower_ptr, iupper_ptr);
+}                                 
+
 void myBraidApp::GetObjectiveLossAccuracy(MyReal *obj_ptr, 
                                           MyReal *loss_ptr, 
                                           MyReal *accur_ptr)

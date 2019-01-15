@@ -500,8 +500,6 @@ braid_Int myBraidApp::EvaluateObjective()
 
 
     MyReal regul     = 0.0;
-    MyReal loss_loc  = 0.0; 
-    MyReal accur_loc = 0.0; 
     braid_BaseVector ubase;
     myBraidVector* u;
     Layer* layer;
@@ -533,9 +531,9 @@ braid_Int myBraidApp::EvaluateObjective()
         {
             _braid_UGetVectorRef(core->GetCore(), 0, ilayer, &ubase);
             u = (myBraidVector*) ubase->userVector;
-            network->evalClassification(data, u->getState(), &loss_loc, &accur_loc,0);
-            loss     += loss_loc;
-            accuracy += accur_loc;
+            network->evalClassification(data, u->getState(), 0);
+            loss     += network->getLoss();
+            accuracy += network->getAccuracy();
         }
         // printf("%d: layerid %d using %1.14e, tik %1.14e, ddt %1.14e, loss %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], regultik, regulddt, loss_loc);
     }

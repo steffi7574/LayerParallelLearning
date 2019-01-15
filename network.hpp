@@ -121,8 +121,6 @@ class Network
        */
       void evalClassification(DataSet* data, 
                               MyReal** state,
-                              MyReal*  loss_ptr, 
-                              MyReal*  accuracy_ptr,
                               int      output);
 
       /**

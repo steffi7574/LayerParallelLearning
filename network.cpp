@@ -462,13 +462,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
 
 void Network::evalClassification(DataSet* data, 
                                  MyReal** state,
-                                 MyReal*  loss_ptr, 
-                                 MyReal*  accuracy_ptr,
                                  int      output)
 {
     MyReal *tmpstate = new MyReal[nchannels];
     
-    MyReal loss, accuracy;
     int    class_id;
     int    success, success_local;
     FILE*  classfile;
@@ -486,7 +483,8 @@ void Network::evalClassification(DataSet* data,
     /* open file for printing predicted file */
     if (output) classfile = fopen("classprediction.dat", "w");
 
-    loss    = 0.0;
+    loss     = 0.0;
+    accuracy = 0.0;
     success = 0;
     for (int iex = 0; iex < data->getnBatch(); iex++)
     {
@@ -507,10 +505,6 @@ void Network::evalClassification(DataSet* data,
     loss     = 1. / data->getnBatch() * loss;
     accuracy = 100.0 * ( (MyReal) success ) / data->getnBatch();
     // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
-
-    /* Return */
-    *loss_ptr      = loss;
-    *accuracy_ptr  = accuracy;
 
     if (output) fclose(classfile);
     if (output) printf("Prediction file written: classprediction.dat\n");

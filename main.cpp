@@ -26,7 +26,6 @@ int main (int argc, char *argv[])
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
     MyReal  *ascentdir=0;        /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
@@ -135,27 +134,18 @@ int main (int argc, char *argv[])
     /* Create network and layers */
     network = new Network(ilower, iupper, config);
 
+    /* Set initial network design */
+    network->setInitialDesign(config);
+
     /* Get local and global number of design variables. */ 
     ndesign_local   = network->getnDesignLocal();
     ndesign_global  = network->getnDesignGlobal();
 
+    /* Print some network information */
     int startid = ilower;
     if (ilower == 0) startid = -1;
     printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper, config->nlayers);
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
-
-    /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
-    if (myid == MASTER_NODE)
-    {
-        srand(1.0);
-        design_init = new MyReal[ndesign_global];
-        for (int i = 0; i < ndesign_global; i++)
-        {
-            design_init[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
-        }
-    }
-    MPI_ScatterVector(design_init, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
-    network->initialize(config);
 
     /* Initialize xbraid's app structure */
     app_train->primalcore       = core_train;
@@ -542,7 +532,6 @@ int main (int argc, char *argv[])
 
     /* Delete optimization vars */
     delete hessian;
-    delete [] design_init;
     delete [] ascentdir;
 
     /* Delete training and validation examples  */

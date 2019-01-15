@@ -63,6 +63,10 @@ class Layer
       /* Set time step size */
       void setDt(MyReal DT);
 
+      /* Set design and gradient memory location */
+      void setMemory(MyReal* design_memloc, 
+                     MyReal* gradient_memloc);
+
       /* Some Get..() functions */
       MyReal getDt();
       MyReal getGammaTik();
@@ -112,20 +116,13 @@ class Layer
       void unpackDesign(MyReal* buffer);
 
 
-      /**
-       * Initialize the layer primal and adjoint weights and biases
-       * In: pointer to the global design and gradient vector memory 
-       *     factor for scaling random initialization of primal variables
-       */
-      void initialize(MyReal* design_ptr,
-                      MyReal* gradient_ptr,
-                      MyReal  factor);
+      /* Scales the weights by a factor and resets the gradient to zero. */
+      void scaleDesign(MyReal  factor);
 
       /**
        * Sets the bar variables to zero 
        */
       void resetBar();
-
 
       /**
        * Evaluate Tikhonov Regularization

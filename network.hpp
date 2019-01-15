@@ -39,6 +39,7 @@ class Network
    public: 
 
       Network();
+      
       Network(int     StartLayerID, 
               int     EndLayerID,
               Config* config); 
@@ -95,11 +96,11 @@ class Network
 
 
       /* 
-       * Initialize the layer weights and biases:
-       * Default: Scales random initialization from main with the given factors
+       * Set an initial guess on the network design:
+       * Random initialization, scaled by given factors
        * If set, reads in opening and classification weights from file
        */
-      void initialize(Config *config);
+      void setInitialDesign(Config *config);
 
 
       Layer* createLayer(int     index, 

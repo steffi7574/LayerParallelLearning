@@ -392,7 +392,8 @@ my_BufUnpack(braid_App           app,
     /* Allocate design and gradient */
     MyReal *design   = new MyReal[nDesign];
     MyReal *gradient = new MyReal[nDesign];
-    tmplayer->initialize(design, gradient, 0.0);
+    tmplayer->setMemory(design, gradient);
+
     /* Set the weights */
     for (int i = 0; i < nweights; i++)
     {

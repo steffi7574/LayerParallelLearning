@@ -76,19 +76,14 @@ class myBraidApp : public BraidApp
     public:
 
         /* Constructor */
-        myBraidApp(MPI_Comm Comm,
-                   MyReal   Tstart,
-                   MyReal   Tstop,
-                   MyReal   nTimes);
+        myBraidApp(DataSet* Data,
+                   Network* Network,
+                   Config*  Config,
+                   MPI_Comm Comm);
 
       
         /* Destructor */
         ~myBraidApp();
-
-        void initialize(Network* Networkptr,
-                        DataSet* Dataptr,
-                        int      Ndesign_layermax,
-                        Config*  config);
 
         /* Return the core */
         BraidCore* getCore();
@@ -176,12 +171,13 @@ class myAdjointBraidApp : public myBraidApp
         BraidCore* primalcore; /* pointer to primal core for accessing primal states */
 
     public:
-        myAdjointBraidApp(MPI_Comm   Comm,
-                          MyReal     Tstart,
-                          MyReal     Tstop,
-                          MyReal     nTimes,
-                          BraidCore* Primalcoreptr);
-        ~myAdjointBraidApp();
+        myAdjointBraidApp(DataSet*   Data,
+                          Network*   Network,
+                          Config*    config,
+                          BraidCore* Primalcoreptr,
+                          MPI_Comm   comm);
+
+       ~myAdjointBraidApp();
 
         /* Get the storage index of primal (reversed) */
         int GetPrimalIndex(int ts);

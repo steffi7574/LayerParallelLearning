@@ -41,13 +41,13 @@ class Network
    public: 
 
       Network();
-      
-      Network(int      StartLayerID, 
-              int      EndLayerID,
-              Config*  config,
-              MPI_Comm Comm); 
-    
+
       ~Network();
+
+      void createNetworkBlock(int      StartLayerID, 
+                              int      EndLayerID,
+                              Config*  config,
+                              MPI_Comm Comm); 
 
       /* Get number of channels */
       int getnChannels();

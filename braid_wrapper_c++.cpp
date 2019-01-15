@@ -54,36 +54,20 @@ void   myBraidVector::setSendflag(MyReal value) { sendflag = value; }
 /* ========================================================= */
 /* ========================================================= */
 /* ========================================================= */
-
-myBraidApp::myBraidApp(MPI_Comm Comm,
-                       MyReal   Tstart,
-                       MyReal   Tstop,
-                       MyReal   nTimes) : BraidApp(Comm, Tstart, Tstop, nTimes)
+myBraidApp::myBraidApp(DataSet* Data,
+                       Network* Network,
+                       Config*  config,
+                       MPI_Comm comm) : BraidApp(comm, 0.0, config->T, config->nlayers-2)
 {
-    MPI_Comm_rank(Comm, &myid);
-    network          = NULL;
-    data             = NULL;
+    MPI_Comm_rank(comm, &myid);
+    network          = Network;
+    data             = Data;
     objective        = 0.0;
     accuracy         = 0.0;
     loss             = 0.0;
 
     /* Initialize XBraid core */
-    core = new BraidCore(Comm, this);
-}
-
-myBraidApp::~myBraidApp()
-{
-    /* Delete the core, if drive() has been called */
-    if ( core->GetWarmRestart() ) delete core;
-}
-       
-void myBraidApp::initialize(Network* Networkptr,
-                            DataSet* Dataptr,
-                            int      Ndesign_layermax,
-                            Config*  config)
-{
-    network          = Networkptr;
-    data             = Dataptr;
+    core = new BraidCore(comm, this);
 
    /* Set braid options */
     core->SetMaxLevels(config->braid_maxlevels);
@@ -100,7 +84,14 @@ void myBraidApp::initialize(Network* Networkptr,
     core->SetNRelax(-1, config->braid_nrelax);
     core->SetNRelax( 0, config->braid_nrelax0);
     core->SetAbsTol(config->braid_abstol);
-}                   
+
+}
+
+myBraidApp::~myBraidApp()
+{
+    /* Delete the core, if drive() has been called */
+    if ( core->GetWarmRestart() ) delete core;
+}
 
 BraidCore* myBraidApp::getCore()  { return core; }
 
@@ -560,12 +551,11 @@ braid_Int myBraidApp::EvaluateObjective()
 /* ========================================================= */
 /* ========================================================= */
 /* ========================================================= */
-
-myAdjointBraidApp::myAdjointBraidApp(MPI_Comm   Comm,
-                                     MyReal     Tstart,
-                                     MyReal     Tstop,
-                                     MyReal     nTimes,
-                                     BraidCore* Primalcoreptr) : myBraidApp(Comm, Tstart, Tstop, nTimes)
+myAdjointBraidApp::myAdjointBraidApp(DataSet*   Data,
+                                     Network*   Network,
+                                     Config*    config,
+                                     BraidCore* Primalcoreptr,
+                                     MPI_Comm   comm) : myBraidApp(Data, Network, config, comm)
 {
     primalcore = Primalcoreptr;
 

@@ -28,10 +28,10 @@ Network::Network()
    comm           = MPI_COMM_WORLD;
 }
 
-Network::Network(int      StartLayerID, 
-                 int      EndLayerID,
-                 Config*  config, 
-                 MPI_Comm Comm) : Network()
+void Network::createNetworkBlock(int      StartLayerID, 
+                                 int      EndLayerID,
+                                 Config*  config, 
+                                 MPI_Comm Comm) 
 {
     /* Initilizize */
     startlayerID     = StartLayerID;

@@ -111,23 +111,20 @@ int main (int argc, char *argv[])
     /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
     nhiddenlayers = config->nlayers - 2;
 
-
-
-
     /* NEW NEW NEW */
+    /* Create new network */
+    network = new Network();
+
     /* Set up XBraid */
     myBraidApp *primaltrainapp, *primalvalapp;
     myAdjointBraidApp *adjointtrainapp;
-    primaltrainapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
-    adjointtrainapp = new myAdjointBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, primaltrainapp->getCore());
-    primalvalapp = new myBraidApp(MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers);
+    primaltrainapp = new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
+    adjointtrainapp = new myAdjointBraidApp(trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
+    primalvalapp = new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
 
     /* Get xbraid's grid distribution */
     primaltrainapp->GetGridDistribution(&ilower, &iupper);
     /* NEW NEW NEW */
-
-
-    /* TODO: GetGridDistribution from core, init network, initialize apps! */
 
 
     /* Initializze primal and adjoint XBraid for training data */
@@ -151,8 +148,8 @@ int main (int argc, char *argv[])
     /* Get xbraid's grid distribution */
     // _braid_GetDistribution(core_train, &ilower, &iupper);
 
-    /* Create network and layers */
-    network = new Network(ilower, iupper, config, MPI_COMM_WORLD);
+    /* Create local network block */
+    network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
 
     /* Set initial network design */
     network->setInitialDesign(config);

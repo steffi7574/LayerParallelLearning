@@ -2,6 +2,7 @@
 #include "util.hpp"
 #include "defs.hpp"
 #include "config.hpp"
+#include <mpi.h>
 #pragma once
 
 class DataSet {
@@ -18,6 +19,8 @@ class DataSet {
 
       int  nbatch;          /* Size of the batch */
       int *batchIDs;        /* Array of batch indicees */
+
+      MPI_Comm comm;         /* MPI communicator */
       
    private:
       int MPIsize;           /* Size of the global communicator */
@@ -29,12 +32,11 @@ class DataSet {
    public: 
 
       /* Constructor */
-      DataSet(int MPISize, 
-              int MPIRank,
-              int nElements, 
-              int nFeatures, 
-              int nLabels,
-              int nBatch);
+      DataSet(int      nElements, 
+              int      nFeatures, 
+              int      nLabels,
+              int      nBatch,
+              MPI_Comm Comm);
 
       /* Destructor */
       ~DataSet();

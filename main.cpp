@@ -26,9 +26,7 @@ int main (int argc, char *argv[])
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
-    int      ndesign_layermax;          /**< Max. number of design variables over all hidden layers */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
     MyReal  *ascentdir=0;        /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
@@ -103,10 +101,10 @@ int main (int argc, char *argv[])
     sprintf(val_lab_filename,   "%s/%s", config->datafolder, config->fval_labels);
 
     /* Allocate and read training and validation data */
-    trainingdata = new DataSet(size, myid, config->ntraining,   config->nfeatures, config->nclasses, config->nbatch);
+    trainingdata = new DataSet(config->ntraining,   config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
     trainingdata->readData(train_ex_filename, train_lab_filename);
 
-    validationdata = new DataSet(size, myid, config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation);  // full validation set!
+    validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
     validationdata->readData(val_ex_filename, val_lab_filename);
 
 
@@ -154,44 +152,30 @@ int main (int argc, char *argv[])
     // _braid_GetDistribution(core_train, &ilower, &iupper);
 
     /* Create network and layers */
-    network = new Network(ilower, iupper, config);
+    network = new Network(ilower, iupper, config, MPI_COMM_WORLD);
+
+    /* Set initial network design */
+    network->setInitialDesign(config);
 
     /* Get local and global number of design variables. */ 
-    ndesign_local          = network->getnDesignLocal();
-    int myndesign_layermax = network->getnDesignLayermax();
-    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&myndesign_layermax, &ndesign_layermax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    ndesign_local   = network->getnDesignLocal();
+    ndesign_global  = network->getnDesignGlobal();
 
+    /* Print some network information */
     int startid = ilower;
     if (ilower == 0) startid = -1;
     printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper, config->nlayers);
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
-
-    /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
-    if (myid == MASTER_NODE)
-    {
-        srand(1.0);
-        design_init = new MyReal[ndesign_global];
-        for (int i = 0; i < ndesign_global; i++)
-        {
-            design_init[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
-        }
-    }
-    MPI_ScatterVector(design_init, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
-    network->initialize(config);
-    network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
     /* Initialize xbraid's app structure */
     app_train->primalcore       = core_train;
     app_train->myid             = myid;
     app_train->network          = network;
     app_train->data             = trainingdata;
-    app_train->ndesign_layermax = ndesign_layermax;
     app_val->primalcore       = core_val;
     app_val->myid             = myid;
     app_val->network          = network;
     app_val->data             = validationdata;
-    app_val->ndesign_layermax = ndesign_layermax;
 
 
 
@@ -574,7 +558,6 @@ int main (int argc, char *argv[])
 
     /* Delete optimization vars */
     delete hessian;
-    delete [] design_init;
     delete [] ascentdir;
 
     /* Delete training and validation examples  */

@@ -366,6 +366,18 @@ int Config::readFromFile(char* configfilename)
         }
     }
 
+
+    /* Sanity check */
+    if (nfeatures > nchannels ||
+        nclasses  > nchannels)
+    {
+        printf("ERROR! Choose a wider netword!\n");
+        printf(" -- nFeatures = %d\n", nfeatures);
+        printf(" -- nChannels = %d\n", nchannels);
+        printf(" -- nClasses = %d\n",  nclasses);
+        exit(1);
+    }
+
     return 0;
 }
 

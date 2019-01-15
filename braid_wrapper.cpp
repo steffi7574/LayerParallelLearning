@@ -244,8 +244,8 @@ my_BufSize(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int nchannels        = app->network->getnChannels();
-    int nbatch        = app->data->getnBatch();
-    int ndesign_layermax = app->ndesign_layermax;
+    int nbatch           = app->data->getnBatch();
+    int ndesign_layermax = app->network->getnDesignLayermax();
    
     /* Gather number of variables */
     int nuvector     = nchannels*nbatch;
@@ -392,7 +392,8 @@ my_BufUnpack(braid_App           app,
     /* Allocate design and gradient */
     MyReal *design   = new MyReal[nDesign];
     MyReal *gradient = new MyReal[nDesign];
-    tmplayer->initialize(design, gradient, 0.0);
+    tmplayer->setMemory(design, gradient);
+
     /* Set the weights */
     for (int i = 0; i < nweights; i++)
     {
@@ -697,7 +698,7 @@ braid_evalObjective(braid_Core core,
 
     /* Collect objective function from all processors */
     MyReal myobjective = loss + regul;
-    MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, app->network->getComm());
 
     /* Return */
     *objective_ptr = objective;

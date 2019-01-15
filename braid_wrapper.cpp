@@ -698,7 +698,7 @@ braid_evalObjective(braid_Core core,
 
     /* Collect objective function from all processors */
     MyReal myobjective = loss + regul;
-    MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, app->network->getComm());
 
     /* Return */
     *objective_ptr = objective;

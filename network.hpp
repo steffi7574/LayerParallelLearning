@@ -35,14 +35,17 @@ class Network
       Layer** layers;               /* Array of hidden layers (includes classification layer at last processor */
       Layer*  layer_left;           /* Copy of last layer of left-neighbouring processor */
       Layer*  layer_right;          /* Copy of first layer of right-neighbouring processor */
+
+      MPI_Comm comm;                /* MPI communicator */
    
    public: 
 
       Network();
       
-      Network(int     StartLayerID, 
-              int     EndLayerID,
-              Config* config); 
+      Network(int      StartLayerID, 
+              int      EndLayerID,
+              Config*  config,
+              MPI_Comm Comm); 
     
       ~Network();
 
@@ -87,6 +90,9 @@ class Network
 
       /* Return ndesign_layermax */
       int getnDesignLayermax();
+
+      /* Return MPI communicator */
+      MPI_Comm getComm();
 
       /**
        * Get the layer at a certain layer index, i.e. a certain time step

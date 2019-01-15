@@ -24,11 +24,14 @@ Network::Network()
    openlayer      = NULL;
    layer_left     = NULL;
    layer_right    = NULL;
+
+   comm           = MPI_COMM_WORLD;
 }
 
-Network::Network(int     StartLayerID, 
-                 int     EndLayerID,
-                 Config* config)
+Network::Network(int      StartLayerID, 
+                 int      EndLayerID,
+                 Config*  config, 
+                 MPI_Comm Comm)
 {
     /* Initilizize */
     startlayerID     = StartLayerID;
@@ -37,6 +40,7 @@ Network::Network(int     StartLayerID,
     nlayers_global   = config->nlayers;
     nchannels        = config->nchannels;
     dt               = (config->T) / (MyReal)(config->nlayers-2);  // nlayers-2 = nhiddenlayers
+    comm             = Comm;
 
     /* --- Create the layers --- */
     ndesign_local = 0;
@@ -69,7 +73,7 @@ Network::Network(int     StartLayerID,
     layer_right = createLayer(rightID, config);
 
     /* Sum up global number of design vars */
-    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, comm);
 
     /* Store maximum number of designs over all layers layermax */
     ndesign_layermax = computeLayermax();
@@ -171,6 +175,9 @@ MyReal* Network::getGradient() { return gradient; }
 
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID()   { return endlayerID; }
+
+MPI_Comm Network::getComm() { return comm; }
+
 
 Layer* Network::createLayer(int     index,
                             Config *config)
@@ -277,7 +284,7 @@ int Network::computeLayermax()
 
     /* Get maximum over all local layer blocks */
     int mymax = max;
-    MPI_Allreduce(&mymax, &max, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&mymax, &max, 1, MPI_INT, MPI_MAX, comm);
 
     return max;
 }
@@ -288,7 +295,7 @@ void Network::setInitialDesign(Config *config)
     MyReal* design_init;
     char    filename[255];
     int myid;
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+    MPI_Comm_rank(comm, &myid);
 
     /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
     if (myid == 0)
@@ -301,7 +308,7 @@ void Network::setInitialDesign(Config *config)
         }
     }
     /* Scatter initial design to all processors */
-    MPI_ScatterVector(design_init, design, ndesign_local, 0, MPI_COMM_WORLD);
+    MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
 
     /* Scale the initial design by a factor and read from file, if set */
 
@@ -348,7 +355,7 @@ void Network::setInitialDesign(Config *config)
     }
 
     /* Communicate the neighbours across processors */
-    MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+    MPI_CommunicateNeighbours(comm);
 
     if (myid == 0) delete [] design_init;
 

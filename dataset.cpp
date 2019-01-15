@@ -1,15 +1,14 @@
 #include "dataset.hpp"
 
 
-DataSet::DataSet(int MPISize, 
-                 int MPIRank,
-                 int nElements, 
-                 int nFeatures, 
-                 int nLabels,
-                 int nBatch)
+DataSet::DataSet(int      nElements, 
+                 int      nFeatures, 
+                 int      nLabels,
+                 int      nBatch,
+                 MPI_Comm Comm)
 {
-   MPIsize   = MPISize;
-   MPIrank   = MPIRank;
+
+
    nelements = nElements;
    nfeatures = nFeatures;
    nlabels   = nLabels;
@@ -21,6 +20,10 @@ DataSet::DataSet(int MPISize,
    batchIDs = NULL;
    availIDs = NULL;
    navail   = nelements;
+
+   comm    = Comm;
+   MPI_Comm_rank(comm, &MPIrank);
+   MPI_Comm_size(comm, &MPIsize);
 
    /* Sanity check */
    if (nbatch > nelements) nbatch = nelements;
@@ -157,14 +160,14 @@ void DataSet::selectBatch(int batch_type)
 
             /* Send to the last processor */
             int receiver = MPIsize - 1;
-            MPI_Isend(batchIDs, nbatch, MPI_INT, receiver, 0, MPI_COMM_WORLD, &sendreq);
+            MPI_Isend(batchIDs, nbatch, MPI_INT, receiver, 0, comm, &sendreq);
          }
 
          /* Receive the batch IDs on last processor */
          if (MPIrank == MPIsize - 1)
          {
             int source = 0;
-            MPI_Irecv(batchIDs, nbatch, MPI_INT, source, 0, MPI_COMM_WORLD, &recvreq);
+            MPI_Irecv(batchIDs, nbatch, MPI_INT, source, 0, comm, &recvreq);
          }
 
          /* Wait to finish communication */

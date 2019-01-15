@@ -100,10 +100,10 @@ int main (int argc, char *argv[])
     sprintf(val_lab_filename,   "%s/%s", config->datafolder, config->fval_labels);
 
     /* Allocate and read training and validation data */
-    trainingdata = new DataSet(size, myid, config->ntraining,   config->nfeatures, config->nclasses, config->nbatch);
+    trainingdata = new DataSet(config->ntraining,   config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
     trainingdata->readData(train_ex_filename, train_lab_filename);
 
-    validationdata = new DataSet(size, myid, config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation);  // full validation set!
+    validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
     validationdata->readData(val_ex_filename, val_lab_filename);
 
 
@@ -132,7 +132,7 @@ int main (int argc, char *argv[])
     _braid_GetDistribution(core_train, &ilower, &iupper);
 
     /* Create network and layers */
-    network = new Network(ilower, iupper, config);
+    network = new Network(ilower, iupper, config, MPI_COMM_WORLD);
 
     /* Set initial network design */
     network->setInitialDesign(config);

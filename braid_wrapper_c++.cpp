@@ -561,7 +561,7 @@ myAdjointBraidApp::myAdjointBraidApp(DataSet*   Data,
     primalcore->SetStorage(0);
 
     /* Revert processor ranks for solving adjoint with xbraid */
-    primalcore->SetRevertedRanks(1);
+    core->SetRevertedRanks(1);
 }              
 
 myAdjointBraidApp::~myAdjointBraidApp(){}

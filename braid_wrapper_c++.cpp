@@ -546,6 +546,24 @@ braid_Int myBraidApp::EvaluateObjective()
     return 0;
 }
 
+
+
+MyReal myBraidApp::run()
+{
+    int    nreq = -1;
+    MyReal norm;
+
+    SetInitialCondition();
+    core->Drive();
+    EvaluateObjective();
+    core->GetRNorms(&nreq, &norm);
+
+    return norm;
+}
+
+
+
+
 /* ========================================================= */
 /* ========================================================= */
 /* ========================================================= */

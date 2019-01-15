@@ -106,7 +106,7 @@ int main (int argc, char *argv[])
     }
 
 
-    /* Allocate and read training and validation data */
+    /* Initialize training and validation data */
     trainingdata->initialize(config->ntraining, config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
     trainingdata->readData(config->datafolder, config->ftrain_ex, config->ftrain_labels);
 
@@ -114,12 +114,10 @@ int main (int argc, char *argv[])
     validationdata->readData(config->datafolder, config->fval_ex, config->fval_labels);
 
 
-
     /* Initialize XBraid */
     primaltrainapp = new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
     adjointtrainapp = new myAdjointBraidApp(trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
     primalvalapp = new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
-
 
     /* Initializze primal and adjoint XBraid for training data */
     nhiddenlayers = config->nlayers - 2;
@@ -137,6 +135,7 @@ int main (int argc, char *argv[])
     braid_SetConfigOptions(core_val, config);
     /* Get xbraid's grid distribution */
     _braid_GetDistribution(core_train, &ilower, &iupper);
+
 
     /* Initialize the network  */
     primaltrainapp->GetGridDistribution(&ilower, &iupper);
@@ -219,6 +218,9 @@ int main (int argc, char *argv[])
         /* Set up the current batch */
         trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
         // trainingdata->printBatch();
+
+        /* Solve state equation _new */
+        rnorm = primaltrainapp->run();
 
         /* Solve state equation with braid */
         nreq = -1;

@@ -156,6 +156,9 @@ class myBraidApp : public BraidApp
 
         /* evaluate objective function */
         virtual braid_Int EvaluateObjective();
+
+        /* Run Braid drive, return norm */
+        MyReal run();
 };
 
 

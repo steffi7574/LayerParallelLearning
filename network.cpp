@@ -31,7 +31,7 @@ Network::Network()
 Network::Network(int      StartLayerID, 
                  int      EndLayerID,
                  Config*  config, 
-                 MPI_Comm Comm)
+                 MPI_Comm Comm) : Network()
 {
     /* Initilizize */
     startlayerID     = StartLayerID;

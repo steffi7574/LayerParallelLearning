@@ -36,7 +36,7 @@ Layer::Layer(int     idx,
              MyReal  deltaT,
              int     Activ,
              MyReal  gammatik,
-             MyReal  gammaddt)
+             MyReal  gammaddt) : Layer()
 {
    index       = idx;
    type        = Type;

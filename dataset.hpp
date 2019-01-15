@@ -20,9 +20,6 @@ class DataSet {
       int  nbatch;          /* Size of the batch */
       int *batchIDs;        /* Array of batch indicees */
 
-      MPI_Comm comm;         /* MPI communicator */
-      
-   private:
       int MPIsize;           /* Size of the global communicator */
       int MPIrank;           /* Processors rank */
 
@@ -31,15 +28,18 @@ class DataSet {
 
    public: 
 
-      /* Constructor */
-      DataSet(int      nElements, 
-              int      nFeatures, 
-              int      nLabels,
-              int      nBatch,
-              MPI_Comm Comm);
+      /* Default constructor */
+      DataSet();
 
       /* Destructor */
       ~DataSet();
+
+      void initialize(int      nElements, 
+                      int      nFeatures, 
+                      int      nLabels,
+                      int      nBatch,
+                      MPI_Comm Comm);
+
 
       /* Return the batch size*/
       int getnBatch();
@@ -51,11 +51,13 @@ class DataSet {
       MyReal* getLabel(int id);
 
       /* Read data from file */
-      void readData(char* examplefile,
+      void readData(char* datafolder,
+                    char* examplefile,
                     char* labelfile);
 
       /* Select the current batch from all available IDs, either deterministic or stochastic */
-      void selectBatch(int batch_type);
+      void selectBatch(int      batch_type,
+                       MPI_Comm comm);
 
 
       /* print current batch to screen */

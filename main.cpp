@@ -18,16 +18,17 @@
 
 int main (int argc, char *argv[])
 {
+    Config*  config;              /**< Storing configurations */
     /* --- Data set --- */
-    DataSet *trainingdata;
-    DataSet *validationdata;
+    DataSet *trainingdata;        /**< Training dataset */
+    DataSet *validationdata;      /**< Validation dataset */
     /* --- Network --- */
-    int      nhiddenlayers;           /**< Number of hidden layers = number of xbraid steps */
-    Network *network;                 /**< DNN Network architecture */
+    int      nhiddenlayers;       /**< Number of hidden layers = number of xbraid steps */
+    Network *network;             /**< DNN Network architecture */
     /* --- Optimization --- */
-    int      ndesign_local;             /**< Number of local design variables on this processor */
+    int      ndesign_local;       /**< Number of local design variables on this processor */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal  *ascentdir=0;        /**< Direction for design updates */
+    MyReal  *ascentdir=0;         /**< Direction for design updates */
     MyReal   objective;           /**< Optimization objective */
     MyReal   wolfe;               /**< Holding the wolfe condition value */
     MyReal   rnorm;               /**< Space-time Norm of the state variables */
@@ -40,6 +41,13 @@ int main (int argc, char *argv[])
     braid_Core core_adj;        /**< Braid core for adjoint computation */
     my_App  *app_train;         /**< Braid app for training data */
     my_App  *app_val;           /**< Braid app for validation data */
+
+    /* --- XBraid --- */
+    myBraidApp        *primaltrainapp;   /**< Braid App for training data */
+    myAdjointBraidApp *adjointtrainapp;  /**< Adjoint Braid for training data */
+    myBraidApp        *primalvalapp;     /**< Braid App for validation data */
+
+    /* --- other --- */
     int      myid;              /**< Processor rank */
     int      size;              /**< Number of processors */
 
@@ -53,8 +61,6 @@ int main (int argc, char *argv[])
     MyReal StartTime, StopTime, myMB, globalMB; 
     MyReal UsedTime = 0.0;
     char optimfilename[255];
-    char train_ex_filename[255], train_lab_filename[255];
-    char val_ex_filename[255], val_lab_filename[255];
     FILE *optimfile = 0;   
     MyReal ls_stepsize, ls_objective, test_obj;
     MyReal stepsize;
@@ -81,8 +87,16 @@ int main (int argc, char *argv[])
        return (0);
     }
 
+    /*--- INITIALIZATION ---*/
+
+    /* Instantiate objects objects */
+    trainingdata   = new DataSet();
+    validationdata = new DataSet();
+    network        = new Network();
+    config         = new Config();
+
+
     /* Read config file */
-    Config* config = new Config();
     int err = config->readFromFile(argv[1]);
     if (err)
     {
@@ -92,66 +106,41 @@ int main (int argc, char *argv[])
     }
 
 
-    /*--- INITIALIZATION ---*/
-
-    /* Set the data file names */
-    sprintf(train_ex_filename,  "%s/%s", config->datafolder, config->ftrain_ex);
-    sprintf(train_lab_filename, "%s/%s", config->datafolder, config->ftrain_labels);
-    sprintf(val_ex_filename,    "%s/%s", config->datafolder, config->fval_ex);
-    sprintf(val_lab_filename,   "%s/%s", config->datafolder, config->fval_labels);
-
     /* Allocate and read training and validation data */
-    trainingdata = new DataSet(config->ntraining,   config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
-    trainingdata->readData(train_ex_filename, train_lab_filename);
+    trainingdata->initialize(config->ntraining, config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
+    trainingdata->readData(config->datafolder, config->ftrain_ex, config->ftrain_labels);
 
-    validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
-    validationdata->readData(val_ex_filename, val_lab_filename);
+    validationdata->initialize(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
+    validationdata->readData(config->datafolder, config->fval_ex, config->fval_labels);
 
 
-    /* Total number of hidden layers is nlayers minus opening layer minus classification layers) */
-    nhiddenlayers = config->nlayers - 2;
 
-    /* NEW NEW NEW */
-    /* Create new network */
-    network = new Network();
-
-    /* Set up XBraid */
-    myBraidApp *primaltrainapp, *primalvalapp;
-    myAdjointBraidApp *adjointtrainapp;
+    /* Initialize XBraid */
     primaltrainapp = new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
     adjointtrainapp = new myAdjointBraidApp(trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
     primalvalapp = new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
 
-    /* Get xbraid's grid distribution */
-    primaltrainapp->GetGridDistribution(&ilower, &iupper);
-    /* NEW NEW NEW */
-
 
     /* Initializze primal and adjoint XBraid for training data */
+    nhiddenlayers = config->nlayers - 2;
     app_train = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
-    /* Store all primal points */
     braid_SetStorage(core_train, 0);
-    /* Revert ranks for solveadjointwithxbraid */
     braid_SetRevertedRanks(core_adj, 1);
-
     /* Init XBraid for validation data */
     app_val = (my_App *) malloc(sizeof(my_App));
     braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-
     /* Set all Braid parameters */
     braid_SetConfigOptions(core_train, config);
     braid_SetConfigOptions(core_adj, config);
     braid_SetConfigOptions(core_val, config);
-
     /* Get xbraid's grid distribution */
-    // _braid_GetDistribution(core_train, &ilower, &iupper);
+    _braid_GetDistribution(core_train, &ilower, &iupper);
 
-    /* Create local network block */
+    /* Initialize the network  */
+    primaltrainapp->GetGridDistribution(&ilower, &iupper);
     network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
-
-    /* Set initial network design */
     network->setInitialDesign(config);
 
     /* Get local and global number of design variables. */ 
@@ -228,7 +217,7 @@ int main (int argc, char *argv[])
         /* --- Training data: Get objective and gradient ---*/ 
         
         /* Set up the current batch */
-        trainingdata->selectBatch(config->batch_type);
+        trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
         // trainingdata->printBatch();
 
         /* Solve state equation with braid */

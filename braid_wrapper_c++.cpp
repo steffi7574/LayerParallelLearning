@@ -73,7 +73,8 @@ myBraidApp::myBraidApp(MPI_Comm Comm,
 
 myBraidApp::~myBraidApp()
 {
-    delete core;
+    /* Delete the core, if drive() has been called */
+    if ( core->GetWarmRestart() ) delete core;
 }
        
 void myBraidApp::initialize(Network* Networkptr,
@@ -479,7 +480,7 @@ braid_Int myBraidApp::SetInitialCondition()
 
     /* Apply initial condition if warm_restart (otherwise it is set in my_Init() */
     /* can not be set here if !(warm_restart) because braid_grid is created only in braid_drive(). */
-    if (_braid_CoreElt(core->GetCore(), warm_restart)) 
+    if ( core->GetWarmRestart() )
     {
         /* Get vector at t == 0 */
         _braid_UGetVectorRef(core->GetCore(), 0, 0, &ubase);
@@ -769,7 +770,7 @@ braid_Int myAdjointBraidApp::SetInitialCondition()
 
     /* If warm_restart: set adjoint initial condition here. Otherwise it's set in my_Init_Adj */
     /* It can not be done here if drive() has not been called before, because the braid grid is allocated only at the beginning of drive() */
-    if (_braid_CoreElt(core->GetCore(), warm_restart))
+    if ( core->GetWarmRestart() )
     {
         /* Get primal and adjoint state */
         _braid_UGetVectorRef(primalcore->GetCore(), 0, GetPrimalIndex(0), &ubaseprimal);

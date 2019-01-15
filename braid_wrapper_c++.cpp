@@ -63,7 +63,6 @@ myBraidApp::myBraidApp(MPI_Comm Comm,
     MPI_Comm_rank(Comm, &myid);
     network          = NULL;
     data             = NULL;
-    ndesign_layermax = 0;
     objective        = 0.0;
     accuracy         = 0.0;
     loss             = 0.0;
@@ -84,7 +83,6 @@ void myBraidApp::initialize(Network* Networkptr,
 {
     network          = Networkptr;
     data             = Dataptr;
-    ndesign_layermax = Ndesign_layermax;
 
    /* Set braid options */
     core->SetMaxLevels(config->braid_maxlevels);
@@ -319,7 +317,7 @@ braid_Int myBraidApp::BufSize(braid_Int         *size_ptr,
     /* Gather number of variables */
     int nuvector     = nchannels*nbatch;
     int nlayerinfo   = 12;
-    int nlayerdesign = ndesign_layermax;
+    int nlayerdesign = network->getnDesignLayermax();
 
     /* Set the size */
     *size_ptr = (nuvector + nlayerinfo + nlayerdesign) * sizeof(MyReal);
@@ -452,7 +450,7 @@ braid_Int myBraidApp::BufUnpack(void              *buffer,
     /* Allocate design and gradient */
     MyReal *design   = new MyReal[nDesign];
     MyReal *gradient = new MyReal[nDesign];
-    tmplayer->initialize(design, gradient, 0.0);
+    tmplayer->setMemory(design, gradient);
     /* Set the weights */
     for (int i = 0; i < nweights; i++)
     {

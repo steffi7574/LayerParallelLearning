@@ -64,7 +64,6 @@ class myBraidApp : public BraidApp
         int        myid;       /* Processor rank*/
         Network*   network;    /* Pointer to the DNN Network Block (local layer storage) */
         DataSet*   data;       /* Pointer to the Data set */
-        int        ndesign_layermax;  /* Max. number of design vars over all layers */
         
         BraidCore* core;       /* Braid core for running PinT simulation */
 

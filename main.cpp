@@ -25,7 +25,6 @@ int main (int argc, char *argv[])
     Network *network;                 /**< DNN Network architecture */
     /* --- Optimization --- */
     int      ndesign_local;             /**< Number of local design variables on this processor */
-    int      ndesign_layermax;          /**< Max. number of design variables over all hidden layers */
     int      ndesign_global;      /**< Number of global design variables (sum of local)*/
     MyReal  *design_init=0;       /**< Temporary vector for initializing the design (on P0) */
     MyReal  *ascentdir=0;        /**< Direction for design updates */
@@ -137,10 +136,8 @@ int main (int argc, char *argv[])
     network = new Network(ilower, iupper, config);
 
     /* Get local and global number of design variables. */ 
-    ndesign_local          = network->getnDesignLocal();
-    int myndesign_layermax = network->getnDesignLayermax();
-    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&myndesign_layermax, &ndesign_layermax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    ndesign_local   = network->getnDesignLocal();
+    ndesign_global  = network->getnDesignGlobal();
 
     int startid = ilower;
     if (ilower == 0) startid = -1;
@@ -159,19 +156,16 @@ int main (int argc, char *argv[])
     }
     MPI_ScatterVector(design_init, network->getDesign(), ndesign_local, MASTER_NODE, MPI_COMM_WORLD);
     network->initialize(config);
-    network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
     /* Initialize xbraid's app structure */
     app_train->primalcore       = core_train;
     app_train->myid             = myid;
     app_train->network          = network;
     app_train->data             = trainingdata;
-    app_train->ndesign_layermax = ndesign_layermax;
     app_val->primalcore       = core_val;
     app_val->myid             = myid;
     app_val->network          = network;
     app_val->data             = validationdata;
-    app_val->ndesign_layermax = ndesign_layermax;
 
 
     /* Initialize hessian approximation on first processor */

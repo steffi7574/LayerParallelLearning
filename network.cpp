@@ -14,6 +14,10 @@ Network::Network()
    layers         = NULL;
    layer_left     = NULL;
    layer_right    = NULL;
+
+   ndesign_local    = 0;
+   ndesign_global   = 0;
+   ndesign_layermax = 0;
 }
 
 Network::Network(int     StartLayerID, 
@@ -49,7 +53,7 @@ Network::Network(int     StartLayerID,
 
 
     /* --- Create the layers --- */
-    ndesign_loc = 0;
+    ndesign_local = 0;
 
     /* Create Opening layer */
     if (startlayerID == 0)
@@ -57,8 +61,8 @@ Network::Network(int     StartLayerID,
         /* Create the opening layer */
         int index = -1;
         openlayer = createLayer(index, config);
-        ndesign_loc += openlayer->getnDesign();
-        // printf("Create opening layer %d, ndesign_loc %d \n", index, openlayer->getnDesign());
+        ndesign_local += openlayer->getnDesign();
+        // printf("Create opening layer %d, ndesign_local %d \n", index, openlayer->getnDesign());
     }
 
    /* Create intermediate layers and classification layer */
@@ -68,14 +72,9 @@ Network::Network(int     StartLayerID,
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, config);
-        ndesign_loc += layers[storeID]->getnDesign();
-        // printf("creating hidden/class layer %d/%d, ndesign_loc%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
+        ndesign_local += layers[storeID]->getnDesign();
+        // printf("creating hidden/class layer %d/%d, ndesign_local%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
-
-
-    /* Allocate memory for network design and gradient variables */
-    design   = new MyReal[ndesign_loc];
-    gradient = new MyReal[ndesign_loc];
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
@@ -84,7 +83,18 @@ Network::Network(int     StartLayerID,
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
     layer_right = createLayer(rightID, config);
+
+    /* Sum up global number of design vars */
+    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Store maximum number of designs over all layers layermax */
+    ndesign_layermax = computeLayermax();
+
+    /* Allocate memory for network design and gradient variables */
+    design   = new MyReal[ndesign_local];
+    gradient = new MyReal[ndesign_local];
 }             
+
 
   
 
@@ -138,7 +148,9 @@ MyReal Network::getLoss() { return loss; }
 
 MyReal Network::getAccuracy() { return accuracy; }
 
-int Network::getnDesignLocal() { return ndesign_loc; }
+int Network::getnDesignLocal() { return ndesign_local; }
+
+int Network::getnDesignGlobal() { return ndesign_global; }
 
 MyReal* Network::getDesign() { return design; }
        
@@ -232,7 +244,9 @@ Layer* Network::getLayer(int layerindex)
     return layer;
 }
 
-int Network::getnDesignLayermax()
+int Network::getnDesignLayermax() { return ndesign_layermax; }
+
+int Network::computeLayermax()
 {
     int ndesignlayer;
     int max = 0;
@@ -247,6 +261,10 @@ int Network::getnDesignLayermax()
             if ( ndesignlayer > max)  max = ndesignlayer;
         }
     }
+
+    /* Get maximum over all local layer blocks */
+    int mymax = max;
+    MPI_Allreduce(&mymax, &max, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     return max;
 }
@@ -307,7 +325,7 @@ void Network::initialize(Config *config)
         istart += layers[storeID]->getnDesign();
     }
 
-    /* Create and initialize left neighbouring layer, if exists */
+    /* Create and initialize left neighbouring layer design, if exists */
     if (layer_left != NULL)
     {
         MyReal *left_design   = new MyReal[layer_left->getnDesign()];
@@ -316,13 +334,16 @@ void Network::initialize(Config *config)
     }
 
 
-    /* Create and initialize right neighbouring layer, if exists */
+    /* Create and initialize right neighbouring layer design, if exists */
     if (layer_right != NULL)
     {
         MyReal *right_design   = new MyReal[layer_right->getnDesign()];
         MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
         layer_right->initialize(right_design, right_gradient, 0.0);
     }
+
+    /* Communicate the neighbours across processors */
+    MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
 }    
 
@@ -528,7 +549,7 @@ void Network::updateDesign(MyReal   stepsize,
                            MPI_Comm comm)
 {
     /* Update design locally on this network-block */
-    for (int id = 0; id < ndesign_loc; id++)
+    for (int id = 0; id < ndesign_local; id++)
     {
         design[id] += stepsize * direction[id];
     }

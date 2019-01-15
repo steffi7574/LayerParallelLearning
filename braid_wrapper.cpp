@@ -244,8 +244,8 @@ my_BufSize(braid_App           app,
            braid_BufferStatus  bstatus)
 {
     int nchannels        = app->network->getnChannels();
-    int nbatch        = app->data->getnBatch();
-    int ndesign_layermax = app->ndesign_layermax;
+    int nbatch           = app->data->getnBatch();
+    int ndesign_layermax = app->network->getnDesignLayermax();
    
     /* Gather number of variables */
     int nuvector     = nchannels*nbatch;

@@ -9,7 +9,6 @@
 #include "util.hpp"
 #include "layer.hpp"
 #include "braid_wrapper.hpp"
-#include "braid_wrapper_c++.hpp"
 #include "config.hpp"
 #include "network.hpp"
 #include "dataset.hpp"
@@ -18,56 +17,52 @@
 
 int main (int argc, char *argv[])
 {
+    /* --- Data --- */
     Config*  config;              /**< Storing configurations */
-    /* --- Data set --- */
-    DataSet *trainingdata;        /**< Training dataset */
-    DataSet *validationdata;      /**< Validation dataset */
-    /* --- Network --- */
-    int      nhiddenlayers;       /**< Number of hidden layers = number of xbraid steps */
-    Network *network;             /**< DNN Network architecture */
-    /* --- Optimization --- */
-    int      ndesign_local;       /**< Number of local design variables on this processor */
-    int      ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal  *ascentdir=0;         /**< Direction for design updates */
-    MyReal   objective;           /**< Optimization objective */
-    MyReal   wolfe;               /**< Holding the wolfe condition value */
-    MyReal   rnorm;               /**< Space-time Norm of the state variables */
-    MyReal   rnorm_adj;           /**< Space-time norm of the adjoint variables */
-    MyReal   gnorm;               /**< Norm of the gradient */
-    MyReal   ls_param;            /**< Parameter in wolfe condition test */
-    /* --- PinT --- */
-    braid_Core core_train;      /**< Braid core for training data */
-    braid_Core core_val;        /**< Braid core for validation data */
-    braid_Core core_adj;        /**< Braid core for adjoint computation */
-    my_App  *app_train;         /**< Braid app for training data */
-    my_App  *app_val;           /**< Braid app for validation data */
+    DataSet* trainingdata;        /**< Training dataset */
+    DataSet* validationdata;      /**< Validation dataset */
 
+    /* --- Network --- */
+    Network* network;             /**< DNN Network architecture */
+    int      ilower, iupper;         /**< Index of first and last layer stored on this processor */
+    MyReal   accur_train = 0.0;   /**< Accuracy on training data */
+    MyReal   accur_val   = 0.0;   /**< Accuracy on validation data */
+    MyReal   loss_train  = 0.0;   /**< Loss function on training data */
+    MyReal   loss_val    = 0.0;   /**< Loss function on validation data */
+    MyReal   losstrain_out  = 0.0; 
+    MyReal   lossval_out    = 0.0; 
+    MyReal   accurtrain_out = 0.0; 
+    MyReal   accurval_out   = 0.0; 
+ 
     /* --- XBraid --- */
     myBraidApp        *primaltrainapp;   /**< Braid App for training data */
     myAdjointBraidApp *adjointtrainapp;  /**< Adjoint Braid for training data */
     myBraidApp        *primalvalapp;     /**< Braid App for validation data */
 
+    /* --- Optimization --- */
+    int     ndesign_local;       /**< Number of local design variables on this processor */
+    int     ndesign_global;      /**< Number of global design variables (sum of local)*/
+    MyReal* ascentdir=0;         /**< Direction for design updates */
+    MyReal  objective;           /**< Optimization objective */
+    MyReal  wolfe;               /**< Holding the wolfe condition value */
+    MyReal  rnorm;               /**< Space-time Norm of the state variables */
+    MyReal  rnorm_adj;           /**< Space-time norm of the adjoint variables */
+    MyReal  gnorm;               /**< Norm of the gradient */
+    MyReal  ls_param;            /**< Parameter in wolfe condition test */
+    MyReal  stepsize;            /**< Stepsize used for design update */
+    char    optimfilename[255];  
+    FILE    *optimfile = 0;   
+    MyReal  ls_stepsize;
+    MyReal  ls_objective, test_obj;
+    int     ls_iter;
+
+
     /* --- other --- */
-    int      myid;              /**< Processor rank */
-    int      size;              /**< Number of processors */
-
-    MyReal accur_train = 0.0;   /**< Accuracy on training data */
-    MyReal accur_val   = 0.0;   /**< Accuracy on validation data */
-    MyReal loss_train  = 0.0;   /**< Loss function on training data */
-    MyReal loss_val    = 0.0;   /**< Loss function on validation data */
-
-    int ilower, iupper;         /**< Index of first and last layer stored on this processor */
-    struct rusage r_usage;
-    MyReal StartTime, StopTime, myMB, globalMB; 
-    MyReal UsedTime = 0.0;
-    char optimfilename[255];
-    FILE *optimfile = 0;   
-    MyReal ls_stepsize, ls_objective, test_obj;
-    MyReal stepsize;
-    int nreq = -1;
-    int ls_iter;
-    braid_BaseVector ubase;
-    braid_Vector     u;
+    int      myid;              
+    int      size;
+    struct   rusage r_usage;
+    MyReal   StartTime, StopTime, myMB, globalMB; 
+    MyReal   UsedTime = 0.0;
 
     /* Initialize MPI */
     MPI_Init(&argc, &argv);
@@ -75,7 +70,16 @@ int main (int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
 
-    /* Get config filename from command line argument */
+    /*--- INITIALIZATION ---*/
+
+    /* Instantiate objects */
+    config         = new Config();
+    trainingdata   = new DataSet();
+    validationdata = new DataSet();
+    network        = new Network();
+
+
+    /* Read config file */
     if (argc != 2)
     {
        if ( myid == MASTER_NODE )
@@ -86,17 +90,6 @@ int main (int argc, char *argv[])
        MPI_Finalize();
        return (0);
     }
-
-    /*--- INITIALIZATION ---*/
-
-    /* Instantiate objects objects */
-    trainingdata   = new DataSet();
-    validationdata = new DataSet();
-    network        = new Network();
-    config         = new Config();
-
-
-    /* Read config file */
     int err = config->readFromFile(argv[1]);
     if (err)
     {
@@ -119,32 +112,13 @@ int main (int argc, char *argv[])
     adjointtrainapp = new myAdjointBraidApp(trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
     primalvalapp = new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
 
-    /* Initializze primal and adjoint XBraid for training data */
-    nhiddenlayers = config->nlayers - 2;
-    app_train = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_train);
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_train, my_Step_Adj, my_Init_Adj, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize_Adj, my_BufPack_Adj, my_BufUnpack_Adj, &core_adj);
-    braid_SetStorage(core_train, 0);
-    braid_SetRevertedRanks(core_adj, 1);
-    /* Init XBraid for validation data */
-    app_val = (my_App *) malloc(sizeof(my_App));
-    braid_Init(MPI_COMM_WORLD, MPI_COMM_WORLD, 0.0, config->T, nhiddenlayers, app_val, my_Step, my_Init, my_Clone, my_Free, my_Sum, my_SpatialNorm, my_Access, my_BufSize, my_BufPack, my_BufUnpack, &core_val);
-    /* Set all Braid parameters */
-    braid_SetConfigOptions(core_train, config);
-    braid_SetConfigOptions(core_adj, config);
-    braid_SetConfigOptions(core_val, config);
-    /* Get xbraid's grid distribution */
-    _braid_GetDistribution(core_train, &ilower, &iupper);
-
 
     /* Initialize the network  */
     primaltrainapp->GetGridDistribution(&ilower, &iupper);
     network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
     network->setInitialDesign(config);
-
-    /* Get local and global number of design variables. */ 
-    ndesign_local   = network->getnDesignLocal();
-    ndesign_global  = network->getnDesignGlobal();
+    ndesign_local  = network->getnDesignLocal();
+    ndesign_global = network->getnDesignGlobal();
 
     /* Print some network information */
     int startid = ilower;
@@ -152,19 +126,8 @@ int main (int argc, char *argv[])
     printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper, config->nlayers);
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
-    /* Initialize xbraid's app structure */
-    app_train->primalcore       = core_train;
-    app_train->myid             = myid;
-    app_train->network          = network;
-    app_train->data             = trainingdata;
-    app_val->primalcore       = core_val;
-    app_val->myid             = myid;
-    app_val->network          = network;
-    app_val->data             = validationdata;
 
-
-
-    /* Initialize hessian approximation on first processor */
+    /* Initialize hessian approximation */
     HessianApprox  *hessian = 0;
     switch (config->hessianapprox_type)
     {
@@ -179,16 +142,16 @@ int main (int argc, char *argv[])
     }
 
     /* Allocate ascent direction for design updates */
-    ascentdir = new MyReal[ndesign_local];
 
     /* Initialize optimization parameters */
-    ls_param    = 1e-4;
-    ls_iter     = 0;
+    ascentdir   = new MyReal[ndesign_local];
+    stepsize    = config->getStepsize(0);
     gnorm       = 0.0;
     objective   = 0.0;
     rnorm       = 0.0;
     rnorm_adj   = 0.0;
-    stepsize    = config->getStepsize(0);
+    ls_param    = 1e-4;
+    ls_iter     = 0;
     ls_stepsize = stepsize;
 
     /* Open and prepare optimization output file*/
@@ -217,108 +180,44 @@ int main (int argc, char *argv[])
         
         /* Set up the current batch */
         trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
-        // trainingdata->printBatch();
 
-        /* Solve state equation new_ */
-        printf("\nNEW PRIMAL RUN");
-        MyReal new_rnorm       = primaltrainapp->run();
+        /* Solve state and adjoint equation */
+        rnorm       = primaltrainapp->run();
+        rnorm_adj = adjointtrainapp->run();
+
         /* Get output */
-        MyReal new_objective   = primaltrainapp->getObjective();
-        MyReal new_loss_train  = network->getLoss();
-        MyReal new_accur_train = network->getAccuracy();
-
-        /* Solve the adjoint equation with xbraid new_ */
-        printf("\nNEW ADJOINT RUN");
-        MyReal new_rnorm_adj = adjointtrainapp->run();
-        MyReal new_gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
-
-
-
-        /* Solve state equation with braid */
-        printf("\nOLD PRIMAL RUN");
-        nreq = -1;
-        braid_SetPrintLevel(core_train, config->braid_printlevel);
-        braid_evalInit(core_train, app_train);
-        braid_Drive(core_train);
-        braid_evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
-        braid_GetRNorms(core_train, &nreq, &rnorm);
-
-
-        /* Solve adjoint equation with XBraid */
-        nreq = -1;
-        printf("\nOLD ADJOINT RUN");
-        braid_SetPrintLevel(core_adj, config->braid_printlevel);
-        braid_evalObjectiveDiff(core_adj, app_train);
-        braid_Drive(core_adj);
-        braid_evalInitDiff(core_adj, app_train);
-        braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
-
-
-
+        objective   = primaltrainapp->getObjective();
+        loss_train  = network->getLoss();
+        accur_train = network->getAccuracy();
 
 
         /* --- Validation data: Get accuracy --- */
 
-        MyReal new_loss_val;
-        MyReal new_accur_val;
-
         if ( config->validationlevel > 0 )
         {
-            printf("\nOLD VALIDATION RUN");
-            braid_SetPrintLevel( core_val, 1);
-            braid_evalInit(core_val, app_val);
-            braid_Drive(core_val);
-            /* Get loss and accuracy */
-            _braid_UGetLast(core_val, &ubase);
-            if (ubase != NULL) // This is true only on last processor
-            {
-                u = ubase->userVector;
-                network->evalClassification(validationdata, u->state, 0);
-                loss_val = network->getLoss();
-                accur_val = network->getAccuracy();
-            }
-
-            printf("\nNEW VALIDATION RUN");
             primalvalapp->run();
-            new_loss_val  = network->getLoss();
-            new_accur_val = network->getAccuracy();
+            loss_val  = network->getLoss();
+            accur_val = network->getAccuracy();
         }
 
 
-        printf("\n");
         /* --- Optimization control and output ---*/
 
         /* Compute global gradient norm */
         gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
 
         /* Communicate loss and accuracy. This is actually only needed for output. Remove it. */
-        MyReal losstrain_out  = 0.0; 
-        MyReal lossval_out    = 0.0; 
-        MyReal accurtrain_out = 0.0; 
-        MyReal accurval_out   = 0.0; 
         MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-
-        MyReal new_losstrain_out  = 0.0; 
-        MyReal new_accurtrain_out = 0.0; 
-        MyReal new_lossval_out    = 0.0; 
-        MyReal new_accurval_out   = 0.0; 
-        MPI_Allreduce(&new_loss_train, &new_losstrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&new_accur_train, &new_accurtrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&new_loss_val, &new_lossval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&new_accur_val, &new_accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
-
 
         /* Output */
         StopTime = MPI_Wtime();
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %1.14e    %2.2f%%    %.1f\n", iter, new_rnorm, new_rnorm_adj, new_objective, new_losstrain_out, new_gnorm, stepsize, ls_iter, new_accurtrain_out, new_lossval_out, new_accurval_out, UsedTime);
-
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %1.14e    %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, lossval_out, accurval_out, UsedTime);
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }
@@ -366,11 +265,11 @@ int main (int argc, char *argv[])
             stepsize     = ls_stepsize;
             for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++)
             {
-                /* Compute new objective function value for current trial step */
-                braid_SetPrintLevel(core_train, 0);
-                braid_evalInit(core_train, app_train);
-                braid_Drive(core_train);
-                braid_evalObjective(core_train, app_train, &ls_objective, &loss_train, &accur_train);
+
+                primaltrainapp->getCore()->SetPrintLevel(0);
+                primaltrainapp->run();
+                ls_objective = primaltrainapp->getObjective();
+                primaltrainapp->getCore()->SetPrintLevel(config->braid_printlevel);
 
                 test_obj = objective - ls_param * ls_stepsize * wolfe;
                 if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
@@ -404,18 +303,12 @@ int main (int argc, char *argv[])
     if (config->validationlevel > -1)
     {
         if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
-        braid_SetPrintLevel( core_val, 0);
-        braid_evalInit(core_val, app_val);
-        braid_Drive(core_val);
-        /* Get loss and accuracy */
-        _braid_UGetLast(core_val, &ubase);
-        if (ubase != NULL) // This is only true on last processor 
-        {
-            u = ubase->userVector;
-            network->evalClassification(validationdata, u->state, 1);
-            accur_val = network->getAccuracy();
-            printf("Final validation accuracy:  %2.2f%%\n", accur_val);
-        }
+
+        primalvalapp->getCore()->SetPrintLevel(0);
+        primalvalapp->run();
+        loss_val  = network->getLoss();
+
+        printf("Final validation accuracy:  %2.2f%%\n", accur_val);
     }
 
     // write_vector("design.dat", design, ndesign);
@@ -577,12 +470,6 @@ int main (int argc, char *argv[])
 
     /* Clean up XBraid */
     delete network;
-    braid_Destroy(core_train);
-    braid_Destroy(core_adj);
-    if (config->validationlevel >= 0) braid_Destroy(core_val);
-    free(app_train);
-    free(app_val);
-
 
     delete primaltrainapp;
     delete adjointtrainapp;

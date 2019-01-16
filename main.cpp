@@ -36,27 +36,28 @@ int main (int argc, char *argv[])
     MyReal   accurval_out   = 0.0; 
  
     /* --- XBraid --- */
-    myBraidApp        *primaltrainapp;   /**< Braid App for training data */
-    myAdjointBraidApp *adjointtrainapp;  /**< Adjoint Braid for training data */
-    myBraidApp        *primalvalapp;     /**< Braid App for validation data */
+    myBraidApp*        primaltrainapp;   /**< Braid App for training data */
+    myAdjointBraidApp* adjointtrainapp;  /**< Adjoint Braid for training data */
+    myBraidApp*        primalvalapp;     /**< Braid App for validation data */
 
     /* --- Optimization --- */
-    int     ndesign_local;       /**< Number of local design variables on this processor */
-    int     ndesign_global;      /**< Number of global design variables (sum of local)*/
-    MyReal* ascentdir=0;         /**< Direction for design updates */
-    MyReal  objective;           /**< Optimization objective */
-    MyReal  wolfe;               /**< Holding the wolfe condition value */
-    MyReal  rnorm;               /**< Space-time Norm of the state variables */
-    MyReal  rnorm_adj;           /**< Space-time norm of the adjoint variables */
-    MyReal  gnorm;               /**< Norm of the gradient */
-    MyReal  ls_param;            /**< Parameter in wolfe condition test */
-    MyReal  stepsize;            /**< Stepsize used for design update */
-    char    optimfilename[255];  
-    FILE    *optimfile = 0;   
-    MyReal  ls_stepsize;
-    MyReal  ls_objective, test_obj;
-    int     ls_iter;
-
+    Optimizer*  optimizer;           /**< Optimization object */
+    myFunction* function;            /**< Function wrapper for optimization */
+    int         ndesign_local;       /**< Number of local design variables on this processor */
+    int         ndesign_global;      /**< Number of global design variables (sum of local)*/
+    MyReal*     ascentdir=0;         /**< Direction for design updates */
+    MyReal      objective;           /**< Optimization objective */
+    MyReal      wolfe;               /**< Holding the wolfe condition value */
+    MyReal      rnorm;               /**< Space-time Norm of the state variables */
+    MyReal      rnorm_adj;           /**< Space-time norm of the adjoint variables */
+    MyReal      gnorm;               /**< Norm of the gradient */
+    MyReal      ls_param;            /**< Parameter in wolfe condition test */
+    MyReal      stepsize;            /**< Stepsize used for design update */
+    char        optimfilename[255];  
+    FILE*       optimfile = 0;   
+    MyReal      ls_stepsize;
+    MyReal      ls_objective, test_obj;
+    int         ls_iter;
 
     /* --- other --- */
     int      myid;              
@@ -78,7 +79,8 @@ int main (int argc, char *argv[])
     trainingdata   = new DataSet();
     validationdata = new DataSet();
     network        = new Network();
-
+    optimizer = new Optimizer();
+    function  = new myFunction();
 
     /* Read config file */
     if (argc != 2)
@@ -128,9 +130,6 @@ int main (int argc, char *argv[])
     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
 
-
-    Optimizer* optimizer = new Optimizer();
-    myFunction* function = new myFunction();
     
 
 

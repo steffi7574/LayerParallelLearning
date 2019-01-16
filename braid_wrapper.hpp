@@ -88,12 +88,16 @@ class myBraidApp : public BraidApp
         /* Return the core */
         BraidCore* getCore();
 
+        /* Return the network */
+        Network* getNetwork();
+
         /* Get xbraid's grid distribution */
         void GetGridDistribution(int *ilower_ptr, 
                                  int *iupper_ptr);
  
         /* Return the time step index of current time t */
         braid_Int GetTimeStepIndex(MyReal t);
+
 
         /* Apply one time step */
         virtual braid_Int Step(braid_Vector     u_,

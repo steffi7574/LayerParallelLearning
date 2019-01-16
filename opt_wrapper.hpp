@@ -7,13 +7,24 @@
 class myFunction: public UserFunction 
 {
    protected: 
-      /* braidcore etc. */
+      myBraidApp*         primaltrainapp;
+      myAdjointBraidApp*  adjointtrainapp;
+      myBraidApp*         primalvalapp;
+
+      Network*  network;
 
    public:
-      myFunction();
-      ~myFunction();
+      myFunction();    /* Default constructor */
+      ~myFunction();   
 
-      void initialize(braid_Core core);
+      /* Set the pointers */
+      void initialize(myBraidApp*        PrimalTrain,
+                      myAdjointBraidApp* AdjointTrain,
+                      myBraidApp*        PrimalVal);
+
+
+      /* Pass a pointer to the design to the optimizer */
+      void setDesign(int size_design, MyReal* design_ptr);
 
       MyReal evaluateObjective(MyReal* design);
       MyReal evaluateGradient(MyReal* design, MyReal* gradient);

@@ -95,6 +95,9 @@ MyReal myBraidApp::getObjective() { return objective; }
 
 BraidCore* myBraidApp::getCore()  { return core; }
 
+
+Network* myBraidApp::getNetwork() { return network; }
+
 void myBraidApp::GetGridDistribution(int *ilower_ptr, 
                                      int *iupper_ptr)
 {

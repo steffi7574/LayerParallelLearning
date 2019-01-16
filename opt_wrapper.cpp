@@ -1,15 +1,37 @@
 #include "opt_wrapper.hpp"
 
-myFunction::myFunction() : UserFunction(){}
+myFunction::myFunction()
+{
+   primaltrainapp  = NULL;
+   adjointtrainapp = NULL;
+   primalvalapp    = NULL;
+}
 
 myFunction::~myFunction(){}
 
-void myFunction::initialize(braid_Core core){}
+void myFunction::initialize(myBraidApp*        PrimalTrain,
+                            myAdjointBraidApp* AdjointTrain,
+                            myBraidApp*        PrimalVal)
+{
+   primaltrainapp  = PrimalTrain;
+   adjointtrainapp = AdjointTrain;
+   primalvalapp    = PrimalVal;
+
+   network = primaltrainapp->getNetwork();
+}                         
+      
+void myFunction::setDesign(int size_design, MyReal* design_ptr)
+{
+   size_design = network->getnDesignLocal();
+   design_ptr  = network->getDesign();
+   
+}
 
 MyReal myFunction::evaluateObjective(MyReal* design)
 {
+   // network->getDesign() == design;
 
-   // network->getDesign() = design;
+
    return 0.0;
 }
 

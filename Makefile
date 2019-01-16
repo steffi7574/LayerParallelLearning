@@ -26,7 +26,7 @@ $(BRAID_LIB_FILE):
 $(OPTIM_LIB_FILE):
 	cd $(OPTIM_INC_DIR); make
 
-main:  $(OBJ) $(BRAID_LIB_FILE) $(OPTIM_LIB_FILE)
+main: $(OBJ) $(BRAID_LIB_FILE) $(OPTIM_LIB_FILE) 
 	$(CXX) $(CPPFLAGS) -o $@ $^
 
 clean: 

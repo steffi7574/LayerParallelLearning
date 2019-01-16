@@ -2,168 +2,212 @@
 #include <stdio.h>
 
 #include "defs.hpp"
-#include "braid.h"
-#include "_braid.h"
+#include "braid.hpp"
+// #include "_braid.h"
 #include "network.hpp"
 #include "layer.hpp"
 #include "dataset.hpp"
 #pragma once
 
-/* Define the app structure */
-typedef struct _braid_App_struct
+/** 
+ * Define the state vector at one time-step 
+ */
+class myBraidVector 
 {
-    int      myid;       /* Processor rank*/
-    Network* network;    /* Pointer to the DNN Network Block (local layer storage) */
-    DataSet* data;       /* Pointer to the Data set */
-    int      ndesign_layermax;  /* Max. number of design vars over all layers */
+    protected:
+        int    nbatch;       /* Number of examples */
+        int    nchannels;    /* Number of channels */
 
-    braid_Core primalcore; /* Pointer to primal xbraid core, needed for adjoint solve */
-} my_App;
+        MyReal **state;   /* Network state at one layer, dimensions: nbatch * nchannels */
+        Layer* layer;     /* Pointer to layer information */
+
+        /* Flag that determines if the layer and state have just been received and thus should be free'd after usage (flag > 0) */
+        MyReal sendflag;  
+
+    public:
+        /* Get dimensions */
+        int getnBatch();
+        int getnChannels();
+
+        /* Get Pointer to the state at example exampleID */
+        MyReal* getState(int exampleID);
+
+        /* Get pointer to the full state matrix */
+        MyReal** getState();
+
+        /* Get and set pointer to the layer */
+        Layer* getLayer();
+        void   setLayer(Layer* layer);
+
+        /* Get and set the sendflag */
+        MyReal getSendflag();
+        void   setSendflag(MyReal value);
+
+        /* Constructor */
+        myBraidVector(int nChannels, 
+                      int nBatch);
+        /* Destructor */
+        ~myBraidVector();
+}; 
 
 
-/* Define the state vector at one time-step */
-typedef struct _braid_Vector_struct
+
+
+/**
+ * Wrapper for the primal braid app. 
+ * virtual function are overwritten from the adjoint app class 
+ */
+class myBraidApp : public BraidApp
 {
-   MyReal **state;   /* Network state at one layer, dimensions: nbatch * nchannels */
+    protected:
+        // BraidApp defines tstart, tstop, ntime and comm_t
+        int        myid;       /* Processor rank*/
+        Network*   network;    /* Pointer to the DNN Network Block (local layer storage) */
+        DataSet*   data;       /* Pointer to the Data set */
+        
+        BraidCore* core;       /* Braid core for running PinT simulation */
 
-   Layer* layer;     /* Pointer to layer information (local design part) */
+        /* Output */
+        MyReal objective;       /* Objective function */
 
-   /* Flag that determines if the layer and state have just been received and thus should be free'd after usage (flag > 0) */
-   MyReal sendflag;  
-} my_Vector;
+    public:
 
-/* Set braid options */
-void braid_SetConfigOptions(braid_Core core, 
-                            Config     *config);
+        /* Constructor */
+        myBraidApp(DataSet* Data,
+                   Network* Network,
+                   Config*  Config,
+                   MPI_Comm Comm);
 
+      
+        /* Destructor */
+        ~myBraidApp();
 
-/* Compute time step index from given time */
-int GetTimeStepIndex(braid_App app, 
-                     MyReal    t);
+        /* Return objective function */
+        MyReal getObjective();
 
-int GetPrimalIndex(braid_App app,
-                   int       ts);
+        /* Return the core */
+        BraidCore* getCore();
 
-int 
-my_Step(braid_App        app,
-        braid_Vector     ustop,
-        braid_Vector     fstop,
-        braid_Vector     u,
-        braid_StepStatus status);
+        /* Get xbraid's grid distribution */
+        void GetGridDistribution(int *ilower_ptr, 
+                                 int *iupper_ptr);
+ 
+        /* Return the time step index of current time t */
+        braid_Int GetTimeStepIndex(MyReal t);
 
-int
-my_Init(braid_App     app,
-        MyReal        t,
-        braid_Vector *u_ptr);
+        /* Apply one time step */
+        virtual braid_Int Step(braid_Vector     u_,
+                               braid_Vector     ustop_,
+                               braid_Vector     fstop_,
+                               BraidStepStatus &pstatus);
 
-int
-my_Init_diff(braid_App     app,
-             MyReal        t,
-             braid_Vector  ubar);
+        /* Compute residual: Does nothing. */ 
+        braid_Int Residual(braid_Vector     u_,
+                              braid_Vector  r_,
+                              BraidStepStatus &pstatus);
 
-int
-my_Clone(braid_App     app,
-         braid_Vector  u,
-         braid_Vector *v_ptr);
+        /* Allocate a new vector in *v_ptr, which is a deep copy of u_. */
+        braid_Int Clone(braid_Vector  u_,
+                        braid_Vector *v_ptr);
 
+        /* Allocate a new vector in *u_ptr and initialize it with an
+       initial guess appropriate for time t. */
+        virtual braid_Int Init(braid_Real    t,
+                               braid_Vector *u_ptr);
 
-int
-my_Free(braid_App    app,
-        braid_Vector u);
+        /* De-allocate the vector @a u_. */
+        braid_Int Free(braid_Vector u_);
 
+        /* Perform the operation: y_ = alpha * x_ + beta * @a y_. */
+         braid_Int Sum(braid_Real   alpha,
+                       braid_Vector x_,
+                       braid_Real   beta,
+                       braid_Vector y_);
 
-int
-my_Sum(braid_App     app,
-       MyReal        alpha,
-       braid_Vector  x,
-       MyReal        beta,
-       braid_Vector  y);
+        /* Compute in @a *norm_ptr an appropriate spatial norm of @a u_. */
+        braid_Int SpatialNorm(braid_Vector  u_,
+                               braid_Real   *norm_ptr);
 
+        /* @see braid_PtFcnAccess. */
+        braid_Int Access(braid_Vector       u_,
+                         BraidAccessStatus &astatus);
 
-int
-my_SpatialNorm(braid_App     app,
-               braid_Vector  u,
-               MyReal       *norm_ptr);
+        /* @see braid_PtFcnBufSize. */
+        virtual braid_Int BufSize(braid_Int         *size_ptr,
+                                  BraidBufferStatus &bstatus);
 
+        /* @see braid_PtFcnBufPack. */
+        virtual braid_Int BufPack(braid_Vector       u_,
+                                  void              *buffer,
+                                  BraidBufferStatus &bstatus);
 
-int
-my_Access(braid_App          app,
-          braid_Vector       u,
-          braid_AccessStatus astatus);
+        /* @see braid_PtFcnBufUnpack. */
+        virtual braid_Int BufUnpack(void              *buffer,
+                                    braid_Vector      *u_ptr,
+                                    BraidBufferStatus &bstatus);
 
+        /* Set the initial condition */
+        virtual braid_Int SetInitialCondition();
 
-int
-my_BufSize(braid_App           app,
-           int                 *size_ptr,
-           braid_BufferStatus  bstatus);
+        /* evaluate objective function */
+        virtual braid_Int EvaluateObjective();
 
-
-int
-my_BufPack(braid_App           app,
-           braid_Vector        u,
-           void               *buffer,
-           braid_BufferStatus  bstatus);
-
-
-int
-my_BufUnpack(braid_App           app,
-             void               *buffer,
-             braid_Vector       *u_ptr,
-             braid_BufferStatus  bstatus);
-
-
-
-
-int 
-my_Step_Adj(braid_App        app,
-            braid_Vector     ustop,
-            braid_Vector     fstop,
-            braid_Vector     u,
-            braid_StepStatus status);
-
-int
-my_Init_Adj(braid_App     app,
-            MyReal        t,
-            braid_Vector *u_ptr);
-
-int
-my_BufSize_Adj(braid_App           app,
-               int                 *size_ptr,
-               braid_BufferStatus  bstatus);
+        /* Run Braid drive, return norm */
+        MyReal run();
+};
 
 
-int
-my_BufPack_Adj(braid_App           app,
-               braid_Vector        u,
-               void               *buffer,
-               braid_BufferStatus  bstatus);
 
 
-int
-my_BufUnpack_Adj(braid_App           app,
-                 void               *buffer,
-                 braid_Vector       *u_ptr,
-                 braid_BufferStatus  bstatus);
 
+/** 
+ * Adjoint braid App for solving adjoint eqations with xbraid. 
+ */
+class myAdjointBraidApp : public myBraidApp
+{
+    protected:
+        BraidCore* primalcore; /* pointer to primal core for accessing primal states */
 
-void
-braid_evalInit(braid_Core core,
-         braid_App   app);
+    public:
+        myAdjointBraidApp(DataSet*   Data,
+                          Network*   Network,
+                          Config*    config,
+                          BraidCore* Primalcoreptr,
+                          MPI_Comm   comm);
 
+       ~myAdjointBraidApp();
 
-void  
-braid_evalObjective(braid_Core  core,
-                    braid_App   app,     
-                    MyReal     *objective,
-                    MyReal     *loss_ptr,
-                    MyReal     *accuracy_ptr);
+        /* Get the storage index of primal (reversed) */
+        int GetPrimalIndex(int ts);
 
+        /* Apply one time step */
+        braid_Int Step(braid_Vector     u_,
+                       braid_Vector     ustop_,
+                       braid_Vector     fstop_,
+                       BraidStepStatus &pstatus);
 
-void
-braid_evalObjectiveDiff(braid_Core core_adj,
-                        braid_App  app);
+        /* Allocate a new vector in *u_ptr and initialize it with an
+       initial guess appropriate for time t. */
+        braid_Int Init(braid_Real    t,
+                       braid_Vector *u_ptr);
 
+        /* @see braid_PtFcnBufSize. */
+        braid_Int BufSize(braid_Int         *size_ptr,
+                          BraidBufferStatus &bstatus);
 
-void 
-braid_evalInitDiff(braid_Core core_adj,
-                   braid_App  app);
+        /* @see braid_PtFcnBufPack. */
+        braid_Int BufPack(braid_Vector       u_,
+                          void              *buffer,
+                          BraidBufferStatus &bstatus);
+
+        /* @see braid_PtFcnBufUnpack. */
+        braid_Int BufUnpack(void              *buffer,
+                            braid_Vector      *u_ptr,
+                            BraidBufferStatus &bstatus);
+
+        /* Set the adjoint initial condition (derivative of primal objective function) */
+        braid_Int SetInitialCondition();
+
+        /* evaluate objective function (being just the derivative of the opening layer) */
+        braid_Int EvaluateObjective();
+};  

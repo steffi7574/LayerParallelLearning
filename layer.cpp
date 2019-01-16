@@ -36,7 +36,7 @@ Layer::Layer(int     idx,
              MyReal  deltaT,
              int     Activ,
              MyReal  gammatik,
-             MyReal  gammaddt)
+             MyReal  gammaddt) : Layer()
 {
    index       = idx;
    type        = Type;
@@ -64,6 +64,19 @@ Layer::~Layer()
 void Layer::setDt(MyReal DT) { dt = DT; }
 
 MyReal Layer::getDt() { return dt; }
+
+void Layer::setMemory(MyReal* design_memloc, 
+                      MyReal* gradient_memloc)
+{
+    /* Set design and gradient memory locations */
+    weights     = design_memloc;
+    weights_bar = gradient_memloc;
+    
+    /* Bias memory locations is a shift by number of weights */
+    bias         = design_memloc + nweights;    
+    bias_bar     = gradient_memloc + nweights;
+}                   
+
 
 MyReal Layer::getGammaTik() { return gamma_tik; }
 
@@ -186,29 +199,20 @@ void Layer::unpackDesign(MyReal* buffer)
     }
 }
 
-void Layer::initialize(MyReal* design_ptr,
-                       MyReal* gradient_ptr,
-                       MyReal  factor)
+void Layer::scaleDesign(MyReal  factor)
 {
-    /* Set design and gradient memory locations */
-    weights     = design_ptr;
-    weights_bar = gradient_ptr;
-    
-    /* Bias memory locations is a shift by number of weights */
-    bias         = design_ptr + nweights;    
-    bias_bar     = gradient_ptr + nweights;
-
-    /* Scale initial design */
+    /* Scale design by a factor */
     for (int i = 0; i < nweights; i++)
     {
         weights[i]     = factor * weights[i];
-        weights_bar[i] = 0.0;
     }
     for (int i = 0; i < dim_Bias; i++)
     {
         bias[i]     = factor * bias[i];
-        bias_bar[i] = 0.0;
     }
+
+    /* Reset the gradient */
+    resetBar();
 }                   
 
 void Layer::resetBar()

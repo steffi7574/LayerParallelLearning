@@ -21,7 +21,7 @@ all: main $(BRAID_LIB_FILE) $(OPTIM_LIB_FILE)
 	$(CXX) $(CPPFLAGS) -c $< -o $@  $(INC)
 
 $(BRAID_LIB_FILE):
-	cd $(BRAID_INC_DIR); make
+	cd xbraid; make braid
 
 $(OPTIM_LIB_FILE):
 	cd $(OPTIM_INC_DIR); make

@@ -9,73 +9,60 @@ Network::Network()
    dt             = 0.0;
    loss           = 0.0;
    accuracy       = 0.0;
-   gradient       = NULL;
+
+   startlayerID   = 0;
+   endlayerID     = 0;
+
+   ndesign_local    = 0;
+   ndesign_global   = 0;
+   ndesign_layermax = 0;
+
    design         = NULL;
+   gradient       = NULL;
+
    layers         = NULL;
+   openlayer      = NULL;
    layer_left     = NULL;
    layer_right    = NULL;
+
+   comm           = MPI_COMM_WORLD;
 }
 
-Network::Network(int     StartLayerID, 
-                 int     EndLayerID,
-                 Config* config)
+void Network::createNetworkBlock(int      StartLayerID, 
+                                 int      EndLayerID,
+                                 Config*  config, 
+                                 MPI_Comm Comm) 
 {
     /* Initilizize */
     startlayerID     = StartLayerID;
     endlayerID       = EndLayerID;
     nlayers_local    = endlayerID - startlayerID + 1;
     nlayers_global   = config->nlayers;
-    openlayer        = NULL;
-    layers           = NULL;
-    layer_left       = NULL;
-    layer_right      = NULL;
-
     nchannels        = config->nchannels;
     dt               = (config->T) / (MyReal)(config->nlayers-2);  // nlayers-2 = nhiddenlayers
-    loss             = 0.0;
-    accuracy         = 0.0;
-
-
-    /* Sanity check */
-    if (config->nfeatures > nchannels ||
-        config->nclasses  > nchannels)
-    {
-        printf("ERROR! Choose a wider netword!\n");
-        printf(" -- nFeatures = %d\n", config->nfeatures);
-        printf(" -- nChannels = %d\n", config->nchannels);
-        printf(" -- nClasses = %d\n", config->nclasses);
-        exit(1);
-    }
-
+    comm             = Comm;
 
     /* --- Create the layers --- */
-    ndesign_loc = 0;
+    ndesign_local = 0;
 
-    /* Create Opening layer */
-    if (startlayerID == 0)
+    if (startlayerID == 0) // Opening layer
     {
         /* Create the opening layer */
         int index = -1;
         openlayer = createLayer(index, config);
-        ndesign_loc += openlayer->getnDesign();
-        // printf("Create opening layer %d, ndesign_loc %d \n", index, openlayer->getnDesign());
+        ndesign_local += openlayer->getnDesign();
+        // printf("Create opening layer %d, ndesign_local %d \n", index, openlayer->getnDesign());
     }
 
-   /* Create intermediate layers and classification layer */
-    layers  = new Layer*[nlayers_local];
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
+    layers  = new Layer*[nlayers_local];  // Intermediate and classification layer 
+    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) 
     {
         /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
         int storeID = getLocalID(ilayer);
         layers[storeID] = createLayer(ilayer, config);
-        ndesign_loc += layers[storeID]->getnDesign();
-        // printf("creating hidden/class layer %d/%d, ndesign_loc%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
+        ndesign_local += layers[storeID]->getnDesign();
+        // printf("creating hidden/class layer %d/%d, ndesign_local%d\n", ilayer, nlayers_local, layers[storeID]->getnDesign());
     }
-
-
-    /* Allocate memory for network design and gradient variables */
-    design   = new MyReal[ndesign_loc];
-    gradient = new MyReal[ndesign_loc];
 
     /* Create left neighbouring layer */
     int leftID = startlayerID - 1;
@@ -84,7 +71,47 @@ Network::Network(int     StartLayerID,
     /* Create right neighbrouing layer */
     int rightID = endlayerID + 1;
     layer_right = createLayer(rightID, config);
+
+    /* Sum up global number of design vars */
+    MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, comm);
+
+    /* Store maximum number of designs over all layers layermax */
+    ndesign_layermax = computeLayermax();
+
+    /* Allocate memory for network design and gradient variables */
+    design   = new MyReal[ndesign_local];
+    gradient = new MyReal[ndesign_local];
+
+    /* Set the memory locations for all layers */
+    int istart = 0;
+    if (openlayer != NULL) // Openlayer on first processor
+    {
+        openlayer->setMemory(&(design[istart]), &(gradient[istart]));
+        istart += openlayer->getnDesign();
+    }
+    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) // intermediate and hidden layers
+    {
+        layers[getLocalID(ilayer)]->setMemory(&(design[istart]), &(gradient[istart]));
+        istart += layers[getLocalID(ilayer)]->getnDesign();
+    }
+
+    /* left anr right neighbouring layer design, if exists */
+    if (layer_left != NULL)
+    {
+        MyReal *left_design   = new MyReal[layer_left->getnDesign()];
+        MyReal *left_gradient = new MyReal[layer_left->getnDesign()];
+        layer_left->setMemory(left_design, left_gradient);
+    }
+    /* Create and initialize right neighbouring layer design, if exists */
+    if (layer_right != NULL)
+    {
+        MyReal *right_design   = new MyReal[layer_right->getnDesign()];
+        MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
+        layer_right->setMemory(right_design, right_gradient);
+    }
+
 }             
+
 
   
 
@@ -138,7 +165,9 @@ MyReal Network::getLoss() { return loss; }
 
 MyReal Network::getAccuracy() { return accuracy; }
 
-int Network::getnDesignLocal() { return ndesign_loc; }
+int Network::getnDesignLocal() { return ndesign_local; }
+
+int Network::getnDesignGlobal() { return ndesign_global; }
 
 MyReal* Network::getDesign() { return design; }
        
@@ -146,6 +175,9 @@ MyReal* Network::getGradient() { return gradient; }
 
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID()   { return endlayerID; }
+
+MPI_Comm Network::getComm() { return comm; }
+
 
 Layer* Network::createLayer(int     index,
                             Config *config)
@@ -232,7 +264,9 @@ Layer* Network::getLayer(int layerindex)
     return layer;
 }
 
-int Network::getnDesignLayermax()
+int Network::getnDesignLayermax() { return ndesign_layermax; }
+
+int Network::computeLayermax()
 {
     int ndesignlayer;
     int max = 0;
@@ -248,33 +282,49 @@ int Network::getnDesignLayermax()
         }
     }
 
+    /* Get maximum over all local layer blocks */
+    int mymax = max;
+    MPI_Allreduce(&mymax, &max, 1, MPI_INT, MPI_MAX, comm);
+
     return max;
 }
 
-void Network::initialize(Config *config)
+void Network::setInitialDesign(Config *config)
 {
-    MyReal factor;
-    char   filename[255];
+    MyReal  factor;
+    MyReal* design_init;
+    char    filename[255];
+    int myid;
+    MPI_Comm_rank(comm, &myid);
 
-    /* Initialize  the layer weights and bias  */
-    int istart = 0;
+    /* Initialize design with random numbers (do on one processor and scatter for scaling test) */
+    if (myid == 0)
+    {
+        srand(1.0);
+        design_init = new MyReal[ndesign_global];
+        for (int i = 0; i < ndesign_global; i++)
+        {
+            design_init[i] = (MyReal) rand() / ((MyReal) RAND_MAX);
+        }
+    }
+    /* Scatter initial design to all processors */
+    MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
+
+    /* Scale the initial design by a factor and read from file, if set */
 
     /* Opening layer on first processor */
     if (startlayerID == 0)
     {
-        /* Set memory location for design and scale design by the factor */
+        /* Scale design by the factor */
         factor = config->weights_open_init;
-        openlayer->initialize(&(design[istart]), &(gradient[istart]), factor);
+        openlayer->scaleDesign(factor);
 
         /* if set, overwrite opening design from file */
         if (strcmp(config->weightsopenfile, "NONE") != 0)
         {
            sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
-           read_vector(filename, &(design[istart]), openlayer->getnDesign());
+           read_vector(filename, openlayer->getWeights(), openlayer->getnDesign());
         }
-
-        /* Increase counter */ 
-        istart += openlayer->getnDesign();
     }
 
     /* Intermediate (hidden) and classification layers */
@@ -291,7 +341,7 @@ void Network::initialize(Config *config)
 
         /* Set memory location and scale the current design by the factor */
         int storeID = getLocalID(ilayer);
-        layers[storeID]->initialize(&(design[istart]), &(gradient[istart]), factor);
+        layers[storeID]->scaleDesign(factor);
 
         /* if set, overwrite classification design from file */
         if (ilayer == nlayers_global-1)
@@ -299,30 +349,15 @@ void Network::initialize(Config *config)
             if (strcmp(config->weightsclassificationfile, "NONE") != 0)
             {
                 sprintf(filename, "%s/%s", config->datafolder, config->weightsclassificationfile);
-                read_vector(filename, &(design[istart]), layers[storeID]->getnDesign());
+                read_vector(filename, layers[storeID]->getWeights(), layers[storeID]->getnDesign());
             }
         }
-
-        /* Increase the counter */
-        istart += layers[storeID]->getnDesign();
     }
 
-    /* Create and initialize left neighbouring layer, if exists */
-    if (layer_left != NULL)
-    {
-        MyReal *left_design   = new MyReal[layer_left->getnDesign()];
-        MyReal *left_gradient = new MyReal[layer_left->getnDesign()];
-        layer_left->initialize(left_design, left_gradient, 0.0);
-    }
+    /* Communicate the neighbours across processors */
+    MPI_CommunicateNeighbours(comm);
 
-
-    /* Create and initialize right neighbouring layer, if exists */
-    if (layer_right != NULL)
-    {
-        MyReal *right_design   = new MyReal[layer_right->getnDesign()];
-        MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
-        layer_right->initialize(right_design, right_gradient, 0.0);
-    }
+    if (myid == 0) delete [] design_init;
 
 }    
 
@@ -427,13 +462,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
 
 void Network::evalClassification(DataSet* data, 
                                  MyReal** state,
-                                 MyReal*  loss_ptr, 
-                                 MyReal*  accuracy_ptr,
                                  int      output)
 {
     MyReal *tmpstate = new MyReal[nchannels];
     
-    MyReal loss, accuracy;
     int    class_id;
     int    success, success_local;
     FILE*  classfile;
@@ -451,7 +483,8 @@ void Network::evalClassification(DataSet* data,
     /* open file for printing predicted file */
     if (output) classfile = fopen("classprediction.dat", "w");
 
-    loss    = 0.0;
+    loss     = 0.0;
+    accuracy = 0.0;
     success = 0;
     for (int iex = 0; iex < data->getnBatch(); iex++)
     {
@@ -472,10 +505,6 @@ void Network::evalClassification(DataSet* data,
     loss     = 1. / data->getnBatch() * loss;
     accuracy = 100.0 * ( (MyReal) success ) / data->getnBatch();
     // printf("Classification %d: %1.14e using layer %1.14e state %1.14e tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1], tmpstate[0]);
-
-    /* Return */
-    *loss_ptr      = loss;
-    *accuracy_ptr  = accuracy;
 
     if (output) fclose(classfile);
     if (output) printf("Prediction file written: classprediction.dat\n");
@@ -528,7 +557,7 @@ void Network::updateDesign(MyReal   stepsize,
                            MPI_Comm comm)
 {
     /* Update design locally on this network-block */
-    for (int id = 0; id < ndesign_loc; id++)
+    for (int id = 0; id < ndesign_local; id++)
     {
         design[id] += stepsize * direction[id];
     }

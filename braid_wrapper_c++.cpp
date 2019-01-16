@@ -63,8 +63,6 @@ myBraidApp::myBraidApp(DataSet* Data,
     network          = Network;
     data             = Data;
     objective        = 0.0;
-    accuracy         = 0.0;
-    loss             = 0.0;
 
     /* Initialize XBraid core */
     core = new BraidCore(comm, this);
@@ -93,6 +91,8 @@ myBraidApp::~myBraidApp()
     if ( core->GetWarmRestart() ) delete core;
 }
 
+MyReal myBraidApp::getObjective() { return objective; }
+
 BraidCore* myBraidApp::getCore()  { return core; }
 
 void myBraidApp::GetGridDistribution(int *ilower_ptr, 
@@ -100,16 +100,6 @@ void myBraidApp::GetGridDistribution(int *ilower_ptr,
 {
     core->GetDistribution(ilower_ptr, iupper_ptr);
 }                                 
-
-void myBraidApp::GetObjectiveLossAccuracy(MyReal *obj_ptr, 
-                                          MyReal *loss_ptr, 
-                                          MyReal *accur_ptr)
-{
-    *obj_ptr   = objective;
-    *loss_ptr  = loss;
-    *accur_ptr = accuracy;
-
-}
 
 
 braid_Int myBraidApp::GetTimeStepIndex(MyReal    t)
@@ -468,7 +458,6 @@ braid_Int myBraidApp::SetInitialCondition()
     braid_BaseVector ubase;
     myBraidVector* u;
 
-
     /* Apply initial condition if warm_restart (otherwise it is set in my_Init() */
     /* can not be set here if !(warm_restart) because braid_grid is created only in braid_drive(). */
     if ( core->GetWarmRestart() )
@@ -499,22 +488,20 @@ braid_Int myBraidApp::EvaluateObjective()
 {
 
 
-    MyReal regul     = 0.0;
     braid_BaseVector ubase;
     myBraidVector* u;
     Layer* layer;
+    MyReal myobjective;
+    MyReal regul;
 
     /* Get range of locally stored layers */
     int startlayerID = network->getStartLayerID();
     int endlayerID   = network->getEndLayerID();
     if (startlayerID == 0) startlayerID -= 1; // this includes opening layer (id = -1) at first processor 
 
-    /* Reset output */
-    objective = 0.0;
-    loss      = 0.0;
-    accuracy  = 0.0;
 
     /* Iterate over the local layers */
+    regul = 0.0;
     for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
     {
         /* Get the layer */
@@ -532,15 +519,14 @@ braid_Int myBraidApp::EvaluateObjective()
             _braid_UGetVectorRef(core->GetCore(), 0, ilayer, &ubase);
             u = (myBraidVector*) ubase->userVector;
             network->evalClassification(data, u->getState(), 0);
-            loss     += network->getLoss();
-            accuracy += network->getAccuracy();
         }
         // printf("%d: layerid %d using %1.14e, tik %1.14e, ddt %1.14e, loss %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], regultik, regulddt, loss_loc);
     }
 
 
     /* Collect objective function from all processors */
-    MyReal myobjective = loss + regul;
+    myobjective = network->getLoss() + regul;
+    objective   = 0.0;
     MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
     return 0;

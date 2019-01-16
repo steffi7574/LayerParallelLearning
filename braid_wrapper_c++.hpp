@@ -67,11 +67,8 @@ class myBraidApp : public BraidApp
         
         BraidCore* core;       /* Braid core for running PinT simulation */
 
-
         /* Output */
-        MyReal objective;
-        MyReal accuracy;
-        MyReal loss;
+        MyReal objective;       /* Objective function */
 
     public:
 
@@ -85,6 +82,9 @@ class myBraidApp : public BraidApp
         /* Destructor */
         ~myBraidApp();
 
+        /* Return objective function */
+        MyReal getObjective();
+
         /* Return the core */
         BraidCore* getCore();
 
@@ -92,11 +92,6 @@ class myBraidApp : public BraidApp
         void GetGridDistribution(int *ilower_ptr, 
                                  int *iupper_ptr);
  
-        /* Get output */
-        void GetObjectiveLossAccuracy(MyReal *obj_ptr, 
-                                      MyReal *loss_ptr, 
-                                      MyReal *accur_ptr);
-
         /* Return the time step index of current time t */
         braid_Int GetTimeStepIndex(MyReal t);
 

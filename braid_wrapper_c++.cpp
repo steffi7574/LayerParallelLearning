@@ -516,7 +516,7 @@ braid_Int myBraidApp::EvaluateObjective()
         /* At last layer: Classification and Loss evaluation */ 
         if (ilayer == network->getnLayersGlobal()-2)
         {
-            _braid_UGetVectorRef(core->GetCore(), 0, ilayer, &ubase);
+            _braid_UGetLast(core->GetCore(), &ubase); 
             u = (myBraidVector*) ubase->userVector;
             network->evalClassification(data, u->getState(), 0);
         }
@@ -664,7 +664,7 @@ braid_Int myAdjointBraidApp::Init(braid_Real    t,
     if (t==0)
     {
         /* Get the primal vector */
-        _braid_UGetVectorRef(primalcore->GetCore(), finegrid, primaltimestep, &ubaseprimal);
+        _braid_UGetLast(primalcore->GetCore(), &ubaseprimal); 
         uprimal = (myBraidVector*) ubaseprimal->userVector;
 
         /* Reset the gradient before updating it */
@@ -765,7 +765,7 @@ braid_Int myAdjointBraidApp::SetInitialCondition()
     if ( core->GetWarmRestart() )
     {
         /* Get primal and adjoint state */
-        _braid_UGetVectorRef(primalcore->GetCore(), 0, GetPrimalIndex(0), &ubaseprimal);
+        _braid_UGetLast(primalcore->GetCore(), &ubaseprimal);
         _braid_UGetVectorRef(core->GetCore(), 0, 0, &ubaseadjoint);
 
         if (ubaseprimal != NULL && ubaseadjoint !=NULL)  // this is the case at first primal and last adjoint time step  

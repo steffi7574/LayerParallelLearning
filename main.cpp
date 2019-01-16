@@ -219,10 +219,23 @@ int main (int argc, char *argv[])
         trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
         // trainingdata->printBatch();
 
-        /* Solve state equation _new */
-        rnorm = primaltrainapp->run();
+        /* Solve state equation new_ */
+        printf("\nNEW PRIMAL RUN");
+        MyReal new_rnorm       = primaltrainapp->run();
+        /* Get output */
+        MyReal new_objective   = primaltrainapp->getObjective();
+        MyReal new_loss_train  = network->getLoss();
+        MyReal new_accur_train = network->getAccuracy();
+
+        /* Solve the adjoint equation with xbraid new_ */
+        printf("\nNEW ADJOINT RUN");
+        MyReal new_rnorm_adj = adjointtrainapp->run();
+        MyReal new_gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
+
+
 
         /* Solve state equation with braid */
+        printf("\nOLD PRIMAL RUN");
         nreq = -1;
         braid_SetPrintLevel(core_train, config->braid_printlevel);
         braid_evalInit(core_train, app_train);
@@ -230,18 +243,28 @@ int main (int argc, char *argv[])
         braid_evalObjective(core_train, app_train, &objective, &loss_train, &accur_train);
         braid_GetRNorms(core_train, &nreq, &rnorm);
 
+
         /* Solve adjoint equation with XBraid */
         nreq = -1;
+        printf("\nOLD ADJOINT RUN");
         braid_SetPrintLevel(core_adj, config->braid_printlevel);
         braid_evalObjectiveDiff(core_adj, app_train);
         braid_Drive(core_adj);
         braid_evalInitDiff(core_adj, app_train);
         braid_GetRNorms(core_adj, &nreq, &rnorm_adj);
 
+
+
+
+
         /* --- Validation data: Get accuracy --- */
+
+        MyReal new_loss_val;
+        MyReal new_accur_val;
 
         if ( config->validationlevel > 0 )
         {
+            printf("\nOLD VALIDATION RUN");
             braid_SetPrintLevel( core_val, 1);
             braid_evalInit(core_val, app_val);
             braid_Drive(core_val);
@@ -254,9 +277,15 @@ int main (int argc, char *argv[])
                 loss_val = network->getLoss();
                 accur_val = network->getAccuracy();
             }
+
+            printf("\nNEW VALIDATION RUN");
+            primalvalapp->run();
+            new_loss_val  = network->getLoss();
+            new_accur_val = network->getAccuracy();
         }
 
 
+        printf("\n");
         /* --- Optimization control and output ---*/
 
         /* Compute global gradient norm */
@@ -272,12 +301,24 @@ int main (int argc, char *argv[])
         MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
+        MyReal new_losstrain_out  = 0.0; 
+        MyReal new_accurtrain_out = 0.0; 
+        MyReal new_lossval_out    = 0.0; 
+        MyReal new_accurval_out   = 0.0; 
+        MPI_Allreduce(&new_loss_train, &new_losstrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&new_accur_train, &new_accurtrain_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&new_loss_val, &new_lossval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&new_accur_val, &new_accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+
+
         /* Output */
         StopTime = MPI_Wtime();
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %1.14e    %2.2f%%    %.1f\n", iter, new_rnorm, new_rnorm_adj, new_objective, new_losstrain_out, new_gnorm, stepsize, ls_iter, new_accurtrain_out, new_lossval_out, new_accurval_out, UsedTime);
+
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %1.14e    %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, lossval_out, accurval_out, UsedTime);
             fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }

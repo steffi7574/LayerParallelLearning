@@ -1,7 +1,5 @@
 # TODO
 
-* Readme file that explains the recent changes and sgd usage
-
 * Optimizer class implementation 
 
 * Weights parametrization using splines

@@ -485,47 +485,22 @@ braid_Int myBraidApp::SetInitialCondition()
 
 braid_Int myBraidApp::EvaluateObjective()
 {
-
-
+    MyReal myobjective;
     braid_BaseVector ubase;
     myBraidVector* u;
-    Layer* layer;
-    MyReal myobjective;
-    MyReal regul;
 
-    /* Get range of locally stored layers */
-    int startlayerID = network->getStartLayerID();
-    int endlayerID   = network->getEndLayerID();
-    if (startlayerID == 0) startlayerID -= 1; // this includes opening layer (id = -1) at first processor 
-
-
-    /* Iterate over the local layers */
-    regul = 0.0;
-    for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
+    /* Evaluate classification loss */
+    _braid_UGetLast(core->GetCore(), &ubase); 
+    if (ubase != NULL) // only true on last processor 
     {
-        /* Get the layer */
-        layer = network->getLayer(ilayer); 
-
-         /* Tikhonov - Regularization*/
-        regul += layer->evalTikh();
-
-        /* DDT - Regularization on intermediate layers */
-        regul += layer->evalRegulDDT(network->getLayer(ilayer-1), network->getDT());
-
-        /* At last layer: Classification and Loss evaluation */ 
-        if (ilayer == network->getnLayersGlobal()-2)
-        {
-            _braid_UGetLast(core->GetCore(), &ubase); 
-            u = (myBraidVector*) ubase->userVector;
-            network->evalClassification(data, u->getState(), 0);
-        }
-        // printf("%d: layerid %d using %1.14e, tik %1.14e, ddt %1.14e, loss %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], regultik, regulddt, loss_loc);
+        u = (myBraidVector*) ubase->userVector;
+        network->evalClassification(data, u->getState(), 0);
     }
 
+    /* Objective function is loss + regularization  */
+    myobjective = network->getLoss() + network->evalRegularization();
 
-    /* Collect objective function from all processors */
-    myobjective = network->getLoss() + regul;
-    objective   = 0.0;
+    /* Collect objective from all processors */
     MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
     return 0;
@@ -621,17 +596,6 @@ braid_Int myAdjointBraidApp::Step(braid_Vector     u_,
 
     // printf("%d: level %d step_adj %d->%d using layer %d,%1.14e, primal %1.14e, adj %1.14e, grad[0] %1.14e, %d\n", app->myid, level, ts_stop, uprimal->layer->getIndex(), uprimal->layer->getWeights()[3], uprimal->state[1][1], u->state[1][1], uprimal->layer->getWeightsBar()[0],  uprimal->layer->getnDesign());
 
-    /* Derivative of DDT-Regularization */
-    if (compute_gradient) 
-    {
-        Layer* prev = network->getLayer(primaltimestep - 1); 
-        Layer* next = network->getLayer(primaltimestep + 1); 
-        uprimal->getLayer()->evalRegulDDT_diff(prev, next, network->getDT());
-    }        
-
-    /* Derivative of tikhonov */
-    if (compute_gradient) uprimal->getLayer()->evalTikh_diff(1.0);
-
     /* no refinement */
     pstatus.SetRFactor(1);
 
@@ -667,9 +631,6 @@ braid_Int myAdjointBraidApp::Init(braid_Real    t,
         /* Derivative of classification */
         network->evalClassification_diff(data, uprimal->getState(), u->getState(), 1);
 
-        /* Derivative of tikhonov regularization) */
-        uprimal->getLayer()->evalTikh_diff(1.0);
- 
     //    printf("%d: Init_adj Loss at %d, using %1.14e, primal %1.14e, adj %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0], primalstate[1][1], u->state[1][1], layer->getWeightsBar()[0]);
     }
 
@@ -774,9 +735,6 @@ braid_Int myAdjointBraidApp::SetInitialCondition()
 
             /* Derivative of classification */
             network->evalClassification_diff(data, uprimal->getState(), uadjoint->getState(), 1);
-
-            /* Derivative of tikhonov regularization) */
-            uprimal->getLayer()->evalTikh_diff(1.0);
         }
     }    
 
@@ -811,9 +769,10 @@ braid_Int myAdjointBraidApp::EvaluateObjective()
 
         // printf("%d: Init_diff layerid %d using %1.14e, adj %1.14e grad[0] %1.14e\n", app->myid, openlayer->getIndex(), openlayer->getWeights()[3], ubase->userVector->state[1][1], openlayer->getWeightsBar()[0] );
 
-        /* Derivative of Tikhonov Regularization */
-        openlayer->evalTikh_diff(1.0);
     }
+
+    /* Derivative of regularization */
+    network->evalRegularization_diff();
 
     return 0;
 }

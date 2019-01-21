@@ -116,6 +116,16 @@ class Network
       /* Replace the layer with one that is received from the left neighbouring processor */  
       void MPI_CommunicateNeighbours(MPI_Comm comm);
 
+      /** 
+       * Evaluates the regularization term (Tikhonov + Time derivative)
+       */
+      MyReal evalRegularization();
+
+      /**
+       * Derivative of regularization terms 
+       */
+      void evalRegularization_diff();
+
      /**
        * Applies the classification and evaluates loss/accuracy 
        */

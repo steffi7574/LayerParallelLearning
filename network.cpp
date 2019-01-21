@@ -459,6 +459,40 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm)
     if(recvfirst!=0) delete [] recvfirst;
 }
 
+MyReal Network::evalRegularization()
+{
+    int startID = startlayerID;
+    if (startlayerID == 0) startID -= 1; // this includes opening layer (id = -1) at first processor 
+
+    MyReal regul = 0.0;
+    for (int ilayer = startID; ilayer <= endlayerID; ilayer++)
+    {
+         /* Tikhonov - Regularization*/
+        regul += getLayer(ilayer)->evalTikh();
+
+        /* DDT - Regularization on intermediate layers */
+        regul += getLayer(ilayer)->evalRegulDDT(getLayer(ilayer-1), dt);
+
+    }
+
+    return regul;
+}
+
+void Network::evalRegularization_diff()
+{
+    int startID = startlayerID;
+    if (startlayerID == 0) startID -= 1; // this includes opening layer (id = -1) at first processor 
+
+    for (int ilayer = startID; ilayer <= endlayerID; ilayer++)
+    {
+         /* Tikhonov - Regularization*/
+        getLayer(ilayer)->evalTikh_diff(1.0);
+
+        /* DDT - Regularization on intermediate layers */
+        getLayer(ilayer)->evalRegulDDT_diff(getLayer(ilayer-1), getLayer(ilayer+1), dt);
+
+    }
+}
 
 void Network::evalClassification(DataSet* data, 
                                  MyReal** state,

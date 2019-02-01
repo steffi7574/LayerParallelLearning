@@ -100,10 +100,10 @@ int main (int argc, char *argv[])
 
 
     /* Initialize training and validation data */
-    trainingdata->initialize(config->ntraining, config->nfeatures, config->nclasses, config->nbatch, MPI_COMM_WORLD);
+    trainingdata->initialize(config->ntraining, config->nfeatures, config->nclasses, config->nbatch, config->batch_type, MPI_COMM_WORLD);
     trainingdata->readData(config->datafolder, config->ftrain_ex, config->ftrain_labels);
 
-    validationdata->initialize(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
+    validationdata->initialize(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, config->batch_type, MPI_COMM_WORLD);  // full validation set!
     validationdata->readData(config->datafolder, config->fval_ex, config->fval_labels);
 
 
@@ -161,10 +161,10 @@ int main (int argc, char *argv[])
         optimfile = fopen(optimfilename, "w");
         config->writeToFile(optimfile);
 
-       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||            Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
+       fprintf(optimfile, "#    || r ||          || r_adj ||      Objective             Loss                  || grad ||          Stepsize  LSiter  Epoch   Accur_train  Accur_val   Time(sec)\n");
 
        /* Screen output */
-       printf("\n#    || r ||          || r_adj ||      Objective             Loss                 || grad ||             Stepsize  ls_iter   Accur_train  Accur_val   Time(sec)\n");
+       printf("\n#    || r ||          || r_adj ||      Objective             Loss                 || grad ||           Stepsize  LSiter  Epoch   Accur_train  Accur_val   Time(sec)\n");
     }
 
 
@@ -179,7 +179,8 @@ int main (int argc, char *argv[])
         /* --- Training data: Get objective and gradient ---*/ 
         
         /* Set up the current batch */
-        trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
+        trainingdata->selectBatch(iter, MPI_COMM_WORLD);
+        // trainingdata->printBatch();
 
         /* Solve state and adjoint equation */
         rnorm       = primaltrainapp->run();
@@ -217,8 +218,8 @@ int main (int argc, char *argv[])
         UsedTime = StopTime-StartTime;
         if (myid == MASTER_NODE)
         {
-            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
-            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, accurtrain_out, accurval_out, UsedTime);
+            printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d    %6d        %2.2f%%      %2.2f%%    %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, trainingdata->getEpochIter(), accurtrain_out, accurval_out, UsedTime);
+            fprintf(optimfile,"%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d    %6d        %2.2f%%      %2.2f%%     %.1f\n", iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize, ls_iter, trainingdata->getEpochIter(), accurtrain_out, accurval_out, UsedTime);
             fflush(optimfile);
         }
 
@@ -272,7 +273,7 @@ int main (int argc, char *argv[])
                 primaltrainapp->getCore()->SetPrintLevel(config->braid_printlevel);
 
                 test_obj = objective - ls_param * ls_stepsize * wolfe;
-                if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
+                // if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
                 /* Test the wolfe condition */
                 if (ls_objective <= test_obj) 
                 {
@@ -284,7 +285,7 @@ int main (int argc, char *argv[])
                     /* Test for line-search failure */
                     if (ls_iter == config->ls_maxiter - 1)
                     {
-                        if (myid == MASTER_NODE) printf("\n\n   WARNING: LINESEARCH FAILED! \n\n");
+                        // if (myid == MASTER_NODE) printf("  WARNING: LINESEARCH FAILED! \n\n");
                         break;
                     }
 

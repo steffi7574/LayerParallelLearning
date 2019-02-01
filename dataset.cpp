@@ -8,27 +8,44 @@ DataSet::DataSet()
    nbatch    = 0;
    MPIsize   = 0;
    MPIrank   = 0;
-   navail    = 0;
+
+   batch_type = -1;
+   batchindex = -1;
+   epochiter  = -1;
 
    examples = NULL;
    labels   = NULL;
    batchIDs = NULL;
-   availIDs = NULL;
+   allIDs   = NULL;
+   // availIDs = NULL;
 }
 
 void DataSet::initialize(int      nElements, 
                          int      nFeatures, 
                          int      nLabels,
                          int      nBatch,
+                         int      batchType,
                          MPI_Comm comm)
 {
+   nelements  = nElements;
+   nfeatures  = nFeatures;
+   nlabels    = nLabels;
+   nbatch     = nBatch;
+   batch_type = batchType;
 
+   if (nbatch >= nelements)
+   {
+      /* Full batch -> deterministic batch selection */
+      nbatch     = nelements;
+      batch_type = DETERMINISTIC;
+   }
 
-   nelements = nElements;
-   nfeatures = nFeatures;
-   nlabels   = nLabels;
-   nbatch    = nBatch;
-   navail    = nelements;
+   /* Sanity check */
+   if (nelements % nbatch != 0) 
+   {
+      printf("\n\n ERROR: Number of data set elements must be an integer multiple of the batch size!\n\n ");
+      exit(1);
+   }
 
    MPI_Comm_rank(comm, &MPIrank);
    MPI_Comm_size(comm, &MPIsize);
@@ -55,24 +72,20 @@ void DataSet::initialize(int      nElements,
       }
    }
 
-   /* Allocate and initialize availIDs and batchIDs on first and last processor */
+   /* Allocate and initialize allIDs with identity on first and last processor */
    if (MPIrank == 0 || MPIrank == MPIsize - 1)
    {
-      availIDs = new int[nelements];    // all elements 
-      batchIDs = new int[nbatch];       
+      allIDs   = new int[nelements];    // all elements 
 
-      /* Initialize available ID with identity */
+      /* Initialize */
       for (int idx = 0; idx < nelements; idx++)
       {
-         availIDs[idx] = idx;
-      }
-
-      /* Initialize the batch with identity */
-      for (int idx = 0; idx < nbatch; idx++)
-      {
-         batchIDs[idx] = idx;
+         allIDs[idx] = idx;
       }
    }
+
+   /* First batch points to beginning of allIDs */
+   batchIDs = allIDs;
 }
 
 
@@ -98,13 +111,15 @@ DataSet::~DataSet()
       delete [] labels;
    }
 
-   if (availIDs != NULL) delete [] availIDs;
-   if (batchIDs != NULL) delete [] batchIDs;
+   if (allIDs != NULL) delete [] allIDs;
 }
 
 
 int DataSet::getnBatch() { return nbatch; }
 
+
+int DataSet::getEpochIter() { return epochiter; }
+      
 MyReal* DataSet::getExample(int id) 
 { 
    if (examples == NULL) return NULL;
@@ -138,72 +153,100 @@ void DataSet::readData(char* datafolder,
 
 
 
-void DataSet::selectBatch(int      batch_type, 
+void DataSet::selectBatch(int      iter,
                           MPI_Comm comm)
 {
-   int irand, rand_range;
-   int tmp;
-   MPI_Request sendreq, recvreq;
-   MPI_Status status;
+   /* in first iteration, shuffle all IDs */
+   if (iter == 0)
+   {
+      shuffle(comm);
+   }
 
    switch (batch_type)
    {
       case DETERMINISTIC:
-         /* Do nothing, keep the batch fixed. */
+         
+         /* Do nothing. Keep batch fixed. */
+
+         /* Set epoch for output */
+         epochiter = 0;
+         if (nbatch >= nelements) epochiter = iter;
+         
          break;
 
       case STOCHASTIC:
 
-         /* Randomly choose a batch on first processor, send to last processor */
-         if (MPIrank == 0)
+         /* Set batchIDs pointer to the next batch in allIDs */
+         batchindex = iter % (nelements / nbatch);
+         batchIDs   = &(allIDs[batchindex * nbatch]); 
+
+         /* if a full epoch has finished (or first iter), shuffle allIDs  */
+         if ( batchindex == 0)
          {
-            /* Fill the batchID vector with randomly generated integer */
-            rand_range = navail - 1;
-            for (int ibatch = 0; ibatch < nbatch; ibatch++)
-            {
-               /* Generate a new random index in [0,range] */
-               irand = (int) ( ( ((double) rand()) /  (double) RAND_MAX ) * rand_range );
-
-               /* Set the batchID */
-               batchIDs[ibatch] = availIDs[irand];
-
-               /* Remove the ID from available IDs (by swapping it with the last available id and reducing the range) */
-               tmp = availIDs[irand];
-               availIDs[irand] = availIDs[rand_range];
-               availIDs[rand_range] = tmp;
-               rand_range--;
-            }
-
-            /* Send to the last processor */
-            int receiver = MPIsize - 1;
-            MPI_Isend(batchIDs, nbatch, MPI_INT, receiver, 0, comm, &sendreq);
+            shuffle(comm);
+            epochiter++;
          }
 
-         /* Receive the batch IDs on last processor */
-         if (MPIrank == MPIsize - 1)
-         {
-            int source = 0;
-            MPI_Irecv(batchIDs, nbatch, MPI_INT, source, 0, comm, &recvreq);
-         }
+         break; // of switch statement
+   }
+}
 
-         /* Wait to finish communication */
-         if (MPIrank == 0)          MPI_Wait(&sendreq, &status);
-         if (MPIrank == MPIsize-1)  MPI_Wait(&recvreq, &status);
-
-
-         break; // break switch statement
+void DataSet::printBatch()
+{
+   if (MPIrank == 0 )
+   {
+      printf("Batch "); 
+      print_int_vector(batchIDs, nbatch);
    }
 }
 
 
-void DataSet::printBatch()
+void DataSet::shuffle(MPI_Comm Comm)
 {
-   if (batchIDs != NULL)  // only first and last processor
+   MPI_Request sendreq, recvreq;
+   MPI_Status status;
+
+   // /* Shuffle allIDs on first processor and send to last */
+   // if (MPIrank == 0)
+   // {
+   //    printf("Shuffle \n");
+   //    shuffle_int_vector(allIDs, nelements);
+   //    // print_int_vector(allIDs, nelements);
+
+   //    int receiver = MPIsize - 1;
+   //    MPI_Isend(allIDs, nelements, MPI_INT, receiver, 0, Comm, &sendreq);
+   // }
+   // if (MPIrank == MPIsize - 1)
+   // {
+   //    int source = 0;
+   //    MPI_Irecv(allIDs, nelements, MPI_INT, source, 0, Comm, &recvreq);
+   // }
+
+   // if (MPIrank == 0        ) MPI_Wait(&sendreq, &status);
+   // if (MPIrank == MPIsize-1) MPI_Wait(&recvreq, &status);
+
+
+   /* Shuffle allIDs on first processor and send to last */
+   int N = 243;
+   int* someint = new int[N];
+   printf("%d: nelements %d\n", MPIrank, nelements);
+
+   if (MPIrank == 0)
    {
-      printf("%d:\n", MPIrank);
-      for (int ibatch = 0; ibatch < nbatch; ibatch++)
-      {
-         printf("%d, %04d\n", ibatch, batchIDs[ibatch]);
-      }
+      // printf("Shuffle \n");
+      // shuffle_int_vector(allIDs, nelements);
+      // print_int_vector(allIDs, nelements);
+
+      printf("before Shuffle %d \n", MPIsize);
+      int receiver = MPIsize - 1;
+      MPI_Send(someint, N, MPI_INT, receiver, 0, MPI_COMM_WORLD);
    }
+   printf("Mid Shuffle \n");
+   if (MPIrank == MPIsize - 1)
+   {
+      int source = 0;
+      MPI_Recv(someint, N, MPI_INT, source, 0, MPI_COMM_WORLD, &status);
+   }
+
+   printf("End Shuffle \n");
 }

@@ -13,18 +13,20 @@ class DataSet {
       int nelements;         /* Number of data elements */
       int nfeatures;         /* Number of features per element */
       int nlabels;           /* Number of different labels (i.e. classes) per element */
+
+      int epochiter;           /* Number of epochs that have been passed through */
+      int batchindex;      /* Current batch index */
       
       MyReal **examples;    /* Array of Feature vectors (dim: nelements x nfeatures) */
       MyReal **labels;      /* Array of Label vectors (dim: nelements x nlabels) */
 
+      int *allIDs;          /* Array of all element IDs */
       int  nbatch;          /* Size of the batch */
-      int *batchIDs;        /* Array of batch indicees */
+      int *batchIDs;        /* Pointer to the current batch indicees */
+      int  batch_type;      /* Deterministic or stochastic batch selection */
 
       int MPIsize;           /* Size of the global communicator */
       int MPIrank;           /* Processors rank */
-
-      int* availIDs;          /* Auxilliary: holding available batchIDs when generating a batch */
-      int  navail;            /* Auxilliary: holding number of currently available batchIDs */
 
    public: 
 
@@ -38,11 +40,18 @@ class DataSet {
                       int      nFeatures, 
                       int      nLabels,
                       int      nBatch,
+                      int      batchType,
                       MPI_Comm Comm);
 
 
       /* Return the batch size*/
       int getnBatch();
+
+      /* Return number of passed epochs */
+      int getEpochIter();
+
+      /* Print current batchIDs */
+      void printBatch();
 
       /* Return the feature vector of a certain batchID. If not stored on this processor, return NULL */
       MyReal* getExample(int id);
@@ -56,10 +65,11 @@ class DataSet {
                     char* labelfile);
 
       /* Select the current batch from all available IDs, either deterministic or stochastic */
-      void selectBatch(int      batch_type,
+      void selectBatch(int      iterindex,
                        MPI_Comm comm);
 
 
-      /* print current batch to screen */
-      void printBatch();
+      /* Shuffle the indices */
+      void shuffle(MPI_Comm Comm);
+
 };

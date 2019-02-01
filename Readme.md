@@ -1,4 +1,6 @@
-01|2019
+#Latest Changes
+
+## 01|2019
 
 * XBraid has been added as a git submodule. Run "git submodule update" after "git pull" to ensure that the correct xbraid commit is in place. 
 
@@ -16,3 +18,19 @@
 * Parallel implementation of LBFGS hessian approximation. 
 
 * Added a basic python script for testing new implementations. It runs 6 test cases and compares the output with the reference. Currently only peaks case, using braid\_maxlevels being 1 or 10 and number of processors being 1, 2 or 5. In folder testing/ run *python testing.py* for testing all 6 cases or *python testing.py --help* for other configuration. 
+
+
+
+# Build
+* Requires XBraid on branch 'solveadjointiwithxbraid', included as a git submodule:
+    - git submodule init 
+    - or git submodule update --init
+* *make* should build both, xbraid library as well as dnn code. If not, type
+    - cd xbraid
+    - make braid
+    - cd 
+    - make
+
+* git cloning with ssh:
+    - The submodules don't really allow for ssh access
+    - Remedy: modify .git/config file to point to an ssh version of the braid repo

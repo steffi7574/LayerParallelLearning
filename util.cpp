@@ -84,6 +84,32 @@ void write_vector(char   *filename,
 
 }            
 
+
+void print_int_vector(int* vec, int size)
+{
+   printf("vector = [ ");
+   for (int i= 0; i< size; i++)
+   {
+      printf("%d ", vec[i]);
+   }
+   printf("]\n");
+}
+
+void shuffle_int_vector(int* vec, int size)
+{
+   int r, tmp;
+
+   for (int i = 0; i < size -1; i++)
+   {
+      /* Choose random position */
+      r= i + (rand()  % (size - i) ); // random remaining position 
+      /* swap elements */
+      tmp    = vec[i];
+      vec[i] = vec[r];
+      vec[r] = tmp;
+   }
+}
+
 void MPI_GatherVector(MyReal*  sendbuffer,
                       int      localsendcount,
                       MyReal*  recvbuffer,

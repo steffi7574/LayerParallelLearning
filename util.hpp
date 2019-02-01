@@ -26,6 +26,16 @@ void write_vector(char   *filename,
                   MyReal  *var, 
                   int      dimN);
 
+/**
+ * print a vector of ints 
+ */
+void print_int_vector(int* vec, int size);
+
+
+/**
+ * Randomly shuffle integers in a vector 
+ */
+void shuffle_int_vector(int* vec, int size);
 
 /**
  * Gather a local vector of size localsendcount into global recvbuffer at root

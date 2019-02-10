@@ -333,6 +333,12 @@ class ClassificationLayer : public Layer
  */
 class ConvLayer : public Layer {
 
+     int csize2;
+     int fcsize;
+
+     int img_size;
+     int img_size_sqrt;
+
   public:
       ConvLayer(int     idx,
                 int     dimI,
@@ -351,12 +357,15 @@ class ConvLayer : public Layer {
                     MyReal* state_bar,
                     int     compute_gradient);
 
-      MyReal apply_conv(MyReal* state,        // state vector to apply convolution to 
+      inline MyReal apply_conv(MyReal* state,        // state vector to apply convolution to 
                       int     output_conv,    // output convolution
                       int     j,              // row index
-                      int     k,              // column index
-                      int     img_size_sqrt,  // sqrt of the image size
-                      bool    transpose);     // apply the tranpose of the kernel
+                      int     k);             // column index
+
+      inline MyReal apply_conv_trans(MyReal* state,        // state vector to apply convolution to 
+                      int     output_conv,    // output convolution
+                      int     j,              // row index
+                      int     k);             // column index
 
       /** 
        * This method is designed to be used only in the applyBWD. It computes the
@@ -375,13 +384,12 @@ class ConvLayer : public Layer {
        *
        * On exit this method modifies weights_bar
        */
-      void updateWeightDerivative(
+      inline MyReal updateWeightDerivative(
                       MyReal* state,          // state vector
                       MyReal * update_bar,    // combines derivative and adjoint info (see comments)
                       int     output_conv,    // output convolution
                       int     j,              // row index
-                      int     k,              // column index
-                      int     img_size_sqrt); // sqrt of the image size
+                      int     k);             // column index
 };
 
 

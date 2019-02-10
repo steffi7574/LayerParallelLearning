@@ -1,4 +1,7 @@
 #include "defs.hpp"
+
+#include <cstdio>
+
 #pragma once
 
 #define CONFIG_ARG_MAX_BYTES 128

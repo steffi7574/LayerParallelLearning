@@ -1,5 +1,9 @@
 #include "config.hpp"
 
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+
 
 
 Config::Config()

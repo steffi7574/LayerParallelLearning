@@ -1,3 +1,7 @@
+#include <vector>
+#include "defs.hpp"
+
+using namespace std;
 
 /*!
  * \class CFreeFormBlending
@@ -28,7 +32,7 @@ public:
    * \param[in] val_i - index of the basis function.
    * \param[in] val_t - Point at which we want to evaluate the i-th basis.
    */
-  virtual su2double GetBasis(short val_i, su2double val_t);
+  virtual MyReal GetBasis(short val_i, MyReal val_t);
 
   /*!
    * \brief A pure virtual member.
@@ -36,7 +40,7 @@ public:
    * \param[in] val_t - Point at which we want to evaluate the derivative of the i-th basis.
    * \param[in] val_order - Order of the derivative.
    */
-  virtual su2double GetDerivative(short val_i, su2double val_t, short val_order);
+  virtual MyReal GetDerivative(short val_i, MyReal val_t, short val_order);
 
   /*!
    * \brief A pure virtual member.
@@ -48,12 +52,12 @@ public:
   /*!
    * \brief Returns the current order of the function.
    */
-  su2double GetOrder();
+  MyReal GetOrder();
 
   /*!
    * \brief Returns the current degree of the function.
    */
-  su2double GetDegree();
+  MyReal GetDegree();
 };
 
 /*!
@@ -64,8 +68,8 @@ public:
 class CBSplineBlending : public CFreeFormBlending{
 
 private:
-  vector<su2double>          U;  /*!< \brief The knot vector for uniform BSplines on the interval [0,1]. */
-  vector<vector<su2double> > N;  /*!< \brief The temporary matrix holding the j+p basis functions up to order p. */
+  vector<MyReal>          U;  /*!< \brief The knot vector for uniform BSplines on the interval [0,1]. */
+  vector<vector<MyReal> > N;  /*!< \brief The temporary matrix holding the j+p basis functions up to order p. */
   unsigned short KnotSize;       /*!< \brief The size of the knot vector. */
 
 public:
@@ -85,7 +89,7 @@ public:
    * \param[in] val_i - index of the basis function.
    * \param[in] val_t - Point at which we want to evaluate the i-th basis.
    */
-  su2double GetBasis(short val_i, su2double val_t);
+  MyReal GetBasis(short val_i, MyReal val_t);
 
   /*!
    * \brief Returns the value of the derivative of the i-th basis function.
@@ -93,7 +97,7 @@ public:
    * \param[in] val_t - Point at which we want to evaluate the derivative of the i-th basis.
    * \param[in] val_order - Order of the derivative.
    */
-  su2double GetDerivative(short val_i, su2double val_t, short val_order_der);
+  MyReal GetDerivative(short val_i, MyReal val_t, short val_order_der);
 
   /*!
    * \brief Set the order and number of control points.
@@ -104,13 +108,13 @@ public:
 
 };
 
-inline su2double CFreeFormBlending::GetBasis(short val_i, su2double val_t){return 0.0;}
+inline MyReal CFreeFormBlending::GetBasis(short val_i, MyReal val_t){return 0.0;}
 
-inline su2double CFreeFormBlending::GetDerivative(short val_i, su2double val_t, short val_order){return 0.0;}
+inline MyReal CFreeFormBlending::GetDerivative(short val_i, MyReal val_t, short val_order){return 0.0;}
 
 inline void CFreeFormBlending::SetOrder(short Order, short n_controlpoints){}
 
-inline su2double CFreeFormBlending::GetOrder(){return Order;}
+inline MyReal CFreeFormBlending::GetOrder(){return Order;}
 
-inline su2double CFreeFormBlending::GetDegree(){return Degree;}
+inline MyReal CFreeFormBlending::GetDegree(){return Degree;}
 

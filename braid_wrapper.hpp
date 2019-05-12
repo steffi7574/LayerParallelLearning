@@ -145,10 +145,13 @@ class myBraidApp : public BraidApp
                                     BraidBufferStatus &bstatus);
 
         /* Set the initial condition */
-        virtual braid_Int SetInitialCondition();
+        // virtual braid_Int SetInitialCondition();
 
-        /* evaluate objective function */
-        virtual braid_Int EvaluateObjective();
+        /* Prepocess the braid driver (sets initial / terminal condition) */
+        virtual braid_Int Preprocess();
+
+        /* Postprocess the driver (evaluate objective function, etc) */
+        virtual braid_Int Postprocess();
 
         /* Run Braid drive, return norm */
         MyReal run();
@@ -202,9 +205,9 @@ class myAdjointBraidApp : public myBraidApp
                             braid_Vector      *u_ptr,
                             BraidBufferStatus &bstatus);
 
-        /* Set the adjoint initial condition (derivative of primal objective function) */
-        braid_Int SetInitialCondition();
+        /* Set the adjoint terminal condition (derivative of primal objective function) */
+        braid_Int Preprocess();
 
-        /* evaluate objective function (being just the derivative of the opening layer) */
-        braid_Int EvaluateObjective();
+        /* Add derivative of the opening layer */
+        braid_Int Postprocess();
 };  

@@ -449,7 +449,7 @@ braid_Int myBraidApp::BufUnpack(void              *buffer,
 }
 
 
-braid_Int myBraidApp::SetInitialCondition()
+braid_Int myBraidApp::Preprocess()
 {
     Layer* openlayer = network->getLayer(-1);
     int    nbatch    = data->getnBatch();
@@ -482,7 +482,7 @@ braid_Int myBraidApp::SetInitialCondition()
 }
 
 
-braid_Int myBraidApp::EvaluateObjective()
+braid_Int myBraidApp::Postprocess()
 {
 
 
@@ -538,9 +538,16 @@ MyReal myBraidApp::run()
     int    nreq = -1;
     MyReal norm;
 
-    SetInitialCondition();
+    /* Set initial conditions etc. */
+    Preprocess();
+
+    /* Run braid */
     core->Drive();
-    EvaluateObjective();
+
+    /* Evaluate output */
+    Postprocess();
+
+    /* Get norms */
     core->GetRNorms(&nreq, &norm);
 
     return norm;
@@ -745,7 +752,7 @@ braid_Int myAdjointBraidApp::BufUnpack(void              *buffer,
     return 0;
 }                                   
 
-braid_Int myAdjointBraidApp::SetInitialCondition()
+braid_Int myAdjointBraidApp::Preprocess()
 {
     braid_BaseVector  ubaseprimal, ubaseadjoint;
     // braid_Vector      uprimal, uadjoint;
@@ -783,7 +790,7 @@ braid_Int myAdjointBraidApp::SetInitialCondition()
 }
 
 
-braid_Int myAdjointBraidApp::EvaluateObjective()
+braid_Int myAdjointBraidApp::Postprocess()
 {
     braid_BaseVector ubase;
     myBraidVector* uadjoint;

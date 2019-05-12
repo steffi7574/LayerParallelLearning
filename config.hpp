@@ -21,6 +21,10 @@ enum hessiantype{BFGS_SERIAL, LBFGS, IDENTITY};
 /* Available stepsize selection methods */
 enum stepsizetype{FIXED, BACKTRACKINGLS, ONEOVERK};
 
+/* Available solver types */
+enum solvertype{XBRAID, MLMC};
+
+
 class Config {
 
    private:
@@ -61,6 +65,9 @@ class Config {
       MyReal weights_open_init;
       MyReal weights_init;
       MyReal weights_class_init;
+
+      /* Solver */
+      int solver_type;
 
       /* XBraid */
       int    braid_cfactor0; 

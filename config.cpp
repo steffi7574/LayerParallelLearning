@@ -36,6 +36,9 @@ Config::Config()
     weights_init       = 0.0;
     weights_class_init = 0.001;
 
+    /* Solver */
+    solver_type        = XBRAID;
+
     /* XBraid */
     braid_cfactor0     = 4;
     braid_cfactor      = 4;
@@ -175,6 +178,22 @@ int Config::readFromFile(char* configfilename)
             else
             {
                 printf("Invalid network type !");
+                return -1;
+            }
+        }
+        else if ( strcmp(co->key, "solver_type") == 0 )
+        {
+            if (strcmp(co->value, "xbraid") == 0 )
+            {
+                solver_type  = XBRAID;
+            }
+            else if (strcmp(co->value, "convolutional") == 0 )
+            {
+                solver_type  = MLMC;
+            }
+            else
+            {
+                printf("Invalid solver type !");
                 return -1;
             }
         }
@@ -429,7 +448,7 @@ Config::config_option* Config::parsefile(char* path) {
 
 int Config::writeToFile(FILE* outfile)
 {
-   char *activname, *networktypename, *hessetypename, *optimtypename, *stepsizetypename;
+   char *activname, *networktypename, *solvertypename, *hessetypename, *optimtypename, *stepsizetypename;
 
    /* Get names of some int options */
    switch (activation)
@@ -456,6 +475,17 @@ int Config::writeToFile(FILE* outfile)
          break;
       default:
          networktypename = "invalid!";
+   }
+   switch (solver_type)
+   {
+      case XBRAID:
+         solvertypename = "xbraid";
+         break;
+      case CONVOLUTIONAL:
+         solvertypename = "mlmc";
+         break;
+      default:
+         solvertypename = "invalid!";
    }
    switch (hessianapprox_type)
    {
@@ -514,6 +544,7 @@ int Config::writeToFile(FILE* outfile)
    fprintf(outfile, "#                network type         %s \n",   networktypename);
    fprintf(outfile, "#                Activation           %s \n",   activname);
    fprintf(outfile, "#                openlayer type       %d \n",   openlayer_type);
+   fprintf(outfile, "# Solver setup:  solver type          %s \n",   solvertypename);
    fprintf(outfile, "# XBraid setup:  max levels           %d \n",   braid_maxlevels);
    fprintf(outfile, "#                min coarse           %d \n",   braid_mincoarse);
    fprintf(outfile, "#                coasening            %d \n",   braid_cfactor);

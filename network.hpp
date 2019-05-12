@@ -62,10 +62,10 @@ class Network
       int getLocalID(int ilayer);
 
       /* Return value of the loss function */
-      MyReal getLoss();
+      void getLoss(MyReal *loss_ptr);
 
       /* Return accuracy value */
-      MyReal getAccuracy();
+      void getAccuracy(MyReal *accur_ptr);
  
       /* Return a pointer to the design vector */
       MyReal* getDesign();

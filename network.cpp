@@ -161,9 +161,9 @@ int Network::getLocalID(int ilayer)
     return idx;
 }
 
-MyReal Network::getLoss() { return loss; }
+void Network::getLoss(MyReal *loss_ptr) { *loss_ptr =  loss; }
 
-MyReal Network::getAccuracy() { return accuracy; }
+void Network::getAccuracy(MyReal *accur_ptr) { *accur_ptr = accuracy; }
 
 int Network::getnDesignLocal() { return ndesign_local; }
 

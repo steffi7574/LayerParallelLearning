@@ -60,10 +60,8 @@ class myBraidVector
 class myBraidApp : public BraidApp
 {
     protected:
-        // BraidApp defines tstart, tstop, ntime and comm_t
         int        myid;       /* Processor rank*/
         Network*   network;    /* Pointer to the DNN Network Block (local layer storage) */
-        DataSet*   data;       /* Pointer to the Data set */
         
         BraidCore* core;       /* Braid core for running PinT simulation */
 
@@ -71,10 +69,10 @@ class myBraidApp : public BraidApp
         MyReal objective;       /* Objective function */
 
     public:
+        DataSet*   data;       /* Pointer to the Data set */
 
         /* Constructor */
-        myBraidApp(DataSet* Data,
-                   Network* Network,
+        myBraidApp(Network* Network,
                    Config*  Config,
                    MPI_Comm Comm);
 
@@ -83,13 +81,13 @@ class myBraidApp : public BraidApp
         ~myBraidApp();
 
         /* Return objective function */
-        MyReal getObjective();
+        void getObjective(MyReal* obj_ptr);
 
         /* Return the core */
         BraidCore* getCore();
 
         /* Get xbraid's grid distribution */
-        void GetGridDistribution(int *ilower_ptr, 
+        void getGridDistribution(int *ilower_ptr, 
                                  int *iupper_ptr);
  
         /* Return the time step index of current time t */
@@ -169,8 +167,7 @@ class myAdjointBraidApp : public myBraidApp
         BraidCore* primalcore; /* pointer to primal core for accessing primal states */
 
     public:
-        myAdjointBraidApp(DataSet*   Data,
-                          Network*   Network,
+        myAdjointBraidApp(Network*   Network,
                           Config*    config,
                           BraidCore* Primalcoreptr,
                           MPI_Comm   comm);

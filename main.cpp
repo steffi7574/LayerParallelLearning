@@ -12,6 +12,8 @@
 #include "config.hpp"
 #include "network.hpp"
 #include "dataset.hpp"
+#include "bsplines.hpp"
+#include "solver.hpp"
 
 #define MASTER_NODE 0
 
@@ -33,11 +35,6 @@ int main (int argc, char *argv[])
     MyReal   lossval_out    = 0.0; 
     MyReal   accurtrain_out = 0.0; 
     MyReal   accurval_out   = 0.0; 
- 
-    /* --- XBraid --- */
-    myBraidApp        *primaltrainapp;   /**< Braid App for training data */
-    myAdjointBraidApp *adjointtrainapp;  /**< Adjoint Braid for training data */
-    myBraidApp        *primalvalapp;     /**< Braid App for validation data */
 
     /* --- Optimization --- */
     int     ndesign_local;       /**< Number of local design variables on this processor */
@@ -106,15 +103,20 @@ int main (int argc, char *argv[])
     validationdata->initialize(config->nvalidation, config->nfeatures, config->nclasses, config->nvalidation, MPI_COMM_WORLD);  // full validation set!
     validationdata->readData(config->datafolder, config->fval_ex, config->fval_labels);
 
-
-    /* Initialize XBraid */
-    primaltrainapp = new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
-    adjointtrainapp = new myAdjointBraidApp(trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
-    primalvalapp = new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
-
+    /* Initialize the solver */
+    Solver* solver=0;
+    switch (config->solver_type)
+    {
+        case XBRAID:
+            solver = new BraidSolver(config, network, MPI_COMM_WORLD);
+            break;
+        case MLMC: 
+            // solver = new MLMCSolver(config, network);
+            break;
+    }
 
     /* Initialize the network  */
-    primaltrainapp->GetGridDistribution(&ilower, &iupper);
+    solver->getGridDistribution(&ilower, &iupper);
     network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
     network->setInitialDesign(config);
     ndesign_local  = network->getnDesignLocal();
@@ -181,23 +183,24 @@ int main (int argc, char *argv[])
         /* Set up the current batch */
         trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
-        /* Solve state and adjoint equation */
-        rnorm       = primaltrainapp->run();
-        rnorm_adj = adjointtrainapp->run();
+        /* Solve state equation */
+        rnorm  = solver->runFWD(trainingdata);
 
-        /* Get output */
-        objective   = primaltrainapp->getObjective();
-        loss_train  = network->getLoss();
-        accur_train = network->getAccuracy();
+        /* Get result */
+        solver->getObjective(&objective);
+        network->getLoss(&loss_train);
+        network->getAccuracy(&accur_train);
 
+        /* Solve adjoint equation to get gradient */
+        rnorm_adj = solver->runBWD(trainingdata);
 
         /* --- Validation data: Get accuracy --- */
 
         if ( config->validationlevel > 0 )
         {
-            primalvalapp->run();
-            loss_val  = network->getLoss();
-            accur_val = network->getAccuracy();
+            solver->runFWD(validationdata);
+            network->getLoss(&loss_val);
+            network->getAccuracy(&accur_val);
         }
 
 
@@ -266,10 +269,10 @@ int main (int argc, char *argv[])
             for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++)
             {
 
-                primaltrainapp->getCore()->SetPrintLevel(0);
-                primaltrainapp->run();
-                ls_objective = primaltrainapp->getObjective();
-                primaltrainapp->getCore()->SetPrintLevel(config->braid_printlevel);
+                // primaltrainapp->getCore()->SetPrintLevel(0);
+                solver->runFWD(trainingdata);
+                solver->getObjective(&ls_objective);
+                // primaltrainapp->getCore()->SetPrintLevel(config->braid_printlevel);
 
                 test_obj = objective - ls_param * ls_stepsize * wolfe;
                 if (myid == MASTER_NODE) printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective, test_obj);
@@ -304,14 +307,15 @@ int main (int argc, char *argv[])
     {
         if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
 
-        primalvalapp->getCore()->SetPrintLevel(0);
-        primalvalapp->run();
-        loss_val  = network->getLoss();
+        // primalvalapp->getCore()->SetPrintLevel(0);
+        solver->runFWD(validationdata);
+        network->getLoss(&loss_val);
 
         printf("Final validation accuracy:  %2.2f%%\n", accur_val);
     }
 
-    // write_vector("design.dat", design, ndesign);
+    write_vector("design.dat", network->getDesign(), network->getnDesignLocal());
+    write_vector("gradient.dat", network->getGradient(), network->getnDesignLocal());
 #endif
 
 
@@ -468,12 +472,9 @@ int main (int argc, char *argv[])
     }
 
 
-    /* Clean up XBraid */
+    /* Clean up */
     delete network;
-
-    delete primaltrainapp;
-    delete adjointtrainapp;
-    delete primalvalapp;
+    delete solver;
 
     /* Delete optimization vars */
     delete hessian;

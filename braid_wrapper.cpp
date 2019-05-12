@@ -54,14 +54,13 @@ void   myBraidVector::setSendflag(MyReal value) { sendflag = value; }
 /* ========================================================= */
 /* ========================================================= */
 /* ========================================================= */
-myBraidApp::myBraidApp(DataSet* Data,
-                       Network* Network,
+myBraidApp::myBraidApp(Network* Network,
                        Config*  config,
                        MPI_Comm comm) : BraidApp(comm, 0.0, config->T, config->nlayers-2)
 {
     MPI_Comm_rank(comm, &myid);
     network          = Network;
-    data             = Data;
+    data             = NULL;
     objective        = 0.0;
 
     /* Initialize XBraid core */
@@ -91,11 +90,11 @@ myBraidApp::~myBraidApp()
     if ( core->GetWarmRestart() ) delete core;
 }
 
-MyReal myBraidApp::getObjective() { return objective; }
+void myBraidApp::getObjective(MyReal* obj_ptr) { *obj_ptr = objective; }
 
 BraidCore* myBraidApp::getCore()  { return core; }
 
-void myBraidApp::GetGridDistribution(int *ilower_ptr, 
+void myBraidApp::getGridDistribution(int *ilower_ptr, 
                                      int *iupper_ptr)
 {
     core->GetDistribution(ilower_ptr, iupper_ptr);
@@ -524,7 +523,8 @@ braid_Int myBraidApp::EvaluateObjective()
 
 
     /* Collect objective function from all processors */
-    myobjective = network->getLoss() + regul;
+    network->getLoss(&myobjective);
+    myobjective += regul;
     objective   = 0.0;
     MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
@@ -552,11 +552,10 @@ MyReal myBraidApp::run()
 /* ========================================================= */
 /* ========================================================= */
 /* ========================================================= */
-myAdjointBraidApp::myAdjointBraidApp(DataSet*   Data,
-                                     Network*   Network,
+myAdjointBraidApp::myAdjointBraidApp(Network*   Network,
                                      Config*    config,
                                      BraidCore* Primalcoreptr,
-                                     MPI_Comm   comm) : myBraidApp(Data, Network, config, comm)
+                                     MPI_Comm   comm) : myBraidApp(Network, config, comm)
 {
     primalcore = Primalcoreptr;
 

@@ -9,13 +9,12 @@
 class Solver
 {
    protected:
-      Config* config;
       MyReal objective;  /* Objective function value */
 
    public:
 
       /* Constructor */
-      Solver(Config*  config);
+      Solver();
 
       /* Destructor */
       ~Solver();
@@ -27,8 +26,9 @@ class Solver
       virtual MyReal runBWD(DataSet* data) = 0;
 
       /* Return network distribution to local processors */
-      virtual void getGridDistribution(int* ilower_ptr, 
-                                       int* iupper_ptr);
+      virtual void getGridDistribution(Config* config, 
+                                       int* ilower_ptr, 
+                                       int* iupper_ptr)=0;
 
       /* Return objective function value */
       void getObjective(MyReal* obj_ptr);
@@ -61,20 +61,35 @@ class BraidSolver : public Solver
       MyReal runBWD(DataSet* data);
 
       /* Get local grid distribution */
-      void getGridDistribution(int* ilower_ptr, 
+      void getGridDistribution(Config* config,
+                               int* ilower_ptr, 
                                int* iupper_ptr);
 };
 
-// /**
-//  * MLMC Solver
-//  */
-// class MLMCSolver : public Solver
-// {
-//       /* Constructor */
-//       MLMCSolver();
-//       /* Destructor */
-//       ~MLMCSolver();
+/**
+ * MLMC Solver
+ */
+class MLMCSolver : public Solver
+{
+   protected: 
+      Network* network;
+      Config*  config;
 
-//       /* Run MLMC */
-//       int run();
-// };
+   public:
+      /* Constructor */
+      MLMCSolver(Config* config,
+                 Network* network);
+
+      /* Destructor */
+      ~MLMCSolver();
+
+      /* Run primal XBraid iterations */
+      MyReal runFWD(DataSet* data);
+
+      /* Run adjoint XBraid iterations */
+      MyReal runBWD(DataSet* data);
+
+      void getGridDistribution(Config* config,
+                               int* ilower_ptr, 
+                               int* iupper_ptr);
+};

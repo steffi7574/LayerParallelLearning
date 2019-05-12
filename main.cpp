@@ -116,7 +116,7 @@ int main (int argc, char *argv[])
     }
 
     /* Initialize the network  */
-    solver->getGridDistribution(&ilower, &iupper);
+    solver->getGridDistribution(config, &ilower, &iupper);
     network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
     network->setInitialDesign(config);
     ndesign_local  = network->getnDesignLocal();

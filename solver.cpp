@@ -54,18 +54,74 @@ void BraidSolver::getGridDistribution(Config* config,
    primalapp->getGridDistribution(ilower_ptr, iupper_ptr);
 }
 
-MLMCSolver::MLMCSolver(Config*  conf,
+MLMCSolver::MLMCSolver(Config*  config,
                        Network* net)
 {
-   network = net;
-   config  = conf; 
+   network   = net;
+   nchannels = network->getnChannels();
+
+   /* Allocate the state */
+   state = new MyReal[nchannels];
 }
 
-MLMCSolver::~MLMCSolver(){}
+MLMCSolver::~MLMCSolver()
+{
+   delete [] state;
+}
 
 MyReal MLMCSolver::runFWD(DataSet* data)
 {
    printf("\n Hi! I'm MLMCSolver. I'll runFWD() now!\n");
+   Layer* layer;
+   int class_id;
+   double success_local;
+   double loss     = 0.0;
+   double success  = 0.0;
+   double accuracy = 0.0;
+
+   int startlayerID = network->getStartLayerID();
+   int endlayerID   = network->getEndLayerID();
+   if (startlayerID == 0) startlayerID -= 1; // this includes opening layer (id = -1) 
+
+
+   /* Iterate over all examples */
+   for (int iex = 0; iex < data->getnBatch(); iex++)
+   {
+      /* Iterate over all layers */
+      for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++)
+      {
+         /* Get the layer */
+         layer = network->getLayer(ilayer);
+
+         /* Set example data at first layer */
+         if (ilayer == -1) 
+         {
+            layer->setExample(data->getExample(iex));
+         }
+
+         /* Set label at last layer */
+         if (ilayer == network->getnLayersGlobal()-2) 
+         {
+            layer->setLabel(data->getLabel(iex));
+         }
+
+         /* Apply the layer */
+         layer->applyFWD(state);
+
+         /* Evaluate Loss */
+         if (ilayer == network->getnLayersGlobal()-2)
+         {
+            loss          += layer->crossEntropy(state);
+            success_local  = layer->prediction(state, &class_id);
+            success       += success_local;
+         }
+      }
+
+      loss     = 1. / data->getnBatch() * loss;
+      accuracy = 100.0 * ( (MyReal) success ) / data->getnBatch();
+   }
+     
+
    return -1.0;
 }
 

@@ -73,7 +73,9 @@ class MLMCSolver : public Solver
 {
    protected: 
       Network* network;
-      Config*  config;
+      int nchannels;
+
+      MyReal *state; /* state at one layer for one example, dimension nchannels */
 
    public:
       /* Constructor */

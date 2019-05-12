@@ -177,6 +177,13 @@ class Layer
                             MyReal* state_bar,
                             int     compute_gradient) = 0;
 
+
+
+      virtual MyReal crossEntropy(MyReal *finalstate);
+
+      virtual int prediction(MyReal* data_out, 
+                             int*    class_id_ptr);
+
       /* ReLu Activation and derivative */
       MyReal ReLu_act(MyReal x);
       MyReal dReLu_act(MyReal x);

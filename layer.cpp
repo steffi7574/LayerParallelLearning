@@ -350,6 +350,14 @@ void Layer::setExample(MyReal* example_ptr) {}
 
 void Layer::setLabel(MyReal* example_ptr) {}
 
+MyReal Layer::crossEntropy(MyReal *finalstate){ return 0.0;}
+
+int Layer::prediction(MyReal* data_out, 
+                       int*    class_id_ptr) 
+{ 
+    *class_id_ptr = -1;
+    return 0;
+}
 
 DenseLayer::DenseLayer(int     idx,
                        int     dimI,

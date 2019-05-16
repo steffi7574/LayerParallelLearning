@@ -22,7 +22,7 @@ enum hessiantype{BFGS_SERIAL, LBFGS, IDENTITY};
 enum stepsizetype{FIXED, BACKTRACKINGLS, ONEOVERK};
 
 /* Available solver types */
-enum solvertype{XBRAID, MLMC};
+enum solvertype{XBRAID, TIMESTEPPING};
 
 
 class Config {

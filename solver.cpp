@@ -54,8 +54,8 @@ void BraidSolver::getGridDistribution(Config* config,
    primalapp->getGridDistribution(ilower_ptr, iupper_ptr);
 }
 
-MLMCSolver::MLMCSolver(Config*  config,
-                       Network* net)
+TimesteppingSolver::TimesteppingSolver(Config*  config,
+                                       Network* net)
 {
    network   = net;
    nchannels = network->getnChannels();
@@ -64,14 +64,17 @@ MLMCSolver::MLMCSolver(Config*  config,
    state = new MyReal[nchannels];
 }
 
-MLMCSolver::~MLMCSolver()
+TimesteppingSolver::~TimesteppingSolver()
 {
    delete [] state;
 }
 
-MyReal MLMCSolver::runFWD(DataSet* data)
+MyReal TimesteppingSolver::runFWD(DataSet* data)
 {
-   printf("\n Hi! I'm MLMCSolver. I'll runFWD() now!\n");
+   printf("\n Hi! I'm TimesteppingSolver. I'll runFWD() now!\n");
+   
+   /* MOVE ALL THIS INTO Network Class!! */
+
    Layer* layer;
    int class_id;
    double success_local;
@@ -125,15 +128,15 @@ MyReal MLMCSolver::runFWD(DataSet* data)
    return -1.0;
 }
 
-MyReal MLMCSolver::runBWD(DataSet* data)
+MyReal TimesteppingSolver::runBWD(DataSet* data)
 {
-   printf("\n Hi! I'm MLMCSolver. I'll runBWD() now!\n");
+   printf("\n Hi! I'm TimesteppingSolver. I'll runBWD() now!\n");
    return -1.0;
 }
 
-void MLMCSolver::getGridDistribution(Config* config,
-                                     int* ilower_ptr, 
-                                     int* iupper_ptr)
+void TimesteppingSolver::getGridDistribution(Config* config,
+                                             int* ilower_ptr, 
+                                             int* iupper_ptr)
 {
    *ilower_ptr = 0;
    *iupper_ptr = config->nlayers - 2; 

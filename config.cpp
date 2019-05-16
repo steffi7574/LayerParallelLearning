@@ -187,9 +187,9 @@ int Config::readFromFile(char* configfilename)
             {
                 solver_type  = XBRAID;
             }
-            else if (strcmp(co->value, "convolutional") == 0 )
+            else if (strcmp(co->value, "timestepping") == 0 )
             {
-                solver_type  = MLMC;
+                solver_type  = TIMESTEPPING;
             }
             else
             {
@@ -481,8 +481,8 @@ int Config::writeToFile(FILE* outfile)
       case XBRAID:
          solvertypename = "xbraid";
          break;
-      case CONVOLUTIONAL:
-         solvertypename = "mlmc";
+      case TIMESTEPPING:
+         solvertypename = "timestepping";
          break;
       default:
          solvertypename = "invalid!";

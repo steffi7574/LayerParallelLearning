@@ -110,8 +110,8 @@ int main (int argc, char *argv[])
         case XBRAID:
             solver = new BraidSolver(config, network, MPI_COMM_WORLD);
             break;
-        case MLMC: 
-            // solver = new MLMCSolver(config, network);
+        case TIMESTEPPING: 
+            // solver = new TimesteppingSolver(config, network);
             break;
     }
 

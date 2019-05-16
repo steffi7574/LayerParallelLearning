@@ -67,9 +67,9 @@ class BraidSolver : public Solver
 };
 
 /**
- * MLMC Solver
+ * Timestepping Solver
  */
-class MLMCSolver : public Solver
+class TimesteppingSolver : public Solver
 {
    protected: 
       Network* network;
@@ -79,11 +79,11 @@ class MLMCSolver : public Solver
 
    public:
       /* Constructor */
-      MLMCSolver(Config* config,
-                 Network* network);
+      TimesteppingSolver(Config* config,
+                         Network* network);
 
       /* Destructor */
-      ~MLMCSolver();
+      ~TimesteppingSolver();
 
       /* Run primal XBraid iterations */
       MyReal runFWD(DataSet* data);

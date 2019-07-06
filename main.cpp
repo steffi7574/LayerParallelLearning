@@ -157,7 +157,7 @@ int main (int argc, char *argv[])
     /* Open and prepare optimization output file*/
     if (myid == MASTER_NODE)
     {
-        sprintf(optimfilename, "%s.dat", "optim");
+        sprintf(optimfilename, "%s/%s.dat", config->datafolder, "optim");
         optimfile = fopen(optimfilename, "w");
         config->writeToFile(optimfile);
 

@@ -9,7 +9,7 @@ Use `git clone --recurse-submodules` to clone the repository including the XBrai
 
 ## Run
 
-Test cases are located in the 'examples/' subfolder. Each example contains a `\*.cfg` that holds configuration options for the current example dataset, the layer-parallelization with XBraid, and the optimization method and parameters. 
+Test cases are located in the 'examples/' subfolder. Each example contains a `*.cfg` that holds configuration options for the current example dataset, the layer-parallelization with XBraid, and the optimization method and parameters. 
 
 Run the test cases by callying './main' with the corresponding configuration file, e.g. `./main examples/peaks/peaks.cfg`
 

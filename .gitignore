@@ -1,13 +1,6 @@
-.vscode/*
-*.code-workspace
-DNNPINT*
-Dropbox*
-*STEP3*
-*STEP2*
 *out*
 *.o
 *.pyc
 *run_*
+*optim.dat
 main
-main-awesome
-main-serial

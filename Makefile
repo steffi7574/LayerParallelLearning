@@ -1,29 +1,54 @@
-CC     = mpicc
-CXX    = mpicxx
+SRC_DIR   = src
+INC_DIR   = include
+BUILD_DIR = build
 
-INC = -I. -I$(BRAID_INC_DIR)
+#list all source files in SRC_DIR
+SRC_FILES  = $(wildcard $(SRC_DIR)/*.cpp)
+SRC_FILES += $(wildcard $(SRC_DIR)/*/*.cpp)
+OBJ_FILES  = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SRC_FILES))
+
+# XBraid location
 BRAID_INC_DIR = xbraid/braid
 BRAID_LIB_FILE = xbraid/braid/libbraid.a
 
+# set inc dir
+INC = -I$(INC_DIR) -I$(BRAID_INC_DIR)
+
 # set compiler flags
-CPPFLAGS = -g -Wall -pedantic -lm -Wno-write-strings -Wno-delete-non-virtual-dtor -std=c++11
+CXX_FLAGS = -g -Wall -pedantic -lm -Wno-write-strings -Wno-delete-non-virtual-dtor -std=c++11
 
-DEPS = braid_wrapper.hpp hessianApprox.hpp layer.hpp linalg.hpp network.hpp util.hpp config.hpp dataset.hpp
-OBJ= main.o util.o hessianApprox.o layer.o linalg.o network.o braid_wrapper.o config.o dataset.o 
+# set compiler 
+CC     = mpicc
+CXX    = mpicxx
 
-.PHONY: all $(BRAID_LIB_FILE) clean
+# Default: Build all (main and xbraid)
+all: $(BRAID_LIB_FILE) main 
 
-all: main $(BRAID_LIB_FILE)
+# link main
+main: $(OBJ_FILES) 
+	$(CXX) $(CXX_FLAGS) -o $@ $(OBJ_FILES) $(BRAID_LIB_FILE)
 
-%.o: %.cpp $(DEPS)
-	$(CXX) $(CPPFLAGS) -c $< -o $@  $(INC)
+# build src files
+$(BUILD_DIR)/%.o : $(SRC_DIR)/%.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXX_FLAGS) -c $< -o $@ $(INC)
+	@$(CXX) $(CXX_FLAGS) -MM $< -MP -MT $@ -MF $(@:.o=.d) $(INC)
 
+# Build xbraid
 $(BRAID_LIB_FILE):
 	cd xbraid; make braid
 
-main: $(BRAID_LIB_FILE) $(OBJ) 
-	$(CXX) $(CPPFLAGS) -o $@ $^ $(BRAID_LIB_FILE)
+
+.PHONY: all $(BRAID_LIB_FILE) clean cleanall
 
 clean: 
-	rm -f *.o
+	rm -fr $(BUILD_DIR)
 	rm -f main
+
+cleanall: 
+	make clean
+	rm -f $(BRAID_LIB_FILE)
+
+
+# include the dependency files
+-include $(OBJ_FILES:.o=.d)

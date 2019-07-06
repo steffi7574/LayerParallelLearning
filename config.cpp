@@ -429,7 +429,7 @@ Config::config_option* Config::parsefile(char* path) {
 
 int Config::writeToFile(FILE* outfile)
 {
-   char *activname, *networktypename, *hessetypename, *optimtypename, *stepsizetypename;
+   const char *activname, *networktypename, *hessetypename, *optimtypename, *stepsizetypename;
 
    /* Get names of some int options */
    switch (activation)

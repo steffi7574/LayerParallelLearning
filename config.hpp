@@ -38,13 +38,13 @@ class Config {
 
    public:                             /* List all configuration options here */
       /* Data set */
-      char* datafolder;        
-      char* ftrain_ex;
-      char* ftrain_labels;
-      char* fval_ex;
-      char* fval_labels;
-      char* weightsopenfile;
-      char* weightsclassificationfile;
+      const char* datafolder;        
+      const char* ftrain_ex;
+      const char* ftrain_labels;
+      const char* fval_ex;
+      const char* fval_labels;
+      const char* weightsopenfile;
+      const char* weightsclassificationfile;
 
       int ntraining;
       int nvalidation;

@@ -119,9 +119,9 @@ MyReal* DataSet::getLabel(int id)
    return labels[batchIDs[id]]; 
 }
 
-void DataSet::readData(char* datafolder,
-                       char* examplefile, 
-                       char* labelfile)
+void DataSet::readData(const char* datafolder,
+                       const char* examplefile, 
+                       const char* labelfile)
 {
    char examplefilename[255], labelfilename[255];
 

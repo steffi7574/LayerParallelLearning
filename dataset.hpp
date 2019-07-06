@@ -51,9 +51,9 @@ class DataSet {
       MyReal* getLabel(int id);
 
       /* Read data from file */
-      void readData(char* datafolder,
-                    char* examplefile,
-                    char* labelfile);
+      void readData(const char* datafolder,
+                    const char* examplefile,
+                    const char* labelfile);
 
       /* Select the current batch from all available IDs, either deterministic or stochastic */
       void selectBatch(int      batch_type,

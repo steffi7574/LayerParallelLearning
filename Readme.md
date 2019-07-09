@@ -31,8 +31,13 @@ An optimization history file 'optim.dat' will be flushed to the examples subfold
 
 ## 2Dos 😊
 
-* [ ] Clean up syntax (google std)
+* [X] Clean up syntax (google std)
 * [ ] Refactoring (data(ste)) = Make code more readable by applying [SOLID](https://en.wikipedia.org/wiki/SOLID) principles
+  - [ ] Single Responsibility
+  - [ ] Open-Closed
+  - [ ] Liskov Substitution
+  - [ ] Interface segregation
+  - [ ] Dependency inversion
 * [ ] Extract methods and clean up objects
 * [ ] Comment everything
 

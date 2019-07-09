@@ -17,3 +17,24 @@ Run the test cases by callying './main' with the corresponding configuration fil
 ## Output
 An optimization history file 'optim.dat' will be flushed to the examples subfolder. 
 
+## Roland / Stef combo - LEARNING/TODO:
+
+### Overview:
+
+* Xbraid => 3 braid apps know one net
+* One NN
+* Braid has to be initialized first -> Decides about layers per core
+* Tangling with NN is given due to reason above
+    - create nn
+    - give nn to braid
+    - init nn
+
+## 2Dos 😊
+
+* Clean up syntax (google std)
+* Refactoring (data(ste)) = Make code more readable by applying [SOLID](https://en.wikipedia.org/wiki/SOLID) principles
+* Extract methods and clean up objects
+* Comment everything
+
+
+

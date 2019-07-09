@@ -1,8 +1,9 @@
 #include <mpi.h>
 #pragma once
 
-/* 
- * Switch between single (float) and double precision by un-/commenting the corresponding lines. 
+/*
+ * Switch between single (float) and double precision by un-/commenting the
+ * corresponding lines.
  */
 
 // typedef float MyReal;

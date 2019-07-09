@@ -1,3 +1,4 @@
+# cpp
 build/
 *out*
 *.o
@@ -5,3 +6,7 @@ build/
 *run_*
 *optim.dat
 main
+
+# unix and dev environment
+.vscode
+tags

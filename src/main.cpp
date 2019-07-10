@@ -15,8 +15,12 @@
 
 #define MASTER_NODE 0
 
-int main(int argc, char *argv[])
-{
+// TODO: Can these truly run separate?
+#define ADJOINT_DOT_TEST_ENABLED 0
+#define OPTIMIZATION_ENABLED 1
+#define FULL_FINITE_DIFFERENCES_ENABLED 0
+
+int main(int argc, char *argv[]) {
   /* --- Data --- */
   Config *config;          /**< Storing configurations */
   DataSet *trainingdata;   /**< Training dataset */
@@ -175,8 +179,8 @@ int main(int argc, char *argv[])
   }
 
   // TODO: WTF? This is "enabled"? Looks like testing code to me...
-#if 1
-  /* --- OPTIMIZATION --- */
+#if OPTIMIZATION_ENABLED
+
   StartTime = MPI_Wtime();
   StopTime = 0.0;
   UsedTime = 0.0;
@@ -326,7 +330,7 @@ int main(int argc, char *argv[])
   }
 
   // write_vector("design.dat", design, ndesign);
-#endif
+#endif // OPTIMIZATION_ENABLED
 
   /**
  * ==================================================================================
@@ -335,8 +339,8 @@ int main(int argc, char *argv[])
  *       ydot = (dfdx)  xdot
  * choosing xdot to be a vector of all ones, ybar = 1.0;
  * ==================================================================================*/
-  // TODO: Why is this disabled?
-#if 0
+ // TODO: Why is this disabled?
+#if ADJOINT_DOT_TEST_ENABLED
  
     if (size == 1)
     {
@@ -390,75 +394,79 @@ int main(int argc, char *argv[])
 
     }
 
-#endif
+#endif // ADJOINT_DOT_TEST_ENABLED
 
+// TODO: Can we get rid of this or shall we pack it into a parameter?
   /** =======================================
    * Full finite differences
    * ======================================= */
 
-  // MyReal* findiff = new MyReal[ndesign];
-  // MyReal* relerr = new MyReal[ndesign];
-  // MyReal errnorm = 0.0;
-  // MyReal obj0, obj1, design_store;
-  // MyReal EPS;
+#if FULL_FINITE_DIFFERENCES_ENABLED
+  MyReal* findiff = new MyReal[ndesign];
+  MyReal* relerr = new MyReal[ndesign];
+  MyReal errnorm = 0.0;
+  MyReal obj0, obj1, design_store;
+  MyReal EPS;
 
-  // printf("\n--------------------------------\n");
-  // printf(" FINITE DIFFERENCE TESTING\n\n");
+  printf("\n--------------------------------\n");
+  printf(" FINITE DIFFERENCE TESTING\n\n");
 
-  // /* Compute baseline objective */
-  // // read_vector("design.dat", design, ndesign);
-  // braid_SetObjectiveOnly(core_train, 0);
-  // braid_Drive(core_train);
-  // braid_GetObjective(core_train, &objective);
-  // obj0 = objective;
+  /* Compute baseline objective */
+  // read_vector("design.dat", design, ndesign);
+  braid_SetObjectiveOnly(core_train, 0);
+  braid_Drive(core_train);
+  braid_GetObjective(core_train, &objective);
+  obj0 = objective;
 
-  // EPS = 1e-4;
-  // for (int i = 0; i < ndesign; i++)
-  // // for (int i = 0; i < 22; i++)
-  // // int i=21;
-  // {
-  //     /* Restore design */
-  //     // read_vector("design.dat", design, ndesign);
+  EPS = 1e-4;
+  for (int i = 0; i < ndesign; i++)
+  // for (int i = 0; i < 22; i++)
+  // int i=21;
+  {
+      /* Restore design */
+      // read_vector("design.dat", design, ndesign);
 
-  //     /*  Perturb design */
-  //     design_store = design[i];
-  //     design[i] += EPS;
+      /*  Perturb design */
+      design_store = design[i];
+      design[i] += EPS;
 
-  //     /* Recompute objective */
-  //     _braid_CoreElt(core_train, warm_restart) = 0;
-  //     braid_SetObjectiveOnly(core_train, 1);
-  //     braid_SetPrintLevel(core_train, 0);
-  //     braid_Drive(core_train);
-  //     braid_GetObjective(core_train, &objective);
-  //     obj1 = objective;
+      /* Recompute objective */
+      _braid_CoreElt(core_train, warm_restart) = 0;
+      braid_SetObjectiveOnly(core_train, 1);
+      braid_SetPrintLevel(core_train, 0);
+      braid_Drive(core_train);
+      braid_GetObjective(core_train, &objective);
+      obj1 = objective;
 
-  //     /* Findiff */
-  //     findiff[i] = (obj1 - obj0) / EPS;
-  //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
-  //     errnorm += pow(relerr[i],2);
+      /* Findiff */
+      findiff[i] = (obj1 - obj0) / EPS;
+      relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
+      errnorm += pow(relerr[i],2);
 
-  //     printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f",i, findiff[i],
-  //     gradient[i], relerr[i] * 100.0);
+      printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f",i, findiff[i],
+      gradient[i], relerr[i] * 100.0);
 
-  //     /* Restore design */
-  //     design[i] = design_store;
-  // }
-  // errnorm = sqrt(errnorm);
-  // printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
+      /* Restore design */
+      design[i] = design_store;
+  }
+  errnorm = sqrt(errnorm);
+  printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
 
-  // write_vector("findiff.dat", findiff, ndesign);
-  // write_vector("relerr.dat", relerr, ndesign);
+  write_vector("findiff.dat", findiff, ndesign);
+  write_vector("relerr.dat", relerr, ndesign);
 
-  /* =======================================
-   * check network implementation
-   * ======================================= */
-  // network->applyFWD(config->ntraining, train_examples, train_labels);
-  // MyReal accur = network->getAccuracy();
-  // MyReal regul = network->evalRegularization();
-  // objective = network->getLoss() + regul;
-  // printf("\n --- \n");
-  // printf(" Network: obj %1.14e \n", objective);
-  // printf(" ---\n");
+  =======================================
+  check network implementation
+  ======================================= */
+  network->applyFWD(config->ntraining, train_examples, train_labels);
+  MyReal accur = network->getAccuracy();
+  MyReal regul = network->evalRegularization();
+  objective = network->getLoss() + regul;
+  printf("\n --- \n");
+  printf(" Network: obj %1.14e \n", objective);
+  printf(" ---\n");
+
+#endif // FULL_FINITE_DIFFERENCES_ENABLED
 
   /* Print some statistics */
   StopTime = MPI_Wtime();

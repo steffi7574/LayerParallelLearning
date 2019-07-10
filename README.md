@@ -27,6 +27,7 @@ An optimization history file 'optim.dat' will be flushed to the examples subfold
 
 ## 2Dos 😊
 * [X] Clean up syntax (google std)
+* [ ] Associate code with paper
 * [ ] Refactoring (data(ste)) = Make code more readable by applying [SOLID](https://en.wikipedia.org/wiki/SOLID) principles
   - [ ] Single Responsibility
   - [ ] Open-Closed

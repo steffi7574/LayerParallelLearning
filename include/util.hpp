@@ -1,7 +1,7 @@
-#include "defs.hpp"
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "defs.hpp"
 #pragma once
 
 /**

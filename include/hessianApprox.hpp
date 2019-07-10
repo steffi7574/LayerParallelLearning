@@ -1,16 +1,15 @@
+#include <stdio.h>
 #include "defs.hpp"
 #include "linalg.hpp"
-#include <stdio.h>
 
 #pragma once
 
 class HessianApprox {
-
-protected:
+ protected:
   int dimN;         /* Dimension of the gradient vector */
   MPI_Comm MPIcomm; /* MPI communicator for parallel L-BFGS updates */
 
-public:
+ public:
   HessianApprox(MPI_Comm comm);
   virtual ~HessianApprox();
 
@@ -26,8 +25,7 @@ public:
 };
 
 class L_BFGS : public HessianApprox {
-
-protected:
+ protected:
   int M; /* Length of the l-bfgs memory (stages) */
 
   /* L-BFGS memory */
@@ -38,7 +36,7 @@ protected:
   MyReal *design_old;   /* Design at previous iteration */
   MyReal *gradient_old; /* Gradient at previous iteration */
 
-public:
+ public:
   L_BFGS(MPI_Comm comm, int dimN, /* Local design dimension */
          int stage);
   ~L_BFGS();
@@ -49,13 +47,12 @@ public:
 };
 
 class BFGS : public HessianApprox {
-
-private:
+ private:
   MyReal *A;
   MyReal *B;
   MyReal *Hy;
 
-protected:
+ protected:
   MyReal *s;
   MyReal *y;
   MyReal
@@ -63,7 +60,7 @@ protected:
   MyReal *design_old;   /* Design at previous iteration */
   MyReal *gradient_old; /* Gradient at previous iteration */
 
-public:
+ public:
   BFGS(MPI_Comm comm, int N);
   ~BFGS();
 
@@ -78,8 +75,7 @@ public:
  * No second order: Use Identity for Hessian Approximation
  */
 class Identity : public HessianApprox {
-
-public:
+ public:
   Identity(MPI_Comm comm, int N);
   ~Identity();
 

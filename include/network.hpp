@@ -1,16 +1,16 @@
-#include "config.hpp"
-#include "dataset.hpp"
-#include "layer.hpp"
-#include "util.hpp"
-#include <algorithm>
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
+#include "config.hpp"
+#include "dataset.hpp"
+#include "layer.hpp"
+#include "util.hpp"
 #pragma once
 
 class Network {
-protected:
+ protected:
   int nlayers_global; /* Total number of Layers of the network */
   int nlayers_local;  /* Number of Layers in this network block */
 
@@ -39,7 +39,7 @@ protected:
 
   MPI_Comm comm; /* MPI communicator */
 
-public:
+ public:
   Network();
 
   ~Network();

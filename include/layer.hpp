@@ -1,10 +1,10 @@
-#include "config.hpp"
-#include "defs.hpp"
-#include "linalg.hpp"
-#include <algorithm>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <algorithm>
+#include "config.hpp"
+#include "defs.hpp"
+#include "linalg.hpp"
 
 #pragma once
 
@@ -15,7 +15,7 @@
  *    - applyBWD: Backward propagation of data
  */
 class Layer {
-protected:
+ protected:
   int dim_In;   /* Dimension of incoming data */
   int dim_Out;  /* Dimension of outgoing data */
   int dim_Bias; /* Dimension of the bias vector */
@@ -40,7 +40,7 @@ protected:
   MyReal *update;     /* Auxilliary for computing fwd update */
   MyReal *update_bar; /* Auxilliary for computing bwd update */
 
-public:
+ public:
   /* Available layer types */
   enum layertype {
     OPENZERO = 0,
@@ -54,7 +54,7 @@ public:
 
   Layer();
   Layer(int idx, int Type, int dimI, int dimO, int dimB,
-        int dimW, // number of weights
+        int dimW,  // number of weights
         MyReal deltaT, int Activ, MyReal gammatik, MyReal gammaddt);
 
   virtual ~Layer();
@@ -186,8 +186,7 @@ public:
  * if not openlayer: requires dimI = dimO !
  */
 class DenseLayer : public Layer {
-
-public:
+ public:
   DenseLayer(int idx, int dimI, int dimO, MyReal deltaT, int activation,
              MyReal gammatik, MyReal gammaddt);
   ~DenseLayer();
@@ -202,11 +201,10 @@ public:
  * Layer transformation: y = sigma(W*y_ex + b)  for examples y_ex \in \R^dimI
  */
 class OpenDenseLayer : public DenseLayer {
-
-protected:
+ protected:
   MyReal *example; /* Pointer to the current example data */
 
-public:
+ public:
   OpenDenseLayer(int dimI, int dimO, int activation, MyReal gammatik);
   ~OpenDenseLayer();
 
@@ -221,9 +219,9 @@ public:
  * Opening layer that expands the data by zeros
  */
 class OpenExpandZero : public Layer {
-protected:
+ protected:
   MyReal *example; /* Pointer to the current example data */
-public:
+ public:
   OpenExpandZero(int dimI, int dimO);
   ~OpenExpandZero();
 
@@ -238,12 +236,12 @@ public:
  * Classification layer
  */
 class ClassificationLayer : public Layer {
-protected:
+ protected:
   MyReal *label; /* Pointer to the current label vector */
 
   MyReal *probability; /* vector of pedicted class probabilities */
 
-public:
+ public:
   ClassificationLayer(int idx, int dimI, int dimO, MyReal gammatik);
   ~ClassificationLayer();
 
@@ -290,14 +288,13 @@ public:
  * if not openlayer: requires dimI = dimO !
  */
 class ConvLayer : public Layer {
-
   int csize2;
   int fcsize;
 
   int img_size;
   int img_size_sqrt;
 
-public:
+ public:
   ConvLayer(int idx, int dimI, int dimO, int csize_in, int nconv_in,
             MyReal deltaT, int Activ, MyReal Gammatik, MyReal Gammaddt);
   ~ConvLayer();
@@ -306,17 +303,17 @@ public:
 
   void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
 
-  inline MyReal
-  apply_conv(MyReal *state,   // state vector to apply convolution to
-             int output_conv, // output convolution
-             int j,           // row index
-             int k);          // column index
+  inline MyReal apply_conv(
+      MyReal *state,    // state vector to apply convolution to
+      int output_conv,  // output convolution
+      int j,            // row index
+      int k);           // column index
 
-  inline MyReal
-  apply_conv_trans(MyReal *state,   // state vector to apply convolution to
-                   int output_conv, // output convolution
-                   int j,           // row index
-                   int k);          // column index
+  inline MyReal apply_conv_trans(
+      MyReal *state,    // state vector to apply convolution to
+      int output_conv,  // output convolution
+      int j,            // row index
+      int k);           // column index
 
   /**
    * This method is designed to be used only in the applyBWD. It computes the
@@ -337,11 +334,12 @@ public:
    * On exit this method modifies weights_bar
    */
   inline MyReal updateWeightDerivative(
-      MyReal *state,      // state vector
-      MyReal *update_bar, // combines derivative and adjoint info (see comments)
-      int output_conv,    // output convolution
-      int j,              // row index
-      int k);             // column index
+      MyReal *state,  // state vector
+      MyReal
+          *update_bar,  // combines derivative and adjoint info (see comments)
+      int output_conv,  // output convolution
+      int j,            // row index
+      int k);           // column index
 };
 
 /**
@@ -349,11 +347,10 @@ public:
  * Layer transformation: y = ([I; I; ... I] y_ex)
  */
 class OpenConvLayer : public Layer {
-
-protected:
+ protected:
   MyReal *example; /* Pointer to the current example data */
 
-public:
+ public:
   OpenConvLayer(int dimI, int dimO);
   ~OpenConvLayer();
 
@@ -374,8 +371,7 @@ public:
  */
 
 class OpenConvLayerMNIST : public OpenConvLayer {
-
-public:
+ public:
   OpenConvLayerMNIST(int dimI, int dimO);
   ~OpenConvLayerMNIST();
 

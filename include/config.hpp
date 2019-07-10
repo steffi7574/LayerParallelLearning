@@ -22,8 +22,7 @@ enum hessiantype { BFGS_SERIAL, LBFGS, IDENTITY };
 enum stepsizetype { FIXED, BACKTRACKINGLS, ONEOVERK };
 
 class Config {
-
-private:
+ private:
   /* Linked list for reading config options */
   struct config_option {
     struct config_option *prev;
@@ -35,7 +34,7 @@ private:
   /* Helper function: Parse the config file */
   config_option *parsefile(char *path);
 
-public: /* List all configuration options here */
+ public: /* List all configuration options here */
   /* Data set */
   const char *datafolder;
   const char *ftrain_ex;

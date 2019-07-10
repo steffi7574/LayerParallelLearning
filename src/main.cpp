@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
 
   validationdata->initialize(config->nvalidation, config->nfeatures,
                              config->nclasses, config->nvalidation,
-                             MPI_COMM_WORLD); // full validation set!
+                             MPI_COMM_WORLD);  // full validation set!
   validationdata->readData(config->datafolder, config->fval_ex,
                            config->fval_labels);
 
@@ -121,8 +121,7 @@ int main(int argc, char *argv[]) {
 
   /* Print some network information */
   int startid = ilower;
-  if (ilower == 0)
-    startid = -1;
+  if (ilower == 0) startid = -1;
   printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper,
          config->nlayers);
   printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
@@ -131,14 +130,14 @@ int main(int argc, char *argv[]) {
   /* Initialize hessian approximation */
   HessianApprox *hessian = 0;
   switch (config->hessianapprox_type) {
-  case BFGS_SERIAL:
-    hessian = new BFGS(MPI_COMM_WORLD, ndesign_local);
-    break;
-  case LBFGS:
-    hessian = new L_BFGS(MPI_COMM_WORLD, ndesign_local, config->lbfgs_stages);
-    break;
-  case IDENTITY:
-    hessian = new Identity(MPI_COMM_WORLD, ndesign_local);
+    case BFGS_SERIAL:
+      hessian = new BFGS(MPI_COMM_WORLD, ndesign_local);
+      break;
+    case LBFGS:
+      hessian = new L_BFGS(MPI_COMM_WORLD, ndesign_local, config->lbfgs_stages);
+      break;
+    case IDENTITY:
+      hessian = new Identity(MPI_COMM_WORLD, ndesign_local);
   }
 
   /* Allocate ascent direction for design updates */
@@ -166,9 +165,10 @@ int main(int argc, char *argv[]) {
             "Accur_train  Accur_val   Time(sec)\n");
 
     /* Screen output */
-    printf("\n#    || r ||          || r_adj ||      Objective             "
-           "Loss                 || grad ||             Stepsize  ls_iter   "
-           "Accur_train  Accur_val   Time(sec)\n");
+    printf(
+        "\n#    || r ||          || r_adj ||      Objective             "
+        "Loss                 || grad ||             Stepsize  ls_iter   "
+        "Accur_train  Accur_val   Time(sec)\n");
   }
 
 #if 1
@@ -177,7 +177,6 @@ int main(int argc, char *argv[]) {
   StopTime = 0.0;
   UsedTime = 0.0;
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
-
     /* --- Training data: Get objective and gradient ---*/
 
     /* Set up the current batch */
@@ -220,10 +219,11 @@ int main(int argc, char *argv[]) {
     StopTime = MPI_Wtime();
     UsedTime = StopTime - StartTime;
     if (myid == MASTER_NODE) {
-      printf("%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        "
-             "%2.2f%%      %2.2f%%    %.1f\n",
-             iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize,
-             ls_iter, accurtrain_out, accurval_out, UsedTime);
+      printf(
+          "%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        "
+          "%2.2f%%      %2.2f%%    %.1f\n",
+          iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize,
+          ls_iter, accurtrain_out, accurval_out, UsedTime);
       fprintf(optimfile,
               "%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        "
               "%2.2f%%      %2.2f%%     %.1f\n",
@@ -268,7 +268,6 @@ int main(int argc, char *argv[]) {
       ls_stepsize = config->getStepsize(iter);
       stepsize = ls_stepsize;
       for (ls_iter = 0; ls_iter < config->ls_maxiter; ls_iter++) {
-
         primaltrainapp->getCore()->SetPrintLevel(0);
         primaltrainapp->run();
         ls_objective = primaltrainapp->getObjective();
@@ -304,8 +303,7 @@ int main(int argc, char *argv[]) {
 
   /* --- Run final validation and write prediction file --- */
   if (config->validationlevel > -1) {
-    if (myid == MASTER_NODE)
-      printf("\n --- Run final validation ---\n");
+    if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
 
     primalvalapp->getCore()->SetPrintLevel(0);
     primalvalapp->run();

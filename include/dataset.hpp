@@ -1,13 +1,12 @@
+#include <assert.h>
+#include <mpi.h>
 #include "config.hpp"
 #include "defs.hpp"
 #include "util.hpp"
-#include <assert.h>
-#include <mpi.h>
 #pragma once
 
 class DataSet {
-
-protected:
+ protected:
   int nelements; /* Number of data elements */
   int nfeatures; /* Number of features per element */
   int nlabels;   /* Number of different labels (i.e. classes) per element */
@@ -25,7 +24,7 @@ protected:
                     batch */
   int navail; /* Auxilliary: holding number of currently available batchIDs */
 
-public:
+ public:
   /* Default constructor */
   DataSet();
 

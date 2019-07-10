@@ -1,7 +1,6 @@
 #include "linalg.hpp"
 
 MyReal vecdot_par(int dimN, MyReal *x, MyReal *y, MPI_Comm comm) {
-
   MyReal localdot, globaldot;
 
   localdot = vecdot(dimN, x, y);

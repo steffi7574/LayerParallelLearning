@@ -35,13 +35,14 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   nlayers_local = endlayerID - startlayerID + 1;
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
-  dt = (config->T) / (MyReal)(config->nlayers - 2); // nlayers-2 = nhiddenlayers
+  dt =
+      (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
   comm = Comm;
 
   /* --- Create the layers --- */
   ndesign_local = 0;
 
-  if (startlayerID == 0) // Opening layer
+  if (startlayerID == 0)  // Opening layer
   {
     /* Create the opening layer */
     int index = -1;
@@ -51,7 +52,7 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
     // openlayer->getnDesign());
   }
 
-  layers = new Layer *[nlayers_local]; // Intermediate and classification layer
+  layers = new Layer *[nlayers_local];  // Intermediate and classification layer
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
     /* Create a layer at time step ilayer. Local storage at ilayer -
      * startlayerID */
@@ -82,13 +83,13 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 
   /* Set the memory locations for all layers */
   int istart = 0;
-  if (openlayer != NULL) // Openlayer on first processor
+  if (openlayer != NULL)  // Openlayer on first processor
   {
     openlayer->setMemory(&(design[istart]), &(gradient[istart]));
     istart += openlayer->getnDesign();
   }
   for (int ilayer = startlayerID; ilayer <= endlayerID;
-       ilayer++) // intermediate and hidden layers
+       ilayer++)  // intermediate and hidden layers
   {
     layers[getLocalID(ilayer)]->setMemory(&(design[istart]),
                                           &(gradient[istart]));
@@ -111,8 +112,7 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 
 Network::~Network() {
   /* Delete openlayer */
-  if (openlayer != NULL)
-    delete openlayer;
+  if (openlayer != NULL) delete openlayer;
 
   /* Delete intermediate and classification layers */
   for (int ilayer = 0; ilayer < nlayers_local; ilayer++) {
@@ -168,44 +168,44 @@ MPI_Comm Network::getComm() { return comm; }
 
 Layer *Network::createLayer(int index, Config *config) {
   Layer *layer = 0;
-  if (index == -1) // Opening layer
+  if (index == -1)  // Opening layer
   {
     switch (config->network_type) {
-    case DENSE:
-      if (config->weights_open_init == 0.0) {
-        layer = new OpenExpandZero(config->nfeatures, nchannels);
-      } else {
-        layer = new OpenDenseLayer(config->nfeatures, nchannels,
-                                   config->activation, config->gamma_tik);
-      }
-      break;
-    case CONVOLUTIONAL:
-      /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
-      if (config->openlayer_type == 0) {
-        layer = new OpenConvLayer(config->nfeatures, nchannels);
-      } else if (config->openlayer_type == 1) {
-        layer = new OpenConvLayerMNIST(config->nfeatures, nchannels);
-      }
-      break;
+      case DENSE:
+        if (config->weights_open_init == 0.0) {
+          layer = new OpenExpandZero(config->nfeatures, nchannels);
+        } else {
+          layer = new OpenDenseLayer(config->nfeatures, nchannels,
+                                     config->activation, config->gamma_tik);
+        }
+        break;
+      case CONVOLUTIONAL:
+        /**< (Weight_open_init == 0.0) not needed for convolutional layers*/
+        if (config->openlayer_type == 0) {
+          layer = new OpenConvLayer(config->nfeatures, nchannels);
+        } else if (config->openlayer_type == 1) {
+          layer = new OpenConvLayerMNIST(config->nfeatures, nchannels);
+        }
+        break;
     }
-  } else if (0 <= index && index < nlayers_global - 2) // Intermediate layer
+  } else if (0 <= index && index < nlayers_global - 2)  // Intermediate layer
   {
     switch (config->network_type) {
-    case DENSE:
-      layer =
-          new DenseLayer(index, nchannels, nchannels, dt, config->activation,
-                         config->gamma_tik, config->gamma_ddt);
-      break;
-    case CONVOLUTIONAL:
-      // TODO: Fix
-      int convolution_size = 3;
-      layer =
-          new ConvLayer(index, nchannels, nchannels, convolution_size,
-                        nchannels / config->nfeatures, dt, config->activation,
-                        config->gamma_tik, config->gamma_ddt);
-      break;
+      case DENSE:
+        layer =
+            new DenseLayer(index, nchannels, nchannels, dt, config->activation,
+                           config->gamma_tik, config->gamma_ddt);
+        break;
+      case CONVOLUTIONAL:
+        // TODO: Fix
+        int convolution_size = 3;
+        layer =
+            new ConvLayer(index, nchannels, nchannels, convolution_size,
+                          nchannels / config->nfeatures, dt, config->activation,
+                          config->gamma_tik, config->gamma_ddt);
+        break;
     }
-  } else if (index == nlayers_global - 2) // Classification layer
+  } else if (index == nlayers_global - 2)  // Classification layer
   {
     layer = new ClassificationLayer(index, nchannels, config->nclasses,
                                     config->gamma_class);
@@ -219,7 +219,7 @@ Layer *Network::createLayer(int index, Config *config) {
 Layer *Network::getLayer(int layerindex) {
   Layer *layer;
 
-  if (layerindex == -1) // opening layer
+  if (layerindex == -1)  // opening layer
   {
     layer = openlayer;
   } else if (layerindex == startlayerID - 1) {
@@ -243,12 +243,11 @@ int Network::computeLayermax() {
 
   /* Loop over all local layers */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 2) // excludes classification layer
+    if (ilayer < nlayers_global - 2)  // excludes classification layer
     {
       /* Update maximum */
       ndesignlayer = layers[getLocalID(ilayer)]->getnDesign();
-      if (ndesignlayer > max)
-        max = ndesignlayer;
+      if (ndesignlayer > max) max = ndesignlayer;
     }
   }
 
@@ -295,10 +294,10 @@ void Network::setInitialDesign(Config *config) {
 
   /* Intermediate (hidden) and classification layers */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 1) // Intermediate layer
+    if (ilayer < nlayers_global - 1)  // Intermediate layer
     {
       factor = config->weights_init;
-    } else // Classification layer
+    } else  // Classification layer
     {
       factor = config->weights_class_init;
     }
@@ -321,8 +320,7 @@ void Network::setInitialDesign(Config *config) {
   /* Communicate the neighbours across processors */
   MPI_CommunicateNeighbours(comm);
 
-  if (myid == 0)
-    delete[] design_init;
+  if (myid == 0) delete[] design_init;
 }
 
 void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
@@ -397,14 +395,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
   }
 
   /* Wait to finish up communication */
-  if (myid > 0)
-    MPI_Wait(&recvlastreq, &status);
-  if (myid < comm_size - 1)
-    MPI_Wait(&sendlastreq, &status);
-  if (myid < comm_size - 1)
-    MPI_Wait(&recvfirstreq, &status);
-  if (myid > 0)
-    MPI_Wait(&sendfirstreq, &status);
+  if (myid > 0) MPI_Wait(&recvlastreq, &status);
+  if (myid < comm_size - 1) MPI_Wait(&sendlastreq, &status);
+  if (myid < comm_size - 1) MPI_Wait(&recvfirstreq, &status);
+  if (myid > 0) MPI_Wait(&sendfirstreq, &status);
 
   /* Unpack and store the left received layer */
   if (myid > 0) {
@@ -417,14 +411,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
   }
 
   /* Free the buffer */
-  if (sendlast != 0)
-    delete[] sendlast;
-  if (recvlast != 0)
-    delete[] recvlast;
-  if (sendfirst != 0)
-    delete[] sendfirst;
-  if (recvfirst != 0)
-    delete[] recvfirst;
+  if (sendlast != 0) delete[] sendlast;
+  if (recvlast != 0) delete[] recvlast;
+  if (sendfirst != 0) delete[] sendfirst;
+  if (recvfirst != 0) delete[] recvfirst;
 }
 
 void Network::evalClassification(DataSet *data, MyReal **state, int output) {
@@ -444,8 +434,7 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
   }
 
   /* open file for printing predicted file */
-  if (output)
-    classfile = fopen("classprediction.dat", "w");
+  if (output) classfile = fopen("classprediction.dat", "w");
 
   loss = 0.0;
   accuracy = 0.0;
@@ -463,8 +452,7 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
     loss += classificationlayer->crossEntropy(tmpstate);
     success_local = classificationlayer->prediction(tmpstate, &class_id);
     success += success_local;
-    if (output)
-      fprintf(classfile, "%d   %d\n", class_id, success_local);
+    if (output) fprintf(classfile, "%d   %d\n", class_id, success_local);
   }
   loss = 1. / data->getnBatch() * loss;
   accuracy = 100.0 * ((MyReal)success) / data->getnBatch();
@@ -472,10 +460,8 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
   // tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1],
   // tmpstate[0]);
 
-  if (output)
-    fclose(classfile);
-  if (output)
-    printf("Prediction file written: classprediction.dat\n");
+  if (output) fclose(classfile);
+  if (output) printf("Prediction file written: classprediction.dat\n");
 
   delete[] tmpstate;
 }

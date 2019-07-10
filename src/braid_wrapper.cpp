@@ -75,8 +75,7 @@ myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
 
 myBraidApp::~myBraidApp() {
   /* Delete the core, if drive() has been called */
-  if (core->GetWarmRestart())
-    delete core;
+  if (core->GetWarmRestart()) delete core;
 }
 
 MyReal myBraidApp::getObjective() { return objective; }
@@ -191,7 +190,7 @@ braid_Int myBraidApp::Init(braid_Real t, braid_Vector *u_ptr) {
   }
 
   /* Set the layer pointer */
-  if (t >= 0) // this should always be the case...
+  if (t >= 0)  // this should always be the case...
   {
     int ilayer = GetTimeStepIndex(t);
     u->setLayer(network->getLayer(ilayer));
@@ -372,31 +371,31 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
 
   /* layertype decides on which layer should be created */
   switch (layertype) {
-  case Layer::OPENZERO:
-    tmplayer = new OpenExpandZero(dimIn, dimOut);
-    break;
-  case Layer::OPENDENSE:
-    tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gammatik);
-    break;
-  case Layer::DENSE:
-    tmplayer =
-        new DenseLayer(index, dimIn, dimOut, 1.0, activ, gammatik, gammaddt);
-    break;
-  case Layer::CLASSIFICATION:
-    tmplayer = new ClassificationLayer(index, dimIn, dimOut, gammatik);
-    break;
-  case Layer::OPENCONV:
-    tmplayer = new OpenConvLayer(dimIn, dimOut);
-    break;
-  case Layer::OPENCONVMNIST:
-    tmplayer = new OpenConvLayerMNIST(dimIn, dimOut);
-    break;
-  case Layer::CONVOLUTION:
-    tmplayer = new ConvLayer(index, dimIn, dimOut, csize, nconv, 1.0, activ,
-                             gammatik, gammaddt);
-    break;
-  default:
-    printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n");
+    case Layer::OPENZERO:
+      tmplayer = new OpenExpandZero(dimIn, dimOut);
+      break;
+    case Layer::OPENDENSE:
+      tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gammatik);
+      break;
+    case Layer::DENSE:
+      tmplayer =
+          new DenseLayer(index, dimIn, dimOut, 1.0, activ, gammatik, gammaddt);
+      break;
+    case Layer::CLASSIFICATION:
+      tmplayer = new ClassificationLayer(index, dimIn, dimOut, gammatik);
+      break;
+    case Layer::OPENCONV:
+      tmplayer = new OpenConvLayer(dimIn, dimOut);
+      break;
+    case Layer::OPENCONVMNIST:
+      tmplayer = new OpenConvLayerMNIST(dimIn, dimOut);
+      break;
+    case Layer::CONVOLUTION:
+      tmplayer = new ConvLayer(index, dimIn, dimOut, csize, nconv, 1.0, activ,
+                               gammatik, gammaddt);
+      break;
+    default:
+      printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n");
   }
 
   /* Allocate design and gradient */
@@ -433,7 +432,7 @@ braid_Int myBraidApp::SetInitialCondition() {
   if (core->GetWarmRestart()) {
     /* Get vector at t == 0 */
     _braid_UGetVectorRef(core->GetCore(), 0, 0, &ubase);
-    if (ubase != NULL) // only true on one first processor !
+    if (ubase != NULL)  // only true on one first processor !
     {
       u = (myBraidVector *)ubase->userVector;
 
@@ -452,7 +451,6 @@ braid_Int myBraidApp::SetInitialCondition() {
 }
 
 braid_Int myBraidApp::EvaluateObjective() {
-
   braid_BaseVector ubase;
   myBraidVector *u;
   Layer *layer;
@@ -464,7 +462,7 @@ braid_Int myBraidApp::EvaluateObjective() {
   int endlayerID = network->getEndLayerID();
   if (startlayerID == 0)
     startlayerID -=
-        1; // this includes opening layer (id = -1) at first processor
+        1;  // this includes opening layer (id = -1) at first processor
 
   /* Iterate over the local layers */
   regul = 0.0;
@@ -568,8 +566,7 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
   uprimal = (myBraidVector *)ubaseprimal->userVector;
 
   /* Reset gradient before the update */
-  if (compute_gradient)
-    uprimal->getLayer()->resetBar();
+  if (compute_gradient) uprimal->getLayer()->resetBar();
 
   /* Take one step backwards, updates adjoint state and gradient, if desired. */
   uprimal->getLayer()->setDt(deltaT);
@@ -592,8 +589,7 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
   }
 
   /* Derivative of tikhonov */
-  if (compute_gradient)
-    uprimal->getLayer()->evalTikh_diff(1.0);
+  if (compute_gradient) uprimal->getLayer()->evalTikh_diff(1.0);
 
   /* no refinement */
   pstatus.SetRFactor(1);
@@ -602,7 +598,6 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
 }
 
 braid_Int myAdjointBraidApp::Init(braid_Real t, braid_Vector *u_ptr) {
-
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
 
@@ -654,7 +649,6 @@ braid_Int myAdjointBraidApp::BufSize(braid_Int *size_ptr,
 
 braid_Int myAdjointBraidApp::BufPack(braid_Vector u_, void *buffer,
                                      BraidBufferStatus &bstatus) {
-
   int size;
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
@@ -677,7 +671,6 @@ braid_Int myAdjointBraidApp::BufPack(braid_Vector u_, void *buffer,
 
 braid_Int myAdjointBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
                                        BraidBufferStatus &bstatus) {
-
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
   MyReal *dbuffer = (MyReal *)buffer;
@@ -718,8 +711,8 @@ braid_Int myAdjointBraidApp::SetInitialCondition() {
     _braid_UGetVectorRef(core->GetCore(), 0, 0, &ubaseadjoint);
 
     if (ubaseprimal != NULL &&
-        ubaseadjoint !=
-            NULL) // this is the case at first primal and last adjoint time step
+        ubaseadjoint != NULL)  // this is the case at first primal and last
+                               // adjoint time step
     {
       uprimal = (myBraidVector *)ubaseprimal->userVector;
       uadjoint = (myBraidVector *)ubaseadjoint->userVector;
@@ -752,7 +745,7 @@ braid_Int myAdjointBraidApp::EvaluateObjective() {
 
   /* Get \bar y^0 (which is the LAST xbraid vector, stored on proc 0) */
   _braid_UGetLast(core->GetCore(), &ubase);
-  if (ubase != NULL) // This is true only on first processor (reverted ranks!)
+  if (ubase != NULL)  // This is true only on first processor (reverted ranks!)
   {
     uadjoint = (myBraidVector *)ubase->userVector;
 

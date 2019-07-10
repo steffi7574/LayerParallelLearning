@@ -13,7 +13,7 @@
  * Define the state vector at one time-step
  */
 class myBraidVector {
-protected:
+ protected:
   int nbatch;    /* Number of examples */
   int nchannels; /* Number of channels */
 
@@ -25,7 +25,7 @@ protected:
    * thus should be free'd after usage (flag > 0) */
   MyReal sendflag;
 
-public:
+ public:
   /* Get dimensions */
   int getnBatch();
   int getnChannels();
@@ -55,7 +55,7 @@ public:
  * virtual function are overwritten from the adjoint app class
  */
 class myBraidApp : public BraidApp {
-protected:
+ protected:
   // BraidApp defines tstart, tstop, ntime and comm_t
   int myid;         /* Processor rank*/
   Network *network; /* Pointer to the DNN Network Block (local layer storage) */
@@ -66,7 +66,7 @@ protected:
   /* Output */
   MyReal objective; /* Objective function */
 
-public:
+ public:
   /* Constructor */
   myBraidApp(DataSet *Data, Network *Network, Config *Config, MPI_Comm Comm);
 
@@ -138,11 +138,11 @@ public:
  * Adjoint braid App for solving adjoint eqations with xbraid.
  */
 class myAdjointBraidApp : public myBraidApp {
-protected:
+ protected:
   BraidCore
       *primalcore; /* pointer to primal core for accessing primal states */
 
-public:
+ public:
   myAdjointBraidApp(DataSet *Data, Network *Network, Config *config,
                     BraidCore *Primalcoreptr, MPI_Comm comm);
 

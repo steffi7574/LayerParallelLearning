@@ -99,7 +99,6 @@ void L_BFGS::computeAscentDir(int iter, MyReal *gradient, MyReal *ascentdir) {
 }
 
 void L_BFGS::updateMemory(int iter, MyReal *design, MyReal *gradient) {
-
   /* Update lbfgs memory only if iter > 0 */
   if (iter > 0) {
     MyReal yTy, yTs;
@@ -154,8 +153,9 @@ BFGS::BFGS(MPI_Comm comm, int N) : HessianApprox(comm) {
   int size;
   MPI_Comm_size(MPIcomm, &size);
   if (size > 1)
-    printf("\n\n WARNING: Parallel BFGS not implemented.\n BFGS updates will "
-           "be LOCAL to each processor -> block-BFGS. \n\n");
+    printf(
+        "\n\n WARNING: Parallel BFGS not implemented.\n BFGS updates will "
+        "be LOCAL to each processor -> block-BFGS. \n\n");
 }
 
 void BFGS::setIdentity() {

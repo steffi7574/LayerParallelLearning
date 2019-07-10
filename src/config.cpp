@@ -5,7 +5,6 @@
 #include <cstring>
 
 Config::Config() {
-
   /* --- Set DEFAULT parameters of the config file options --- */
 
   /* Data st */
@@ -50,7 +49,7 @@ Config::Config() {
 
   /* Optimization */
   batch_type = DETERMINISTIC;
-  nbatch = ntraining; // full batch
+  nbatch = ntraining;  // full batch
   gamma_tik = 1e-07;
   gamma_ddt = 1e-07;
   gamma_class = 1e-07;
@@ -77,7 +76,6 @@ int Config::readFromFile(char *configfilename) {
 
   /* Set the config options */
   while (1) {
-
     if (strcmp(co->key, "datafolder") == 0) {
       datafolder = co->value;
     } else if (strcmp(co->key, "ftrain_ex") == 0) {
@@ -108,9 +106,10 @@ int Config::readFromFile(char *configfilename) {
       nlayers = atoi(co->value);
 
       if (nlayers < 3) {
-        printf("\n\n ERROR: nlayers=%d too small! Choose minimum three layers "
-               "(openlayer, one hidden layer, classification layer)!\n\n",
-               nlayers);
+        printf(
+            "\n\n ERROR: nlayers=%d too small! Choose minimum three layers "
+            "(openlayer, one hidden layer, classification layer)!\n\n",
+            nlayers);
         return -1;
       }
     } else if (strcmp(co->key, "activation") == 0) {
@@ -167,8 +166,9 @@ int Config::readFromFile(char *configfilename) {
       } else if (strcmp(co->value, "stochastic") == 0) {
         batch_type = STOCHASTIC;
       } else {
-        printf("Invalid optimization type! Should be either 'deterministic' or "
-               "'stochastic'!");
+        printf(
+            "Invalid optimization type! Should be either 'deterministic' or "
+            "'stochastic'!");
         return -1;
       }
     } else if (strcmp(co->key, "nbatch") == 0) {
@@ -187,8 +187,9 @@ int Config::readFromFile(char *configfilename) {
       } else if (strcmp(co->value, "oneoverk") == 0) {
         stepsize_type = ONEOVERK;
       } else {
-        printf("Invalid stepsize type! Should be either 'fixed' or "
-               "'backtrackingLS' or 'oneoverk' !");
+        printf(
+            "Invalid stepsize type! Should be either 'fixed' or "
+            "'backtrackingLS' or 'oneoverk' !");
         return -1;
       }
     } else if (strcmp(co->key, "stepsize") == 0) {
@@ -296,63 +297,63 @@ int Config::writeToFile(FILE *outfile) {
 
   /* Get names of some int options */
   switch (activation) {
-  case TANH:
-    activname = "tanh";
-    break;
-  case RELU:
-    activname = "ReLu";
-    break;
-  case SMRELU:
-    activname = "SmoothReLU";
-    break;
-  default:
-    activname = "invalid!";
+    case TANH:
+      activname = "tanh";
+      break;
+    case RELU:
+      activname = "ReLu";
+      break;
+    case SMRELU:
+      activname = "SmoothReLU";
+      break;
+    default:
+      activname = "invalid!";
   }
   switch (network_type) {
-  case DENSE:
-    networktypename = "dense";
-    break;
-  case CONVOLUTIONAL:
-    networktypename = "convolutional";
-    break;
-  default:
-    networktypename = "invalid!";
+    case DENSE:
+      networktypename = "dense";
+      break;
+    case CONVOLUTIONAL:
+      networktypename = "convolutional";
+      break;
+    default:
+      networktypename = "invalid!";
   }
   switch (hessianapprox_type) {
-  case BFGS_SERIAL:
-    hessetypename = "BFGS";
-    break;
-  case LBFGS:
-    hessetypename = "L-BFGS";
-    break;
-  case IDENTITY:
-    hessetypename = "Identity";
-    break;
-  default:
-    hessetypename = "invalid!";
+    case BFGS_SERIAL:
+      hessetypename = "BFGS";
+      break;
+    case LBFGS:
+      hessetypename = "L-BFGS";
+      break;
+    case IDENTITY:
+      hessetypename = "Identity";
+      break;
+    default:
+      hessetypename = "invalid!";
   }
   switch (batch_type) {
-  case DETERMINISTIC:
-    optimtypename = "deterministic";
-    break;
-  case STOCHASTIC:
-    optimtypename = "stochastic";
-    break;
-  default:
-    optimtypename = "invalid!";
+    case DETERMINISTIC:
+      optimtypename = "deterministic";
+      break;
+    case STOCHASTIC:
+      optimtypename = "stochastic";
+      break;
+    default:
+      optimtypename = "invalid!";
   }
   switch (stepsize_type) {
-  case FIXED:
-    stepsizetypename = "fixed";
-    break;
-  case BACKTRACKINGLS:
-    stepsizetypename = "backtracking line-search";
-    break;
-  case ONEOVERK:
-    stepsizetypename = "1/k";
-    break;
-  default:
-    stepsizetypename = "invalid!";
+    case FIXED:
+      stepsizetypename = "fixed";
+      break;
+    case BACKTRACKINGLS:
+      stepsizetypename = "backtracking line-search";
+      break;
+    case ONEOVERK:
+      stepsizetypename = "1/k";
+      break;
+    default:
+      stepsizetypename = "invalid!";
   }
 
   /* print config option */
@@ -432,15 +433,15 @@ MyReal Config::getStepsize(int optimiter) {
   MyReal stepsize = 0.0;
 
   switch (stepsize_type) {
-  case FIXED:
-    stepsize = stepsize_init;
-    break;
-  case BACKTRACKINGLS:
-    stepsize = stepsize_init;
-    break;
-  case ONEOVERK:
-    stepsize = 1.0 / (MyReal)(optimiter +
-                              1); // add one because optimiter starts with 0
+    case FIXED:
+      stepsize = stepsize_init;
+      break;
+    case BACKTRACKINGLS:
+      stepsize = stepsize_init;
+      break;
+    case ONEOVERK:
+      stepsize = 1.0 / (MyReal)(optimiter +
+                                1);  // add one because optimiter starts with 0
   }
 
   return stepsize;

@@ -100,20 +100,20 @@ void Layer::print_data(MyReal *data) {
 MyReal Layer::activation(MyReal x) {
   MyReal y;
   switch (activ) {
-  case TANH:
-    y = Layer::tanh_act(x);
-    break;
-  case RELU:
-    y = Layer::ReLu_act(x);
-    break;
-  case SMRELU:
-    y = Layer::SmoothReLu_act(x);
-    break;
-  default:
-    y = -1000000.0;
-    printf("ERROR: You should specify an activation function!\n");
-    printf("GO HOME AND GET SOME SLEEP!");
-    break;
+    case TANH:
+      y = Layer::tanh_act(x);
+      break;
+    case RELU:
+      y = Layer::ReLu_act(x);
+      break;
+    case SMRELU:
+      y = Layer::SmoothReLu_act(x);
+      break;
+    default:
+      y = -1000000.0;
+      printf("ERROR: You should specify an activation function!\n");
+      printf("GO HOME AND GET SOME SLEEP!");
+      break;
   }
   return y;
 }
@@ -121,20 +121,20 @@ MyReal Layer::activation(MyReal x) {
 MyReal Layer::dactivation(MyReal x) {
   MyReal y;
   switch (activ) {
-  case TANH:
-    y = Layer::dtanh_act(x);
-    break;
-  case RELU:
-    y = Layer::dReLu_act(x);
-    break;
-  case SMRELU:
-    y = Layer::dSmoothReLu_act(x);
-    break;
-  default:
-    y = -1000000.0;
-    printf("ERROR: You should specify an activation function!\n");
-    printf("GO HOME AND GET SOME SLEEP!");
-    break;
+    case TANH:
+      y = Layer::dtanh_act(x);
+      break;
+    case RELU:
+      y = Layer::dReLu_act(x);
+      break;
+    case SMRELU:
+      y = Layer::dSmoothReLu_act(x);
+      break;
+    default:
+      y = -1000000.0;
+      printf("ERROR: You should specify an activation function!\n");
+      printf("GO HOME AND GET SOME SLEEP!");
+      break;
   }
   return y;
 }
@@ -220,8 +220,7 @@ void Layer::evalTikh_diff(MyReal regul_bar) {
 }
 
 MyReal Layer::evalRegulDDT(Layer *layer_prev, MyReal deltat) {
-  if (layer_prev == NULL)
-    return 0.0; // this holds for opening layer
+  if (layer_prev == NULL) return 0.0;  // this holds for opening layer
 
   MyReal diff;
   MyReal regul_ddt = 0.0;
@@ -248,11 +247,8 @@ MyReal Layer::evalRegulDDT(Layer *layer_prev, MyReal deltat) {
 
 void Layer::evalRegulDDT_diff(Layer *layer_prev, Layer *layer_next,
                               MyReal deltat) {
-
-  if (layer_prev == NULL)
-    return;
-  if (layer_next == NULL)
-    return;
+  if (layer_prev == NULL) return;
+  if (layer_next == NULL) return;
 
   MyReal diff;
   int regul_bar = gamma_ddt / (deltat * deltat);
@@ -319,7 +315,6 @@ void DenseLayer::applyFWD(MyReal *state) {
 
 void DenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
                           int compute_gradient) {
-
   /* state_bar is the adjoint of the state variable, it contains the
      old time adjoint informationk, and is modified on the way out to
      contain the update. */
@@ -337,8 +332,7 @@ void DenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
   /* Derivative of linear transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Derivative of bias addition */
-    if (compute_gradient)
-      bias_bar[0] += update_bar[io];
+    if (compute_gradient) bias_bar[0] += update_bar[io];
 
     /* Derivative of weight application */
     for (int ii = 0; ii < dim_In; ii++) {
@@ -523,8 +517,9 @@ void ClassificationLayer::applyFWD(MyReal *state) {
   normalize(update);
 
   if (dim_In < dim_Out) {
-    printf("Error: nchannels < nclasses. Implementation of classification "
-           "layer doesn't support this setting. Change! \n");
+    printf(
+        "Error: nchannels < nclasses. Implementation of classification "
+        "layer doesn't support this setting. Change! \n");
     exit(1);
   }
 
@@ -561,8 +556,7 @@ void ClassificationLayer::applyBWD(MyReal *state, MyReal *state_bar,
   /* Derivatie of affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Derivative of bias addition */
-    if (compute_gradient)
-      bias_bar[io] += update_bar[io];
+    if (compute_gradient) bias_bar[io] += update_bar[io];
 
     /* Derivative of weight application */
     for (int ii = 0; ii < dim_In; ii++) {
@@ -574,7 +568,6 @@ void ClassificationLayer::applyBWD(MyReal *state, MyReal *state_bar,
 }
 
 void ClassificationLayer::normalize(MyReal *data) {
-
   /* Find maximum value */
   MyReal max = vecmax(dim_Out, data);
   /* Shift the data vector */
@@ -673,8 +666,7 @@ int ClassificationLayer::prediction(MyReal *data_Out, int *class_id_ptr) {
 MyReal Layer::ReLu_act(MyReal x) {
   MyReal max = 0.0;
 
-  if (x > 0.0)
-    max = x;
+  if (x > 0.0) max = x;
 
   return max;
 }
@@ -763,11 +755,10 @@ ConvLayer::~ConvLayer() {}
  * Where state_bar _must_ be at the old time. Note that the adjoint variable
  * state_bar carries withit all the information of the objective derivative.
  */
-MyReal
-ConvLayer::updateWeightDerivative(MyReal *state, MyReal *update_bar,
-                                  int output_conv, /* output convolution */
-                                  int j,           /* pixel index */
-                                  int k)           /* pixel index */
+MyReal ConvLayer::updateWeightDerivative(
+    MyReal *state, MyReal *update_bar, int output_conv, /* output convolution */
+    int j,                                              /* pixel index */
+    int k)                                              /* pixel index */
 {
   MyReal val = 0;
 
@@ -778,14 +769,10 @@ ConvLayer::updateWeightDerivative(MyReal *state, MyReal *update_bar,
   int fcsize_s_l_adj = -fcsize;
   int fcsize_t_l_adj = -fcsize;
 
-  if ((j + fcsize_s_l) < 0)
-    fcsize_s_l = -j;
-  if ((k + fcsize_t_l) < 0)
-    fcsize_t_l = -k;
-  if ((j + fcsize_s_u) >= img_size_sqrt)
-    fcsize_s_u = img_size_sqrt - j - 1;
-  if ((k + fcsize_t_u) >= img_size_sqrt)
-    fcsize_t_u = img_size_sqrt - k - 1;
+  if ((j + fcsize_s_l) < 0) fcsize_s_l = -j;
+  if ((k + fcsize_t_l) < 0) fcsize_t_l = -k;
+  if ((j + fcsize_s_u) >= img_size_sqrt) fcsize_s_u = img_size_sqrt - j - 1;
+  if ((k + fcsize_t_u) >= img_size_sqrt) fcsize_t_u = img_size_sqrt - k - 1;
 
   if ((j - fcsize_s_l_adj) >= img_size_sqrt)
     fcsize_s_l_adj = -(img_size_sqrt - j - 1);
@@ -848,14 +835,10 @@ MyReal ConvLayer::apply_conv(MyReal *state,
   int fcsize_t_u = fcsize;
 
   // protect indexing at image boundaries
-  if ((j + fcsize_s_l) < 0)
-    fcsize_s_l = -j;
-  if ((k + fcsize_t_l) < 0)
-    fcsize_t_l = -k;
-  if ((j + fcsize_s_u) >= img_size_sqrt)
-    fcsize_s_u = img_size_sqrt - j - 1;
-  if ((k + fcsize_t_u) >= img_size_sqrt)
-    fcsize_t_u = img_size_sqrt - k - 1;
+  if ((j + fcsize_s_l) < 0) fcsize_s_l = -j;
+  if ((k + fcsize_t_l) < 0) fcsize_t_l = -k;
+  if ((j + fcsize_s_u) >= img_size_sqrt) fcsize_s_u = img_size_sqrt - j - 1;
+  if ((k + fcsize_t_u) >= img_size_sqrt) fcsize_t_u = img_size_sqrt - k - 1;
 
   const int fcsize_s = fcsize_s_u - fcsize_s_l;
   const int fcsize_t = fcsize_t_u - fcsize_t_l;
@@ -897,14 +880,10 @@ MyReal ConvLayer::apply_conv_trans(MyReal *state,
   int fcsize_t_l = -fcsize;
   int fcsize_t_u = fcsize;
 
-  if ((j - fcsize_s_u) < 0)
-    fcsize_s_u = j;
-  if ((k - fcsize_t_u) < 0)
-    fcsize_t_u = k;
-  if ((j - fcsize_s_l) >= img_size_sqrt)
-    fcsize_s_l = -(img_size_sqrt - j - 1);
-  if ((k - fcsize_t_l) >= img_size_sqrt)
-    fcsize_t_l = -(img_size_sqrt - k - 1);
+  if ((j - fcsize_s_u) < 0) fcsize_s_u = j;
+  if ((k - fcsize_t_u) < 0) fcsize_t_u = k;
+  if ((j - fcsize_s_l) >= img_size_sqrt) fcsize_s_l = -(img_size_sqrt - j - 1);
+  if ((k - fcsize_t_l) >= img_size_sqrt) fcsize_t_l = -(img_size_sqrt - k - 1);
 
   const int fcsize_s = fcsize_s_u - fcsize_s_l;
   const int fcsize_t = fcsize_t_u - fcsize_t_l;
@@ -936,8 +915,7 @@ MyReal ConvLayer::apply_conv_trans(MyReal *state,
 
 void ConvLayer::applyFWD(MyReal *state) {
   /* Apply step */
-  for (int io = 0; io < dim_Out; io++)
-    update[io] = state[io];
+  for (int io = 0; io < dim_Out; io++) update[io] = state[io];
 
   /* Affine transformation */
   for (int i = 0; i < nconv; i++) {
@@ -1048,5 +1026,5 @@ void ConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
       }
     }
 
-  } // end for i
+  }  // end for i
 }

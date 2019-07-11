@@ -5,3 +5,6 @@ build/
 *run_*
 *optim.dat
 main
+
+# Ignore IDE configurations
+.idea

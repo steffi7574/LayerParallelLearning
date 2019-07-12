@@ -1,3 +1,27 @@
+// TODO: Copyright
+//
+// TODO: Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//
+// Layer-Parallel Training of Deep Residual Neural Networks
+// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
+//
+// Download: https://arxiv.org/pdf/1812.04352.pdf
+//
+// TODO: Authors of this paper are authors of this code. Further help for this
+// code came from Roland Siegbert <siegbert@cats.rwth-aachen.de>.
+//
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,19 +201,24 @@ int main(int argc, char *argv[]) {
         "Accur_train  Accur_val   Time(sec)\n");
   }
 
-  // TODO: WTF? This is "enabled"? Looks like testing code to me...
+// TODO: If this is excluded nothing works: I suggest a removal of the preprocessor directive
 #if OPTIMIZATION_ENABLED
 
   StartTime = MPI_Wtime();
   StopTime = 0.0;
   UsedTime = 0.0;
+
+
+  /* The following loop represents the paper's Algorithm (2) */
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
-    /* --- Training data: Get objective and gradient ---*/
 
     /* Set up the current batch */
     trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
-    /* Solve state and adjoint equation */
+    /** Solve state and adjoint equations (2.15) and (2.17)
+     * 
+     *  Algorithm (2): Step 1 and 2
+     */
     rnorm = primaltrainapp->run();
     rnorm_adj = adjointtrainapp->run();
 
@@ -199,7 +228,6 @@ int main(int argc, char *argv[]) {
     accur_train = network->getAccuracy();
 
     /* --- Validation data: Get accuracy --- */
-
     if (config->validationlevel > 0) {
       primalvalapp->run();
       loss_val = network->getLoss();
@@ -208,11 +236,14 @@ int main(int argc, char *argv[]) {
 
     /* --- Optimization control and output ---*/
 
-    /* Compute global gradient norm */
+    /** Compute global gradient norm
+     *
+     *  Algorithm (2): Step 3
+     */
     gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
 
     /* Communicate loss and accuracy. This is actually only needed for output.
-     * Remove it. */
+     * TODO: Remove it. */
     MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM,
                   MPI_COMM_WORLD);
     MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM,
@@ -239,7 +270,11 @@ int main(int argc, char *argv[]) {
       fflush(optimfile);
     }
 
-    /* Check optimization convergence */
+    // TODO: Do you want to have the convergence check here? I'd move it after writing some tests actually.
+    /** Check optimization convergence
+     *
+     *  Algorithm (2): Step 6
+     */
     if (gnorm < config->gtol) {
       if (myid == MASTER_NODE) {
         printf("Optimization has converged. \n");
@@ -254,17 +289,24 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    /* If optimization didn't converge, continue */
+
     /* --- Design update --- */
 
-    /* Compute search direction */
+    /** Compute search direction
+     *
+     *  Algorithm (2): Step 4
+     */
     hessian->updateMemory(iter, network->getDesign(), network->getGradient());
     hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
-
-    /* Update the design in negative ascent direction */
     stepsize = config->getStepsize(iter);
-    network->updateDesign(-1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
 
-    /* --- Backtracking linesearch --- */
+    /** Update the design/network control parameter in negative ascent direction
+     *  and perform backtracking linesearch.
+     *
+     *  Algorithm (2): Step 5
+     */
+    network->updateDesign(-1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
 
     if (config->stepsize_type == BACKTRACKINGLS) {
       /* Compute wolfe condition */

@@ -36,3 +36,4 @@ An optimization history file 'optim.dat' will be flushed to the examples subfold
   - [ ] Dependency Inversion
 * [ ] Extract methods and clean up objects
 * [ ] Comment everything
+* [ ] Park old code in separate branches and tag them as deprecated

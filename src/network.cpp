@@ -35,8 +35,7 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   nlayers_local = endlayerID - startlayerID + 1;
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
-  dt =
-      (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
+  dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
   comm = Comm;
 
   /* --- Create the layers --- */

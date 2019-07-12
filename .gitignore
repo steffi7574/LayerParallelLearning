@@ -7,6 +7,7 @@ build/
 *optim.dat
 main
 
-# unix and dev environment
+# Ignore IDE configurations
+.idea
 .vscode
 tags

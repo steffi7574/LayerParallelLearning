@@ -39,11 +39,6 @@
 
 #define MASTER_NODE 0
 
-// TODO: Can these truly run separate?
-#define ADJOINT_DOT_TEST_ENABLED 0
-#define OPTIMIZATION_ENABLED 1
-#define FULL_FINITE_DIFFERENCES_ENABLED 0
-
 int main(int argc, char *argv[]) {
   /* --- Data --- */
   Config *config;          /**< Storing configurations */
@@ -201,13 +196,10 @@ int main(int argc, char *argv[]) {
         "Accur_train  Accur_val   Time(sec)\n");
   }
 
-// TODO: If this is excluded nothing works: I suggest a removal of the preprocessor directive
-#if OPTIMIZATION_ENABLED
-
+  /* Measure wall time */
   StartTime = MPI_Wtime();
   StopTime = 0.0;
   UsedTime = 0.0;
-
 
   /* The following loop represents the paper's Algorithm (2) */
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
@@ -216,7 +208,7 @@ int main(int argc, char *argv[]) {
     trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
     /** Solve state and adjoint equations (2.15) and (2.17)
-     * 
+     *
      *  Algorithm (2): Step 1 and 2
      */
     rnorm = primaltrainapp->run();
@@ -362,144 +354,6 @@ int main(int argc, char *argv[]) {
   }
 
   // write_vector("design.dat", design, ndesign);
-#endif  // OPTIMIZATION_ENABLED
-
-  /**
-   * ==================================================================================
-   * Adjoint dot test xbarTxdot = ybarTydot
-   * where xbar = (dfdx)T ybar
-   *       ydot = (dfdx)  xdot
-   * choosing xdot to be a vector of all ones, ybar = 1.0;
-   * ==================================================================================*/
-  // TODO: Why is this disabled?
-#if ADJOINT_DOT_TEST_ENABLED
-
-  if (size == 1) {
-    MyReal obj1, obj0;
-    //  int nconv_size = 3;
-
-    printf("\n\n ============================ \n");
-    printf(" Adjoint dot test: \n\n");
-    //  printf("   ndesign   = %d (calc = %d)\n",ndesign,
-    //                                           nchannels*config->nclasses+config->nclasses
-    //                                           // class layer
-    //                                           +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/config->nfeatures)*(nchannels/config->nfeatures)));
-    //                                           // con layers
-    //  printf("   nchannels = %d\n",nchannels);
-    //  printf("   nlayers   = %d\n",nlayers);
-    //  printf("   conv_size = %d\n",nconv_size);
-    //  printf("   config->nclasses  = %d\n\n",config->nclasses);
-
-    /* TODO: read some design */
-
-    /* Propagate through braid */
-    braid_evalInit(core_train, app_train);
-    braid_Drive(core_train);
-    braid_evalObjective(core_train, app_train, &obj0, &loss_train,
-                        &accur_train);
-
-    /* Eval gradient */
-    braid_evalObjectiveDiff(core_adj, app_train);
-    braid_Drive(core_adj);
-    braid_evalInitDiff(core_adj, app_train);
-
-    MyReal xtx = 0.0;
-    MyReal EPS = 1e-7;
-    for (int i = 0; i < ndesign_global; i++) {
-      /* Sum up xtx */
-      xtx += network->getGradient()[i];
-      /* perturb into direction "only ones" */
-      network->getDesign()[i] += EPS;
-    }
-
-    /* New objective function evaluation */
-    braid_evalInit(core_train, app_train);
-    braid_Drive(core_train);
-    braid_evalObjective(core_train, app_train, &obj1, &loss_train,
-                        &accur_train);
-
-    /* Finite differences */
-    MyReal yty = (obj1 - obj0) / EPS;
-
-    /* Print adjoint dot test result */
-    printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty,
-           (yty - xtx) / xtx * 100.);
-    printf(" obj0 %1.14e, obj1 %1.14e\n", obj0, obj1);
-  }
-
-#endif  // ADJOINT_DOT_TEST_ENABLED
-
-  // TODO: Can we get rid of this or shall we pack it into a parameter?
-  /** =======================================
-   * Full finite differences
-   * ======================================= */
-
-#if FULL_FINITE_DIFFERENCES_ENABLED
-  MyReal *findiff = new MyReal[ndesign];
-  MyReal *relerr = new MyReal[ndesign];
-  MyReal errnorm = 0.0;
-  MyReal obj0, obj1, design_store;
-  MyReal EPS;
-
-  printf("\n--------------------------------\n");
-  printf(" FINITE DIFFERENCE TESTING\n\n");
-
-  /* Compute baseline objective */
-  // read_vector("design.dat", design, ndesign);
-  braid_SetObjectiveOnly(core_train, 0);
-  braid_Drive(core_train);
-  braid_GetObjective(core_train, &objective);
-  obj0 = objective;
-
-  EPS = 1e-4;
-  for (int i = 0; i < ndesign; i++)
-  // for (int i = 0; i < 22; i++)
-  // int i=21;
-  {
-    /* Restore design */
-    // read_vector("design.dat", design, ndesign);
-
-    /*  Perturb design */
-    design_store = design[i];
-    design[i] += EPS;
-
-    /* Recompute objective */
-    _braid_CoreElt(core_train, warm_restart) = 0;
-    braid_SetObjectiveOnly(core_train, 1);
-    braid_SetPrintLevel(core_train, 0);
-    braid_Drive(core_train);
-    braid_GetObjective(core_train, &objective);
-    obj1 = objective;
-
-    /* Findiff */
-    findiff[i] = (obj1 - obj0) / EPS;
-    relerr[i] = (gradient[i] - findiff[i]) / findiff[i];
-    errnorm += pow(relerr[i], 2);
-
-    printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f", i, findiff[i], gradient[i],
-           relerr[i] * 100.0);
-
-    /* Restore design */
-    design[i] = design_store;
-  }
-  errnorm = sqrt(errnorm);
-  printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
-
-  write_vector("findiff.dat", findiff, ndesign);
-  write_vector("relerr.dat", relerr, ndesign);
-
-  == == == == == == == == == == == == == == == == == == ==
-      = check network implementation == == == == == == == == == == == == == ==
-        == == == == ==
-      = * / network->applyFWD(config->ntraining, train_examples, train_labels);
-  MyReal accur = network->getAccuracy();
-  MyReal regul = network->evalRegularization();
-  objective = network->getLoss() + regul;
-  printf("\n --- \n");
-  printf(" Network: obj %1.14e \n", objective);
-  printf(" ---\n");
-
-#endif  // FULL_FINITE_DIFFERENCES_ENABLED
 
   /* Print some statistics */
   StopTime = MPI_Wtime();

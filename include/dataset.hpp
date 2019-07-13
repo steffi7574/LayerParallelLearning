@@ -1,65 +1,58 @@
 #include <assert.h>
-#include "util.hpp"
-#include "defs.hpp"
-#include "config.hpp"
 #include <mpi.h>
+#include "config.hpp"
+#include "defs.hpp"
+#include "util.hpp"
 #pragma once
 
 class DataSet {
+ protected:
+  int nelements; /* Number of data elements */
+  int nfeatures; /* Number of features per element */
+  int nlabels;   /* Number of different labels (i.e. classes) per element */
 
+  MyReal **examples; /* Array of Feature vectors (dim: nelements x nfeatures) */
+  MyReal **labels;   /* Array of Label vectors (dim: nelements x nlabels) */
 
-   protected:
+  int nbatch;    /* Size of the batch */
+  int *batchIDs; /* Array of batch indicees */
 
-      int nelements;         /* Number of data elements */
-      int nfeatures;         /* Number of features per element */
-      int nlabels;           /* Number of different labels (i.e. classes) per element */
-      
-      MyReal **examples;    /* Array of Feature vectors (dim: nelements x nfeatures) */
-      MyReal **labels;      /* Array of Label vectors (dim: nelements x nlabels) */
+  int MPIsize; /* Size of the global communicator */
+  int MPIrank; /* Processors rank */
 
-      int  nbatch;          /* Size of the batch */
-      int *batchIDs;        /* Array of batch indicees */
+  int *availIDs; /* Auxilliary: holding available batchIDs when generating a
+                    batch */
+  int navail; /* Auxilliary: holding number of currently available batchIDs */
 
-      int MPIsize;           /* Size of the global communicator */
-      int MPIrank;           /* Processors rank */
+ public:
+  /* Default constructor */
+  DataSet();
 
-      int* availIDs;          /* Auxilliary: holding available batchIDs when generating a batch */
-      int  navail;            /* Auxilliary: holding number of currently available batchIDs */
+  /* Destructor */
+  ~DataSet();
 
-   public: 
+  void initialize(int nElements, int nFeatures, int nLabels, int nBatch,
+                  MPI_Comm Comm);
 
-      /* Default constructor */
-      DataSet();
+  /* Return the batch size*/
+  int getnBatch();
 
-      /* Destructor */
-      ~DataSet();
+  /* Return the feature vector of a certain batchID. If not stored on this
+   * processor, return NULL */
+  MyReal *getExample(int id);
 
-      void initialize(int      nElements, 
-                      int      nFeatures, 
-                      int      nLabels,
-                      int      nBatch,
-                      MPI_Comm Comm);
+  /* Return the label vector of a certain batchID. If not stored on this
+   * processor, return NULL */
+  MyReal *getLabel(int id);
 
+  /* Read data from file */
+  void readData(const char *datafolder, const char *examplefile,
+                const char *labelfile);
 
-      /* Return the batch size*/
-      int getnBatch();
+  /* Select the current batch from all available IDs, either deterministic or
+   * stochastic */
+  void selectBatch(int batch_type, MPI_Comm comm);
 
-      /* Return the feature vector of a certain batchID. If not stored on this processor, return NULL */
-      MyReal* getExample(int id);
-
-      /* Return the label vector of a certain batchID. If not stored on this processor, return NULL */
-      MyReal* getLabel(int id);
-
-      /* Read data from file */
-      void readData(const char* datafolder,
-                    const char* examplefile,
-                    const char* labelfile);
-
-      /* Select the current batch from all available IDs, either deterministic or stochastic */
-      void selectBatch(int      batch_type,
-                       MPI_Comm comm);
-
-
-      /* print current batch to screen */
-      void printBatch();
+  /* print current batch to screen */
+  void printBatch();
 };

@@ -1,3 +1,4 @@
+# cpp
 build/
 *out*
 *.o
@@ -8,3 +9,5 @@ main
 
 # Ignore IDE configurations
 .idea
+.vscode
+tags

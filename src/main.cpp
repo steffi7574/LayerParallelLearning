@@ -195,9 +195,9 @@ int main(int argc, char *argv[]) {
   UsedTime = 0.0;
 
   /** Main optimization iteration
-   * 
-   * The following loop represents the paper's Algorithm (2) 
-   *  
+   *
+   * The following loop represents the paper's Algorithm (2)
+   *
    */
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
     /* Set up the current batch */
@@ -261,7 +261,8 @@ int main(int argc, char *argv[]) {
       fflush(optimfile);
     }
 
-    // TODO: Do you want to have the convergence check here? I'd move it after writing some tests actually.
+    // TODO: Do you want to have the convergence check here? I'd move it after
+    // writing some tests actually.
     /** Check optimization convergence
      *
      *  Algorithm (2): Step 6

@@ -194,7 +194,11 @@ int main(int argc, char *argv[]) {
   StopTime = 0.0;
   UsedTime = 0.0;
 
-  /* The following loop represents the paper's Algorithm (2) */
+  /** Main optimization iteration
+   * 
+   * The following loop represents the paper's Algorithm (2) 
+   *  
+   */
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
     /* Set up the current batch */
     trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);

@@ -1,3 +1,27 @@
+// TODO: Copyright
+//
+// TODO: Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//
+// Layer-Parallel Training of Deep Residual Neural Networks
+// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
+//
+// Download: https://arxiv.org/pdf/1812.04352.pdf
+//
+// TODO: Authors of this paper are authors of this code. Further help for this
+// code came from Roland Siegbert <siegbert@cats.rwth-aachen.de>.
+//
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +81,7 @@ int main(int argc, char *argv[]) {
   int ls_iter;
 
   /* --- other --- */
+  // TODO: What is this? Why do you need it?
   int myid;
   int size;
   struct rusage r_usage;
@@ -67,8 +92,6 @@ int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  /*--- INITIALIZATION ---*/
 
   /* Instantiate objects */
   config = new Config();
@@ -83,13 +106,13 @@ int main(int argc, char *argv[]) {
       printf("USAGE: ./main </path/to/configfile> \n");
     }
     MPI_Finalize();
-    return (0);
+    return 0;
   }
   int err = config->readFromFile(argv[1]);
   if (err) {
-    printf("\nError while reading config file!\n");
+    printf("Error while reading config file!\n");
     MPI_Finalize();
-    return (0);
+    return 0;
   }
 
   /* Initialize training and validation data */
@@ -119,15 +142,13 @@ int main(int argc, char *argv[]) {
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();
 
-  /* Print some network information */
-  int startid = ilower;
-  if (ilower == 0) startid = -1;
-  printf("%d: Layer range: [%d, %d] / %d\n", myid, startid, iupper,
+  /* Print some neural network information */
+  printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
          config->nlayers);
   printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
          ndesign_global);
 
-  /* Initialize hessian approximation */
+  /* Initialize Hessian approximation */
   HessianApprox *hessian = 0;
   switch (config->hessianapprox_type) {
     case BFGS_SERIAL:
@@ -138,6 +159,10 @@ int main(int argc, char *argv[]) {
       break;
     case IDENTITY:
       hessian = new Identity(MPI_COMM_WORLD, ndesign_local);
+      break;
+    default:
+      printf("Error: unexpected hessianapprox_type returned");
+      return 0;
   }
 
   /* Allocate ascent direction for design updates */
@@ -158,31 +183,30 @@ int main(int argc, char *argv[]) {
     sprintf(optimfilename, "%s/%s.dat", config->datafolder, "optim");
     optimfile = fopen(optimfilename, "w");
     config->writeToFile(optimfile);
-
     fprintf(optimfile,
             "#    || r ||          || r_adj ||      Objective             Loss "
             "                 || grad ||            Stepsize  ls_iter   "
             "Accur_train  Accur_val   Time(sec)\n");
-
-    /* Screen output */
-    printf(
-        "\n#    || r ||          || r_adj ||      Objective             "
-        "Loss                 || grad ||             Stepsize  ls_iter   "
-        "Accur_train  Accur_val   Time(sec)\n");
   }
 
-#if 1
-  /* --- OPTIMIZATION --- */
+  /* Measure wall time */
   StartTime = MPI_Wtime();
   StopTime = 0.0;
   UsedTime = 0.0;
-  for (int iter = 0; iter < config->maxoptimiter; iter++) {
-    /* --- Training data: Get objective and gradient ---*/
 
+  /** Main optimization iteration
+   *
+   * The following loop represents the paper's Algorithm (2)
+   *
+   */
+  for (int iter = 0; iter < config->maxoptimiter; iter++) {
     /* Set up the current batch */
     trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
-    /* Solve state and adjoint equation */
+    /** Solve state and adjoint equations (2.15) and (2.17)
+     *
+     *  Algorithm (2): Step 1 and 2
+     */
     rnorm = primaltrainapp->run();
     rnorm_adj = adjointtrainapp->run();
 
@@ -192,7 +216,6 @@ int main(int argc, char *argv[]) {
     accur_train = network->getAccuracy();
 
     /* --- Validation data: Get accuracy --- */
-
     if (config->validationlevel > 0) {
       primalvalapp->run();
       loss_val = network->getLoss();
@@ -201,11 +224,14 @@ int main(int argc, char *argv[]) {
 
     /* --- Optimization control and output ---*/
 
-    /* Compute global gradient norm */
+    /** Compute global gradient norm
+     *
+     *  Algorithm (2): Step 3
+     */
     gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
 
     /* Communicate loss and accuracy. This is actually only needed for output.
-     * Remove it. */
+     * TODO: Remove it. */
     MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM,
                   MPI_COMM_WORLD);
     MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM,
@@ -220,8 +246,11 @@ int main(int argc, char *argv[]) {
     UsedTime = StopTime - StartTime;
     if (myid == MASTER_NODE) {
       printf(
-          "%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        "
-          "%2.2f%%      %2.2f%%    %.1f\n",
+          "\n|| r ||\t|| r_adj ||\tObjective\tLoss\t\t\t|| grad "
+          "||\t\tStepsize\t\tls_iter\tAccur_train\tAccur_val\tTime(sec)\n");
+      printf(
+          "%03d\t%1.8e\t%1.8e\t%1.14e\t%1.14e\t%1.14e\t%5f\t%2d\t%2.2f%%\t%2."
+          "2f%%\t%.1f\n\n",
           iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize,
           ls_iter, accurtrain_out, accurval_out, UsedTime);
       fprintf(optimfile,
@@ -232,7 +261,12 @@ int main(int argc, char *argv[]) {
       fflush(optimfile);
     }
 
-    /* Check optimization convergence */
+    // TODO: Do you want to have the convergence check here? I'd move it after
+    // writing some tests actually.
+    /** Check optimization convergence
+     *
+     *  Algorithm (2): Step 6
+     */
     if (gnorm < config->gtol) {
       if (myid == MASTER_NODE) {
         printf("Optimization has converged. \n");
@@ -247,17 +281,24 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    /* If optimization didn't converge, continue */
+
     /* --- Design update --- */
 
-    /* Compute search direction */
+    /** Compute search direction
+     *
+     *  Algorithm (2): Step 4
+     */
     hessian->updateMemory(iter, network->getDesign(), network->getGradient());
     hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
-
-    /* Update the design in negative ascent direction */
     stepsize = config->getStepsize(iter);
-    network->updateDesign(-1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
 
-    /* --- Backtracking linesearch --- */
+    /** Update the design/network control parameter in negative ascent direction
+     *  and perform backtracking linesearch.
+     *
+     *  Algorithm (2): Step 5
+     */
+    network->updateDesign(-1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
 
     if (config->stepsize_type == BACKTRACKINGLS) {
       /* Compute wolfe condition */
@@ -275,8 +316,8 @@ int main(int argc, char *argv[]) {
 
         test_obj = objective - ls_param * ls_stepsize * wolfe;
         if (myid == MASTER_NODE)
-          printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective,
-                 test_obj);
+          printf("ls_iter = %d:\tls_objective = %1.14e\ttest_obj = %1.14e\n",
+                 ls_iter, ls_objective, test_obj);
         /* Test the wolfe condition */
         if (ls_objective <= test_obj) {
           /* Success, use this new design */
@@ -313,141 +354,6 @@ int main(int argc, char *argv[]) {
   }
 
   // write_vector("design.dat", design, ndesign);
-#endif
-
-/**
- * ==================================================================================
- * Adjoint dot test xbarTxdot = ybarTydot
- * where xbar = (dfdx)T ybar
- *       ydot = (dfdx)  xdot
- * choosing xdot to be a vector of all ones, ybar = 1.0;
- * ==================================================================================*/
-#if 0
- 
-    if (size == 1)
-    {
-         MyReal obj1, obj0;
-        //  int nconv_size = 3;
-
-         printf("\n\n ============================ \n");
-         printf(" Adjoint dot test: \n\n");
-        //  printf("   ndesign   = %d (calc = %d)\n",ndesign,
-        //                                           nchannels*config->nclasses+config->nclasses // class layer
-        //                                           +(nlayers-2)+(nlayers-2)*(nconv_size*nconv_size*(nchannels/config->nfeatures)*(nchannels/config->nfeatures))); // con layers
-        //  printf("   nchannels = %d\n",nchannels);
-        //  printf("   nlayers   = %d\n",nlayers); 
-        //  printf("   conv_size = %d\n",nconv_size);
-        //  printf("   config->nclasses  = %d\n\n",config->nclasses);
-
-
-        /* TODO: read some design */
-
-        /* Propagate through braid */ 
-        braid_evalInit(core_train, app_train);
-        braid_Drive(core_train);
-        braid_evalObjective(core_train, app_train, &obj0, &loss_train, &accur_train);
-
-        /* Eval gradient */
-        braid_evalObjectiveDiff(core_adj, app_train);
-        braid_Drive(core_adj);
-        braid_evalInitDiff(core_adj, app_train);
-
-
-        MyReal xtx = 0.0;
-        MyReal EPS = 1e-7;
-        for (int i = 0; i < ndesign_global; i++)
-        {
-            /* Sum up xtx */
-            xtx += network->getGradient()[i];
-            /* perturb into direction "only ones" */
-            network->getDesign()[i] += EPS;
-        }
-
-
-        /* New objective function evaluation */
-        braid_evalInit(core_train, app_train);
-        braid_Drive(core_train);
-        braid_evalObjective(core_train, app_train, &obj1, &loss_train, &accur_train);
-
-        /* Finite differences */
-        MyReal yty = (obj1 - obj0)/EPS;
-
-
-        /* Print adjoint dot test result */
-        printf(" Dot-test: %1.16e  %1.16e\n\n Rel. error  %3.6f %%\n\n", xtx, yty, (yty-xtx)/xtx * 100.);
-        printf(" obj0 %1.14e, obj1 %1.14e\n", obj0, obj1);
-
-    }
-
-#endif
-
-  /** =======================================
-   * Full finite differences
-   * ======================================= */
-
-  // MyReal* findiff = new MyReal[ndesign];
-  // MyReal* relerr = new MyReal[ndesign];
-  // MyReal errnorm = 0.0;
-  // MyReal obj0, obj1, design_store;
-  // MyReal EPS;
-
-  // printf("\n--------------------------------\n");
-  // printf(" FINITE DIFFERENCE TESTING\n\n");
-
-  // /* Compute baseline objective */
-  // // read_vector("design.dat", design, ndesign);
-  // braid_SetObjectiveOnly(core_train, 0);
-  // braid_Drive(core_train);
-  // braid_GetObjective(core_train, &objective);
-  // obj0 = objective;
-
-  // EPS = 1e-4;
-  // for (int i = 0; i < ndesign; i++)
-  // // for (int i = 0; i < 22; i++)
-  // // int i=21;
-  // {
-  //     /* Restore design */
-  //     // read_vector("design.dat", design, ndesign);
-
-  //     /*  Perturb design */
-  //     design_store = design[i];
-  //     design[i] += EPS;
-
-  //     /* Recompute objective */
-  //     _braid_CoreElt(core_train, warm_restart) = 0;
-  //     braid_SetObjectiveOnly(core_train, 1);
-  //     braid_SetPrintLevel(core_train, 0);
-  //     braid_Drive(core_train);
-  //     braid_GetObjective(core_train, &objective);
-  //     obj1 = objective;
-
-  //     /* Findiff */
-  //     findiff[i] = (obj1 - obj0) / EPS;
-  //     relerr[i]  = (gradient[i] - findiff[i]) / findiff[i];
-  //     errnorm += pow(relerr[i],2);
-
-  //     printf("\n %4d: % 1.14e % 1.14e, error: % 2.4f",i, findiff[i],
-  //     gradient[i], relerr[i] * 100.0);
-
-  //     /* Restore design */
-  //     design[i] = design_store;
-  // }
-  // errnorm = sqrt(errnorm);
-  // printf("\n FinDiff ErrNorm  %1.14e\n", errnorm);
-
-  // write_vector("findiff.dat", findiff, ndesign);
-  // write_vector("relerr.dat", relerr, ndesign);
-
-  /* =======================================
-   * check network implementation
-   * ======================================= */
-  // network->applyFWD(config->ntraining, train_examples, train_labels);
-  // MyReal accur = network->getAccuracy();
-  // MyReal regul = network->evalRegularization();
-  // objective = network->getLoss() + regul;
-  // printf("\n --- \n");
-  // printf(" Network: obj %1.14e \n", objective);
-  // printf(" ---\n");
 
   /* Print some statistics */
   StopTime = MPI_Wtime();

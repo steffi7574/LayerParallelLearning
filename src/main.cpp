@@ -183,17 +183,10 @@ int main(int argc, char *argv[]) {
     sprintf(optimfilename, "%s/%s.dat", config->datafolder, "optim");
     optimfile = fopen(optimfilename, "w");
     config->writeToFile(optimfile);
-
     fprintf(optimfile,
             "#    || r ||          || r_adj ||      Objective             Loss "
             "                 || grad ||            Stepsize  ls_iter   "
             "Accur_train  Accur_val   Time(sec)\n");
-
-    /* Screen output */
-    printf(
-        "\n#    || r ||          || r_adj ||      Objective             "
-        "Loss                 || grad ||             Stepsize  ls_iter   "
-        "Accur_train  Accur_val   Time(sec)\n");
   }
 
   /* Measure wall time */
@@ -203,7 +196,6 @@ int main(int argc, char *argv[]) {
 
   /* The following loop represents the paper's Algorithm (2) */
   for (int iter = 0; iter < config->maxoptimiter; iter++) {
-
     /* Set up the current batch */
     trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
@@ -250,8 +242,11 @@ int main(int argc, char *argv[]) {
     UsedTime = StopTime - StartTime;
     if (myid == MASTER_NODE) {
       printf(
-          "%03d  %1.8e  %1.8e  %1.14e  %1.14e  %1.14e  %5f  %2d        "
-          "%2.2f%%      %2.2f%%    %.1f\n",
+          "\n|| r ||\t|| r_adj ||\tObjective\tLoss\t\t\t|| grad "
+          "||\t\tStepsize\t\tls_iter\tAccur_train\tAccur_val\tTime(sec)\n");
+      printf(
+          "%03d\t%1.8e\t%1.8e\t%1.14e\t%1.14e\t%1.14e\t%5f\t%2d\t%2.2f%%\t%2."
+          "2f%%\t%.1f\n\n",
           iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize,
           ls_iter, accurtrain_out, accurval_out, UsedTime);
       fprintf(optimfile,
@@ -316,8 +311,8 @@ int main(int argc, char *argv[]) {
 
         test_obj = objective - ls_param * ls_stepsize * wolfe;
         if (myid == MASTER_NODE)
-          printf("ls_iter %d: %1.14e %1.14e\n", ls_iter, ls_objective,
-                 test_obj);
+          printf("ls_iter = %d:\tls_objective = %1.14e\ttest_obj = %1.14e\n",
+                 ls_iter, ls_objective, test_obj);
         /* Test the wolfe condition */
         if (ls_objective <= test_obj) {
           /* Success, use this new design */

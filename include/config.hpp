@@ -1,5 +1,4 @@
-#include "defs.hpp"
-
+#include "mpi.h"
 #include <cstdio>
 
 #pragma once
@@ -52,13 +51,13 @@ class Config {
   /* Neural Network */
   int nchannels;
   int nlayers;
-  MyReal T;
+  double T;
   int activation;
   int network_type;
   int openlayer_type;
-  MyReal weights_open_init;
-  MyReal weights_init;
-  MyReal weights_class_init;
+  double weights_open_init;
+  double weights_init;
+  double weights_class_init;
 
   /* XBraid */
   int braid_cfactor0;
@@ -66,8 +65,8 @@ class Config {
   int braid_maxlevels;
   int braid_mincoarse;
   int braid_maxiter;
-  MyReal braid_abstol;
-  MyReal braid_abstoladj;
+  double braid_abstol;
+  double braid_abstoladj;
   int braid_printlevel;
   int braid_accesslevel;
   int braid_setskip;
@@ -78,15 +77,15 @@ class Config {
   /* Optimization */
   int batch_type;
   int nbatch;
-  MyReal gamma_tik;
-  MyReal gamma_ddt;
-  MyReal gamma_class;
+  double gamma_tik;
+  double gamma_ddt;
+  double gamma_class;
   int stepsize_type;
-  MyReal stepsize_init;
+  double stepsize_init;
   int maxoptimiter;
-  MyReal gtol;
+  double gtol;
   int ls_maxiter;
-  MyReal ls_factor;
+  double ls_factor;
   int hessianapprox_type;
   int lbfgs_stages;
   int validationlevel;
@@ -105,5 +104,5 @@ class Config {
 
   /* Returns a stepsize, depending on the selected stepsize type and current
    * optimization iteration */
-  MyReal getStepsize(int optimiter);
+  double getStepsize(int optimiter);
 };

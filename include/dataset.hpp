@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <mpi.h>
 #include "config.hpp"
-#include "defs.hpp"
 #include "util.hpp"
 #pragma once
 
@@ -11,8 +10,8 @@ class DataSet {
   int nfeatures; /* Number of features per element */
   int nlabels;   /* Number of different labels (i.e. classes) per element */
 
-  MyReal **examples; /* Array of Feature vectors (dim: nelements x nfeatures) */
-  MyReal **labels;   /* Array of Label vectors (dim: nelements x nlabels) */
+  double **examples; /* Array of Feature vectors (dim: nelements x nfeatures) */
+  double **labels;   /* Array of Label vectors (dim: nelements x nlabels) */
 
   int nbatch;    /* Size of the batch */
   int *batchIDs; /* Array of batch indicees */
@@ -39,11 +38,11 @@ class DataSet {
 
   /* Return the feature vector of a certain batchID. If not stored on this
    * processor, return NULL */
-  MyReal *getExample(int id);
+  double *getExample(int id);
 
   /* Return the label vector of a certain batchID. If not stored on this
    * processor, return NULL */
-  MyReal *getLabel(int id);
+  double *getLabel(int id);
 
   /* Read data from file */
   void readData(const char *datafolder, const char *examplefile,

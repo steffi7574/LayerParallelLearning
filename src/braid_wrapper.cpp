@@ -10,9 +10,9 @@ myBraidVector::myBraidVector(int nChannels, int nBatch) {
   sendflag = -1.0;
 
   /* Allocate the state vector */
-  state = new MyReal *[nbatch];
+  state = new double *[nbatch];
   for (int iex = 0; iex < nbatch; iex++) {
-    state[iex] = new MyReal[nchannels];
+    state[iex] = new double[nchannels];
     for (int ic = 0; ic < nchannels; ic++) {
       state[iex][ic] = 0.0;
     }
@@ -32,15 +32,15 @@ int myBraidVector::getnChannels() { return nchannels; }
 
 int myBraidVector::getnBatch() { return nbatch; }
 
-MyReal *myBraidVector::getState(int exampleID) { return state[exampleID]; }
+double *myBraidVector::getState(int exampleID) { return state[exampleID]; }
 
-MyReal **myBraidVector::getState() { return state; }
+double **myBraidVector::getState() { return state; }
 
 Layer *myBraidVector::getLayer() { return layer; }
 void myBraidVector::setLayer(Layer *layerptr) { layer = layerptr; }
 
-MyReal myBraidVector::getSendflag() { return sendflag; }
-void myBraidVector::setSendflag(MyReal value) { sendflag = value; }
+double myBraidVector::getSendflag() { return sendflag; }
+void myBraidVector::setSendflag(double value) { sendflag = value; }
 
 /* ========================================================= */
 /* ========================================================= */
@@ -78,7 +78,7 @@ myBraidApp::~myBraidApp() {
   if (core->GetWarmRestart()) delete core;
 }
 
-MyReal myBraidApp::getObjective() { return objective; }
+double myBraidApp::getObjective() { return objective; }
 
 BraidCore *myBraidApp::getCore() { return core; }
 
@@ -86,7 +86,7 @@ void myBraidApp::GetGridDistribution(int *ilower_ptr, int *iupper_ptr) {
   core->GetDistribution(ilower_ptr, iupper_ptr);
 }
 
-braid_Int myBraidApp::GetTimeStepIndex(MyReal t) {
+braid_Int myBraidApp::GetTimeStepIndex(double t) {
   /* Round to the closes integer */
   int ts = round(t / network->getDT());
   return ts;
@@ -95,8 +95,8 @@ braid_Int myBraidApp::GetTimeStepIndex(MyReal t) {
 braid_Int myBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
                            braid_Vector fstop_, BraidStepStatus &pstatus) {
   int ts_stop;
-  MyReal tstart, tstop;
-  MyReal deltaT;
+  double tstart, tstop;
+  double deltaT;
 
   myBraidVector *u = (myBraidVector *)u_;
   int nbatch = data->getnBatch();
@@ -231,7 +231,7 @@ braid_Int myBraidApp::SpatialNorm(braid_Vector u_, braid_Real *norm_ptr) {
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
 
-  MyReal dot = 0.0;
+  double dot = 0.0;
   for (int iex = 0; iex < nbatch; iex++) {
     dot += vecdot(nchannels, u->getState(iex), u->getState(iex));
   }
@@ -256,7 +256,7 @@ braid_Int myBraidApp::BufSize(braid_Int *size_ptr, BraidBufferStatus &bstatus) {
   int nlayerdesign = network->getnDesignLayermax();
 
   /* Set the size */
-  *size_ptr = (nuvector + nlayerinfo + nlayerdesign) * sizeof(MyReal);
+  *size_ptr = (nuvector + nlayerinfo + nlayerdesign) * sizeof(double);
 
   return 0;
 }
@@ -266,7 +266,7 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
   int size;
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
-  MyReal *dbuffer = (MyReal *)buffer;
+  double *dbuffer = (double *)buffer;
   myBraidVector *u = (myBraidVector *)u_;
 
   /* Store network state */
@@ -277,7 +277,7 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
       idx++;
     }
   }
-  size = nchannels * nbatch * sizeof(MyReal);
+  size = nchannels * nbatch * sizeof(double);
 
   int nweights = u->getLayer()->getnWeights();
   int nbias = u->getLayer()->getDimBias();
@@ -316,7 +316,7 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
     idx++;
     // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
   }
-  size += (12 + (nweights + nbias)) * sizeof(MyReal);
+  size += (12 + (nweights + nbias)) * sizeof(double);
 
   bstatus.SetSize(size);
 
@@ -326,7 +326,7 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
 braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
                                 BraidBufferStatus &bstatus) {
   Layer *tmplayer = 0;
-  MyReal *dbuffer = (MyReal *)buffer;
+  double *dbuffer = (double *)buffer;
 
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
@@ -399,8 +399,8 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
   }
 
   /* Allocate design and gradient */
-  MyReal *design = new MyReal[nDesign];
-  MyReal *gradient = new MyReal[nDesign];
+  double *design = new double[nDesign];
+  double *gradient = new double[nDesign];
   tmplayer->setMemory(design, gradient);
   /* Set the weights */
   for (int i = 0; i < nweights; i++) {
@@ -454,8 +454,8 @@ braid_Int myBraidApp::EvaluateObjective() {
   braid_BaseVector ubase;
   myBraidVector *u;
   Layer *layer;
-  MyReal myobjective;
-  MyReal regul;
+  double myobjective;
+  double regul;
 
   /* Get range of locally stored layers */
   int startlayerID = network->getStartLayerID();
@@ -491,15 +491,15 @@ braid_Int myBraidApp::EvaluateObjective() {
   /* Collect objective function from all processors */
   myobjective = network->getLoss() + regul;
   objective = 0.0;
-  MPI_Allreduce(&myobjective, &objective, 1, MPI_MyReal, MPI_SUM,
+  MPI_Allreduce(&myobjective, &objective, 1, MPI_DOUBLE, MPI_SUM,
                 MPI_COMM_WORLD);
 
   return 0;
 }
 
-MyReal myBraidApp::run() {
+double myBraidApp::run() {
   int nreq = -1;
-  MyReal norm;
+  double norm;
 
   SetInitialCondition();
   core->Drive();
@@ -537,8 +537,8 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
                                   BraidStepStatus &pstatus) {
   int ts_stop;
   int level, compute_gradient;
-  MyReal tstart, tstop;
-  MyReal deltaT;
+  double tstart, tstop;
+  double deltaT;
   int finegrid = 0;
   int primaltimestep;
   braid_BaseVector ubaseprimal;
@@ -643,7 +643,7 @@ braid_Int myAdjointBraidApp::BufSize(braid_Int *size_ptr,
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
 
-  *size_ptr = nchannels * nbatch * sizeof(MyReal);
+  *size_ptr = nchannels * nbatch * sizeof(double);
   return 0;
 }
 
@@ -652,7 +652,7 @@ braid_Int myAdjointBraidApp::BufPack(braid_Vector u_, void *buffer,
   int size;
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
-  MyReal *dbuffer = (MyReal *)buffer;
+  double *dbuffer = (double *)buffer;
   myBraidVector *u = (myBraidVector *)u_;
 
   /* Store network state */
@@ -663,7 +663,7 @@ braid_Int myAdjointBraidApp::BufPack(braid_Vector u_, void *buffer,
       idx++;
     }
   }
-  size = nchannels * nbatch * sizeof(MyReal);
+  size = nchannels * nbatch * sizeof(double);
 
   bstatus.SetSize(size);
   return 0;
@@ -673,7 +673,7 @@ braid_Int myAdjointBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
                                        BraidBufferStatus &bstatus) {
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
-  MyReal *dbuffer = (MyReal *)buffer;
+  double *dbuffer = (double *)buffer;
 
   /* Allocate the vector */
   myBraidVector *u = new myBraidVector(nchannels, nbatch);

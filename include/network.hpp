@@ -15,9 +15,9 @@ class Network {
   int nlayers_local;  /* Number of Layers in this network block */
 
   int nchannels;   /* Width of the network */
-  MyReal dt;       /* Time step size */
-  MyReal loss;     /* Value of the loss function */
-  MyReal accuracy; /* Accuracy of the network prediction (percentage of
+  double dt;       /* Time step size */
+  double loss;     /* Value of the loss function */
+  double accuracy; /* Accuracy of the network prediction (percentage of
                       successfully predicted classes) */
 
   int startlayerID; /* ID of the first layer on that processor */
@@ -28,8 +28,8 @@ class Network {
   int ndesign_layermax; /* Max. number of design variables of all hidden layers
                          */
 
-  MyReal *design;   /* Local vector of design variables*/
-  MyReal *gradient; /* Local Gradient */
+  double *design;   /* Local vector of design variables*/
+  double *gradient; /* Local Gradient */
 
   Layer *openlayer;  /* At first processor: openinglayer, else: NULL */
   Layer **layers;    /* Array of hidden layers (includes classification layer at
@@ -54,22 +54,22 @@ class Network {
   int getnLayersGlobal();
 
   /* Get initial time step size */
-  MyReal getDT();
+  double getDT();
 
   /* Get local storage index of the a layer */
   int getLocalID(int ilayer);
 
   /* Return value of the loss function */
-  MyReal getLoss();
+  double getLoss();
 
   /* Return accuracy value */
-  MyReal getAccuracy();
+  double getAccuracy();
 
   /* Return a pointer to the design vector */
-  MyReal *getDesign();
+  double *getDesign();
 
   /* Return a pointer to the gradient vector */
-  MyReal *getGradient();
+  double *getGradient();
 
   /* Get ID of first and last layer on this processor */
   int getStartLayerID();
@@ -114,17 +114,17 @@ class Network {
   /**
    * Applies the classification and evaluates loss/accuracy
    */
-  void evalClassification(DataSet *data, MyReal **state, int output);
+  void evalClassification(DataSet *data, double **state, int output);
 
   /**
    * On classification layer: derivative of evalClassification
    */
-  void evalClassification_diff(DataSet *data, MyReal **primalstate,
-                               MyReal **adjointstate, int compute_gradient);
+  void evalClassification_diff(DataSet *data, double **primalstate,
+                               double **adjointstate, int compute_gradient);
 
   /**
    * Update the network design parameters: new_design = old_design + stepsize *
    * direction
    */
-  void updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm);
+  void updateDesign(double stepsize, double *direction, MPI_Comm comm);
 };

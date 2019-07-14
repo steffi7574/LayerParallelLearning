@@ -31,7 +31,6 @@
 #include "braid_wrapper.hpp"
 #include "config.hpp"
 #include "dataset.hpp"
-#include "defs.hpp"
 #include "hessianApprox.hpp"
 #include "layer.hpp"
 #include "network.hpp"
@@ -49,14 +48,14 @@ int main(int argc, char *argv[]) {
   Network *network; /**< DNN Network architecture */
   int ilower,
       iupper; /**< Index of first and last layer stored on this processor */
-  MyReal accur_train = 0.0; /**< Accuracy on training data */
-  MyReal accur_val = 0.0;   /**< Accuracy on validation data */
-  MyReal loss_train = 0.0;  /**< Loss function on training data */
-  MyReal loss_val = 0.0;    /**< Loss function on validation data */
-  MyReal losstrain_out = 0.0;
-  MyReal lossval_out = 0.0;
-  MyReal accurtrain_out = 0.0;
-  MyReal accurval_out = 0.0;
+  double accur_train = 0.0; /**< Accuracy on training data */
+  double accur_val = 0.0;   /**< Accuracy on validation data */
+  double loss_train = 0.0;  /**< Loss function on training data */
+  double loss_val = 0.0;    /**< Loss function on validation data */
+  double losstrain_out = 0.0;
+  double lossval_out = 0.0;
+  double accurtrain_out = 0.0;
+  double accurval_out = 0.0;
 
   /* --- XBraid --- */
   myBraidApp *primaltrainapp;         /**< Braid App for training data */
@@ -66,18 +65,18 @@ int main(int argc, char *argv[]) {
   /* --- Optimization --- */
   int ndesign_local;  /**< Number of local design variables on this processor */
   int ndesign_global; /**< Number of global design variables (sum of local)*/
-  MyReal *ascentdir = 0; /**< Direction for design updates */
-  MyReal objective;      /**< Optimization objective */
-  MyReal wolfe;          /**< Holding the wolfe condition value */
-  MyReal rnorm;          /**< Space-time Norm of the state variables */
-  MyReal rnorm_adj;      /**< Space-time norm of the adjoint variables */
-  MyReal gnorm;          /**< Norm of the gradient */
-  MyReal ls_param;       /**< Parameter in wolfe condition test */
-  MyReal stepsize;       /**< Stepsize used for design update */
+  double *ascentdir = 0; /**< Direction for design updates */
+  double objective;      /**< Optimization objective */
+  double wolfe;          /**< Holding the wolfe condition value */
+  double rnorm;          /**< Space-time Norm of the state variables */
+  double rnorm_adj;      /**< Space-time norm of the adjoint variables */
+  double gnorm;          /**< Norm of the gradient */
+  double ls_param;       /**< Parameter in wolfe condition test */
+  double stepsize;       /**< Stepsize used for design update */
   char optimfilename[255];
   FILE *optimfile = 0;
-  MyReal ls_stepsize;
-  MyReal ls_objective, test_obj;
+  double ls_stepsize;
+  double ls_objective, test_obj;
   int ls_iter;
 
   /* --- other --- */
@@ -85,8 +84,8 @@ int main(int argc, char *argv[]) {
   int myid;
   int size;
   struct rusage r_usage;
-  MyReal StartTime, StopTime, myMB, globalMB;
-  MyReal UsedTime = 0.0;
+  double StartTime, StopTime, myMB, globalMB;
+  double UsedTime = 0.0;
 
   /* Initialize MPI */
   MPI_Init(&argc, &argv);
@@ -168,7 +167,7 @@ int main(int argc, char *argv[]) {
   /* Allocate ascent direction for design updates */
 
   /* Initialize optimization parameters */
-  ascentdir = new MyReal[ndesign_local];
+  ascentdir = new double[ndesign_local];
   stepsize = config->getStepsize(0);
   gnorm = 0.0;
   objective = 0.0;
@@ -232,13 +231,13 @@ int main(int argc, char *argv[]) {
 
     /* Communicate loss and accuracy. This is actually only needed for output.
      * TODO: Remove it. */
-    MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM,
+    MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM,
+    MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_MyReal, MPI_SUM,
+    MPI_Allreduce(&accur_train, &accurtrain_out, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
-    MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_MyReal, MPI_SUM,
+    MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_DOUBLE, MPI_SUM,
                   MPI_COMM_WORLD);
 
     /* Output */
@@ -359,8 +358,8 @@ int main(int argc, char *argv[]) {
   StopTime = MPI_Wtime();
   UsedTime = StopTime - StartTime;
   getrusage(RUSAGE_SELF, &r_usage);
-  myMB = (MyReal)r_usage.ru_maxrss / 1024.0;
-  MPI_Allreduce(&myMB, &globalMB, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
+  myMB = (double)r_usage.ru_maxrss / 1024.0;
+  MPI_Allreduce(&myMB, &globalMB, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
   // printf("%d; Memory Usage: %.2f MB\n",myid, myMB);
   if (myid == MASTER_NODE) {

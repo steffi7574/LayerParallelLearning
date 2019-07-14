@@ -2,7 +2,6 @@
 #include <stdlib.h>
 
 #include "braid.hpp"
-#include "defs.hpp"
 // #include "_braid.h"
 #include "dataset.hpp"
 #include "layer.hpp"
@@ -17,13 +16,13 @@ class myBraidVector {
   int nbatch;    /* Number of examples */
   int nchannels; /* Number of channels */
 
-  MyReal *
+  double *
       *state;   /* Network state at one layer, dimensions: nbatch * nchannels */
   Layer *layer; /* Pointer to layer information */
 
   /* Flag that determines if the layer and state have just been received and
    * thus should be free'd after usage (flag > 0) */
-  MyReal sendflag;
+  double sendflag;
 
  public:
   /* Get dimensions */
@@ -31,18 +30,18 @@ class myBraidVector {
   int getnChannels();
 
   /* Get Pointer to the state at example exampleID */
-  MyReal *getState(int exampleID);
+  double *getState(int exampleID);
 
   /* Get pointer to the full state matrix */
-  MyReal **getState();
+  double **getState();
 
   /* Get and set pointer to the layer */
   Layer *getLayer();
   void setLayer(Layer *layer);
 
   /* Get and set the sendflag */
-  MyReal getSendflag();
-  void setSendflag(MyReal value);
+  double getSendflag();
+  void setSendflag(double value);
 
   /* Constructor */
   myBraidVector(int nChannels, int nBatch);
@@ -64,7 +63,7 @@ class myBraidApp : public BraidApp {
   BraidCore *core; /* Braid core for running PinT simulation */
 
   /* Output */
-  MyReal objective; /* Objective function */
+  double objective; /* Objective function */
 
  public:
   /* Constructor */
@@ -74,7 +73,7 @@ class myBraidApp : public BraidApp {
   ~myBraidApp();
 
   /* Return objective function */
-  MyReal getObjective();
+  double getObjective();
 
   /* Return the core */
   BraidCore *getCore();
@@ -83,7 +82,7 @@ class myBraidApp : public BraidApp {
   void GetGridDistribution(int *ilower_ptr, int *iupper_ptr);
 
   /* Return the time step index of current time t */
-  braid_Int GetTimeStepIndex(MyReal t);
+  braid_Int GetTimeStepIndex(double t);
 
   /* Apply one time step */
   virtual braid_Int Step(braid_Vector u_, braid_Vector ustop_,
@@ -131,7 +130,7 @@ class myBraidApp : public BraidApp {
   virtual braid_Int EvaluateObjective();
 
   /* Run Braid drive, return norm */
-  MyReal run();
+  double run();
 };
 
 /**

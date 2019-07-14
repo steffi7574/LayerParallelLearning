@@ -31,16 +31,16 @@ void DataSet::initialize(int nElements, int nFeatures, int nLabels, int nBatch,
 
   /* Allocate feature vectors on first processor */
   if (MPIrank == 0) {
-    examples = new MyReal *[nelements];
+    examples = new double *[nelements];
     for (int ielem = 0; ielem < nelements; ielem++) {
-      examples[ielem] = new MyReal[nfeatures];
+      examples[ielem] = new double[nfeatures];
     }
   }
   /* Allocate label vectors on last processor */
   if (MPIrank == MPIsize - 1) {
-    labels = new MyReal *[nelements];
+    labels = new double *[nelements];
     for (int ielem = 0; ielem < nelements; ielem++) {
-      labels[ielem] = new MyReal[nlabels];
+      labels[ielem] = new double[nlabels];
     }
   }
 
@@ -85,13 +85,13 @@ DataSet::~DataSet() {
 
 int DataSet::getnBatch() { return nbatch; }
 
-MyReal *DataSet::getExample(int id) {
+double *DataSet::getExample(int id) {
   if (examples == NULL) return NULL;
 
   return examples[batchIDs[id]];
 }
 
-MyReal *DataSet::getLabel(int id) {
+double *DataSet::getLabel(int id) {
   if (labels == NULL) return NULL;
 
   return labels[batchIDs[id]];

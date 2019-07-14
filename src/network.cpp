@@ -35,7 +35,7 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   nlayers_local = endlayerID - startlayerID + 1;
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
-  dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
+  dt = (config->T) / (double)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
   comm = Comm;
 
   /* --- Create the layers --- */
@@ -77,8 +77,8 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   ndesign_layermax = computeLayermax();
 
   /* Allocate memory for network design and gradient variables */
-  design = new MyReal[ndesign_local];
-  gradient = new MyReal[ndesign_local];
+  design = new double[ndesign_local];
+  gradient = new double[ndesign_local];
 
   /* Set the memory locations for all layers */
   int istart = 0;
@@ -97,14 +97,14 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 
   /* left anr right neighbouring layer design, if exists */
   if (layer_left != NULL) {
-    MyReal *left_design = new MyReal[layer_left->getnDesign()];
-    MyReal *left_gradient = new MyReal[layer_left->getnDesign()];
+    double *left_design = new double[layer_left->getnDesign()];
+    double *left_gradient = new double[layer_left->getnDesign()];
     layer_left->setMemory(left_design, left_gradient);
   }
   /* Create and initialize right neighbouring layer design, if exists */
   if (layer_right != NULL) {
-    MyReal *right_design = new MyReal[layer_right->getnDesign()];
-    MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
+    double *right_design = new double[layer_right->getnDesign()];
+    double *right_gradient = new double[layer_right->getnDesign()];
     layer_right->setMemory(right_design, right_gradient);
   }
 }
@@ -141,24 +141,24 @@ int Network::getnChannels() { return nchannels; }
 
 int Network::getnLayersGlobal() { return nlayers_global; }
 
-MyReal Network::getDT() { return dt; }
+double Network::getDT() { return dt; }
 
 int Network::getLocalID(int ilayer) {
   int idx = ilayer - startlayerID;
   return idx;
 }
 
-MyReal Network::getLoss() { return loss; }
+double Network::getLoss() { return loss; }
 
-MyReal Network::getAccuracy() { return accuracy; }
+double Network::getAccuracy() { return accuracy; }
 
 int Network::getnDesignLocal() { return ndesign_local; }
 
 int Network::getnDesignGlobal() { return ndesign_global; }
 
-MyReal *Network::getDesign() { return design; }
+double *Network::getDesign() { return design; }
 
-MyReal *Network::getGradient() { return gradient; }
+double *Network::getGradient() { return gradient; }
 
 int Network::getStartLayerID() { return startlayerID; }
 int Network::getEndLayerID() { return endlayerID; }
@@ -258,8 +258,8 @@ int Network::computeLayermax() {
 }
 
 void Network::setInitialDesign(Config *config) {
-  MyReal factor;
-  MyReal *design_init;
+  double factor;
+  double *design_init;
   char filename[255];
   int myid;
   MPI_Comm_rank(comm, &myid);
@@ -268,9 +268,9 @@ void Network::setInitialDesign(Config *config) {
    * scaling test) */
   if (myid == 0) {
     srand(1.0);
-    design_init = new MyReal[ndesign_global];
+    design_init = new double[ndesign_global];
     for (int i = 0; i < ndesign_global; i++) {
-      design_init[i] = (MyReal)rand() / ((MyReal)RAND_MAX);
+      design_init[i] = (double)rand() / ((double)RAND_MAX);
     }
   }
   /* Scatter initial design to all processors */
@@ -334,10 +334,10 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
   int size_left = -1;
   int size_right = -1;
 
-  MyReal *sendlast = 0;
-  MyReal *recvlast = 0;
-  MyReal *sendfirst = 0;
-  MyReal *recvfirst = 0;
+  double *sendlast = 0;
+  double *recvlast = 0;
+  double *sendfirst = 0;
+  double *recvfirst = 0;
 
   /* --- All but the first process receive the last layer from left neighbour
    * --- */
@@ -346,23 +346,23 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
     int source = myid - 1;
 
     size_left = layer_left->getnDesign();
-    recvlast = new MyReal[size_left];
+    recvlast = new double[size_left];
 
-    MPI_Irecv(recvlast, size_left, MPI_MyReal, source, 0, comm, &recvlastreq);
+    MPI_Irecv(recvlast, size_left, MPI_DOUBLE, source, 0, comm, &recvlastreq);
   }
 
   /* --- All but the last process sent their last layer to right neighbour ---
    */
   if (myid < comm_size - 1) {
     size_left = layers[getLocalID(endlayerID)]->getnDesign();
-    sendlast = new MyReal[size_left];
+    sendlast = new double[size_left];
 
     /* Pack the last layer into a buffer */
     layers[getLocalID(endlayerID)]->packDesign(sendlast, size_left);
 
     /* Send to right neighbour */
     int receiver = myid + 1;
-    MPI_Isend(sendlast, size_left, MPI_MyReal, receiver, 0, comm, &sendlastreq);
+    MPI_Isend(sendlast, size_left, MPI_DOUBLE, receiver, 0, comm, &sendlastreq);
   }
 
   /* --- All but the last processor recv the first layer from the right
@@ -372,9 +372,9 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
     int source = myid + 1;
 
     size_right = layer_right->getnDesign();
-    recvfirst = new MyReal[size_right];
+    recvfirst = new double[size_right];
 
-    MPI_Irecv(recvfirst, size_right, MPI_MyReal, source, 1, comm,
+    MPI_Irecv(recvfirst, size_right, MPI_DOUBLE, source, 1, comm,
               &recvfirstreq);
   }
 
@@ -382,14 +382,14 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
    * neighbour --- */
   if (myid > 0) {
     size_right = layers[getLocalID(startlayerID)]->getnDesign();
-    sendfirst = new MyReal[size_right];
+    sendfirst = new double[size_right];
 
     /* Pack the first layer into a buffer */
     layers[getLocalID(startlayerID)]->packDesign(sendfirst, size_right);
 
     /* Send to left neighbour */
     int receiver = myid - 1;
-    MPI_Isend(sendfirst, size_right, MPI_MyReal, receiver, 1, comm,
+    MPI_Isend(sendfirst, size_right, MPI_DOUBLE, receiver, 1, comm,
               &sendfirstreq);
   }
 
@@ -416,8 +416,8 @@ void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
   if (recvfirst != 0) delete[] recvfirst;
 }
 
-void Network::evalClassification(DataSet *data, MyReal **state, int output) {
-  MyReal *tmpstate = new MyReal[nchannels];
+void Network::evalClassification(DataSet *data, double **state, int output) {
+  double *tmpstate = new double[nchannels];
 
   int class_id;
   int success, success_local;
@@ -454,7 +454,7 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
     if (output) fprintf(classfile, "%d   %d\n", class_id, success_local);
   }
   loss = 1. / data->getnBatch() * loss;
-  accuracy = 100.0 * ((MyReal)success) / data->getnBatch();
+  accuracy = 100.0 * ((double)success) / data->getnBatch();
   // printf("Classification %d: %1.14e using layer %1.14e state %1.14e
   // tmpstate[0] %1.14e\n", getIndex(), loss, weights[0], state[1][1],
   // tmpstate[0]);
@@ -465,10 +465,10 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
   delete[] tmpstate;
 }
 
-void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
-                                      MyReal **adjointstate,
+void Network::evalClassification_diff(DataSet *data, double **primalstate,
+                                      double **adjointstate,
                                       int compute_gradient) {
-  MyReal *tmpstate = new MyReal[nchannels];
+  double *tmpstate = new double[nchannels];
   ClassificationLayer *classificationlayer;
 
   /* Get classification layer */
@@ -480,7 +480,7 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
   }
 
   int nbatch = data->getnBatch();
-  MyReal loss_bar = 1. / nbatch;
+  double loss_bar = 1. / nbatch;
 
   for (int iex = 0; iex < nbatch; iex++) {
     /* Recompute the Classification */
@@ -503,7 +503,7 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
   delete[] tmpstate;
 }
 
-void Network::updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm) {
+void Network::updateDesign(double stepsize, double *direction, MPI_Comm comm) {
   /* Update design locally on this network-block */
   for (int id = 0; id < ndesign_local; id++) {
     design[id] += stepsize * direction[id];

@@ -1,5 +1,4 @@
 #include "config.hpp"
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -429,8 +428,8 @@ int Config::writeToFile(FILE *outfile) {
   return 0;
 }
 
-MyReal Config::getStepsize(int optimiter) {
-  MyReal stepsize = 0.0;
+double Config::getStepsize(int optimiter) {
+  double stepsize = 0.0;
 
   switch (stepsize_type) {
     case FIXED:
@@ -440,7 +439,7 @@ MyReal Config::getStepsize(int optimiter) {
       stepsize = stepsize_init;
       break;
     case ONEOVERK:
-      stepsize = 1.0 / (MyReal)(optimiter +
+      stepsize = 1.0 / (double)(optimiter +
                                 1);  // add one because optimiter starts with 0
   }
 

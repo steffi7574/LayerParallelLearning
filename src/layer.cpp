@@ -27,7 +27,7 @@ Layer::Layer() {
 }
 
 Layer::Layer(int idx, int Type, int dimI, int dimO, int dimB, int dimW,
-             MyReal deltaT, int Activ, MyReal gammatik, MyReal gammaddt)
+             double deltaT, int Activ, double gammatik, double gammaddt)
     : Layer() {
   index = idx;
   type = Type;
@@ -41,8 +41,8 @@ Layer::Layer(int idx, int Type, int dimI, int dimO, int dimB, int dimW,
   gamma_tik = gammatik;
   gamma_ddt = gammaddt;
 
-  update = new MyReal[dimO];
-  update_bar = new MyReal[dimO];
+  update = new double[dimO];
+  update_bar = new double[dimO];
 }
 
 Layer::~Layer() {
@@ -50,11 +50,11 @@ Layer::~Layer() {
   delete[] update_bar;
 }
 
-void Layer::setDt(MyReal DT) { dt = DT; }
+void Layer::setDt(double DT) { dt = DT; }
 
-MyReal Layer::getDt() { return dt; }
+double Layer::getDt() { return dt; }
 
-void Layer::setMemory(MyReal *design_memloc, MyReal *gradient_memloc) {
+void Layer::setMemory(double *design_memloc, double *gradient_memloc) {
   /* Set design and gradient memory locations */
   weights = design_memloc;
   weights_bar = gradient_memloc;
@@ -64,19 +64,19 @@ void Layer::setMemory(MyReal *design_memloc, MyReal *gradient_memloc) {
   bias_bar = gradient_memloc + nweights;
 }
 
-MyReal Layer::getGammaTik() { return gamma_tik; }
+double Layer::getGammaTik() { return gamma_tik; }
 
-MyReal Layer::getGammaDDT() { return gamma_ddt; }
+double Layer::getGammaDDT() { return gamma_ddt; }
 
 int Layer::getActivation() { return activ; }
 
 int Layer::getType() { return type; }
 
-MyReal *Layer::getWeights() { return weights; }
-MyReal *Layer::getBias() { return bias; }
+double *Layer::getWeights() { return weights; }
+double *Layer::getBias() { return bias; }
 
-MyReal *Layer::getWeightsBar() { return weights_bar; }
-MyReal *Layer::getBiasBar() { return bias_bar; }
+double *Layer::getWeightsBar() { return weights_bar; }
+double *Layer::getBiasBar() { return bias_bar; }
 
 int Layer::getDimIn() { return dim_In; }
 int Layer::getDimOut() { return dim_Out; }
@@ -89,7 +89,7 @@ int Layer::getCSize() { return csize; }
 
 int Layer::getIndex() { return index; }
 
-void Layer::print_data(MyReal *data) {
+void Layer::print_data(double *data) {
   printf("DATA: ");
   for (int io = 0; io < dim_Out; io++) {
     printf("%1.14e ", data[io]);
@@ -97,8 +97,8 @@ void Layer::print_data(MyReal *data) {
   printf("\n");
 }
 
-MyReal Layer::activation(MyReal x) {
-  MyReal y;
+double Layer::activation(double x) {
+  double y;
   switch (activ) {
     case TANH:
       y = Layer::tanh_act(x);
@@ -118,8 +118,8 @@ MyReal Layer::activation(MyReal x) {
   return y;
 }
 
-MyReal Layer::dactivation(MyReal x) {
-  MyReal y;
+double Layer::dactivation(double x) {
+  double y;
   switch (activ) {
     case TANH:
       y = Layer::dtanh_act(x);
@@ -139,7 +139,7 @@ MyReal Layer::dactivation(MyReal x) {
   return y;
 }
 
-void Layer::packDesign(MyReal *buffer, int size) {
+void Layer::packDesign(double *buffer, int size) {
   int nweights = getnWeights();
   int nbias = getDimBias();
   int idx = 0;
@@ -158,7 +158,7 @@ void Layer::packDesign(MyReal *buffer, int size) {
   }
 }
 
-void Layer::unpackDesign(MyReal *buffer) {
+void Layer::unpackDesign(double *buffer) {
   int nweights = getnWeights();
   int nbias = getDimBias();
 
@@ -173,7 +173,7 @@ void Layer::unpackDesign(MyReal *buffer) {
   }
 }
 
-void Layer::scaleDesign(MyReal factor) {
+void Layer::scaleDesign(double factor) {
   /* Scale design by a factor */
   for (int i = 0; i < nweights; i++) {
     weights[i] = factor * weights[i];
@@ -195,8 +195,8 @@ void Layer::resetBar() {
   }
 }
 
-MyReal Layer::evalTikh() {
-  MyReal tik = 0.0;
+double Layer::evalTikh() {
+  double tik = 0.0;
   for (int i = 0; i < nweights; i++) {
     tik += pow(weights[i], 2);
   }
@@ -207,7 +207,7 @@ MyReal Layer::evalTikh() {
   return gamma_tik / 2.0 * tik;
 }
 
-void Layer::evalTikh_diff(MyReal regul_bar) {
+void Layer::evalTikh_diff(double regul_bar) {
   regul_bar = gamma_tik * regul_bar;
 
   /* Derivative bias term */
@@ -219,11 +219,11 @@ void Layer::evalTikh_diff(MyReal regul_bar) {
   }
 }
 
-MyReal Layer::evalRegulDDT(Layer *layer_prev, MyReal deltat) {
+double Layer::evalRegulDDT(Layer *layer_prev, double deltat) {
   if (layer_prev == NULL) return 0.0;  // this holds for opening layer
 
-  MyReal diff;
-  MyReal regul_ddt = 0.0;
+  double diff;
+  double regul_ddt = 0.0;
 
   /* Compute ddt-regularization only if dimensions match  */
   /* this excludes first intermediate layer and classification layer. */
@@ -246,11 +246,11 @@ MyReal Layer::evalRegulDDT(Layer *layer_prev, MyReal deltat) {
 }
 
 void Layer::evalRegulDDT_diff(Layer *layer_prev, Layer *layer_next,
-                              MyReal deltat) {
+                              double deltat) {
   if (layer_prev == NULL) return;
   if (layer_next == NULL) return;
 
-  MyReal diff;
+  double diff;
   int regul_bar = gamma_ddt / (deltat * deltat);
 
   /* Left sided derivative term */
@@ -286,18 +286,18 @@ void Layer::evalRegulDDT_diff(Layer *layer_prev, Layer *layer_next,
   }
 }
 
-void Layer::setExample(MyReal *example_ptr) {}
+void Layer::setExample(double *example_ptr) {}
 
-void Layer::setLabel(MyReal *example_ptr) {}
+void Layer::setLabel(double *example_ptr) {}
 
-DenseLayer::DenseLayer(int idx, int dimI, int dimO, MyReal deltaT, int Activ,
-                       MyReal gammatik, MyReal gammaddt)
+DenseLayer::DenseLayer(int idx, int dimI, int dimO, double deltaT, int Activ,
+                       double gammatik, double gammaddt)
     : Layer(idx, DENSE, dimI, dimO, 1, dimI * dimO, deltaT, Activ, gammatik,
             gammaddt) {}
 
 DenseLayer::~DenseLayer() {}
 
-void DenseLayer::applyFWD(MyReal *state) {
+void DenseLayer::applyFWD(double *state) {
   /* Affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Apply weights */
@@ -313,7 +313,7 @@ void DenseLayer::applyFWD(MyReal *state) {
   }
 }
 
-void DenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
+void DenseLayer::applyBWD(double *state, double *state_bar,
                           int compute_gradient) {
   /* state_bar is the adjoint of the state variable, it contains the
      old time adjoint informationk, and is modified on the way out to
@@ -343,7 +343,7 @@ void DenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
   }
 }
 
-OpenDenseLayer::OpenDenseLayer(int dimI, int dimO, int Activ, MyReal gammatik)
+OpenDenseLayer::OpenDenseLayer(int dimI, int dimO, int Activ, double gammatik)
     : DenseLayer(-1, dimI, dimO, 1.0, Activ, gammatik, 0.0) {
   type = OPENDENSE;
   example = NULL;
@@ -351,9 +351,9 @@ OpenDenseLayer::OpenDenseLayer(int dimI, int dimO, int Activ, MyReal gammatik)
 
 OpenDenseLayer::~OpenDenseLayer() {}
 
-void OpenDenseLayer::setExample(MyReal *example_ptr) { example = example_ptr; }
+void OpenDenseLayer::setExample(double *example_ptr) { example = example_ptr; }
 
-void OpenDenseLayer::applyFWD(MyReal *state) {
+void OpenDenseLayer::applyFWD(double *state) {
   /* affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Apply weights */
@@ -369,7 +369,7 @@ void OpenDenseLayer::applyFWD(MyReal *state) {
   }
 }
 
-void OpenDenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
+void OpenDenseLayer::applyBWD(double *state, double *state_bar,
                               int compute_gradient) {
   /* Derivative of step */
   for (int io = 0; io < dim_Out; io++) {
@@ -405,9 +405,9 @@ OpenExpandZero::OpenExpandZero(int dimI, int dimO)
 
 OpenExpandZero::~OpenExpandZero() {}
 
-void OpenExpandZero::setExample(MyReal *example_ptr) { example = example_ptr; }
+void OpenExpandZero::setExample(double *example_ptr) { example = example_ptr; }
 
-void OpenExpandZero::applyFWD(MyReal *state) {
+void OpenExpandZero::applyFWD(double *state) {
   for (int ii = 0; ii < dim_In; ii++) {
     state[ii] = example[ii];
   }
@@ -416,7 +416,7 @@ void OpenExpandZero::applyFWD(MyReal *state) {
   }
 }
 
-void OpenExpandZero::applyBWD(MyReal *state, MyReal *state_bar,
+void OpenExpandZero::applyBWD(double *state, double *state_bar,
                               int compute_gradient) {
   for (int ii = 0; ii < dim_Out; ii++) {
     state_bar[ii] = 0.0;
@@ -437,9 +437,9 @@ OpenConvLayer::OpenConvLayer(int dimI, int dimO)
 
 OpenConvLayer::~OpenConvLayer() {}
 
-void OpenConvLayer::setExample(MyReal *example_ptr) { example = example_ptr; }
+void OpenConvLayer::setExample(double *example_ptr) { example = example_ptr; }
 
-void OpenConvLayer::applyFWD(MyReal *state) {
+void OpenConvLayer::applyFWD(double *state) {
   // replicate the image data
   for (int img = 0; img < nconv; img++) {
     for (int ii = 0; ii < dim_In; ii++) {
@@ -448,7 +448,7 @@ void OpenConvLayer::applyFWD(MyReal *state) {
   }
 }
 
-void OpenConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
+void OpenConvLayer::applyBWD(double *state, double *state_bar,
                              int compute_gradient) {
   for (int ii = 0; ii < dim_Out; ii++) {
     state_bar[ii] = 0.0;
@@ -462,7 +462,7 @@ OpenConvLayerMNIST::OpenConvLayerMNIST(int dimI, int dimO)
 
 OpenConvLayerMNIST::~OpenConvLayerMNIST() {}
 
-void OpenConvLayerMNIST::applyFWD(MyReal *state) {
+void OpenConvLayerMNIST::applyFWD(double *state) {
   // replicate the image data
   for (int img = 0; img < nconv; img++) {
     for (int ii = 0; ii < dim_In; ii++) {
@@ -476,7 +476,7 @@ void OpenConvLayerMNIST::applyFWD(MyReal *state) {
   }
 }
 
-void OpenConvLayerMNIST::applyBWD(MyReal *state, MyReal *state_bar,
+void OpenConvLayerMNIST::applyBWD(double *state, double *state_bar,
                                   int compute_gradient) {
   // Derivative of step
   for (int img = 0; img < nconv; img++) {
@@ -492,19 +492,19 @@ void OpenConvLayerMNIST::applyBWD(MyReal *state, MyReal *state_bar,
 }
 
 ClassificationLayer::ClassificationLayer(int idx, int dimI, int dimO,
-                                         MyReal gammatik)
+                                         double gammatik)
     : Layer(idx, CLASSIFICATION, dimI, dimO, dimO, dimI * dimO, 1.0, -1, 0.0,
             0.0) {
   gamma_tik = gammatik;
   /* Allocate the probability vector */
-  probability = new MyReal[dimO];
+  probability = new double[dimO];
 }
 
 ClassificationLayer::~ClassificationLayer() { delete[] probability; }
 
-void ClassificationLayer::setLabel(MyReal *label_ptr) { label = label_ptr; }
+void ClassificationLayer::setLabel(double *label_ptr) { label = label_ptr; }
 
-void ClassificationLayer::applyFWD(MyReal *state) {
+void ClassificationLayer::applyFWD(double *state) {
   /* Compute affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Apply weights */
@@ -533,7 +533,7 @@ void ClassificationLayer::applyFWD(MyReal *state) {
   }
 }
 
-void ClassificationLayer::applyBWD(MyReal *state, MyReal *state_bar,
+void ClassificationLayer::applyBWD(double *state, double *state_bar,
                                    int compute_gradient) {
   /* Recompute affine transformation */
   for (int io = 0; io < dim_Out; io++) {
@@ -567,17 +567,17 @@ void ClassificationLayer::applyBWD(MyReal *state, MyReal *state_bar,
   }
 }
 
-void ClassificationLayer::normalize(MyReal *data) {
+void ClassificationLayer::normalize(double *data) {
   /* Find maximum value */
-  MyReal max = vecmax(dim_Out, data);
+  double max = vecmax(dim_Out, data);
   /* Shift the data vector */
   for (int io = 0; io < dim_Out; io++) {
     data[io] = data[io] - max;
   }
 }
 
-void ClassificationLayer::normalize_diff(MyReal *data, MyReal *data_bar) {
-  MyReal max_b = 0.0;
+void ClassificationLayer::normalize_diff(double *data, double *data_bar) {
+  double max_b = 0.0;
   /* Derivative of the shift */
   for (int io = 0; io < dim_Out; io++) {
     max_b -= data_bar[io];
@@ -587,9 +587,9 @@ void ClassificationLayer::normalize_diff(MyReal *data, MyReal *data_bar) {
   data_bar[i_max] += max_b;
 }
 
-MyReal ClassificationLayer::crossEntropy(MyReal *data_Out) {
-  MyReal label_pr, exp_sum;
-  MyReal CELoss;
+double ClassificationLayer::crossEntropy(double *data_Out) {
+  double label_pr, exp_sum;
+  double CELoss;
 
   /* Label projection */
   label_pr = vecdot(dim_Out, label, data_Out);
@@ -606,11 +606,11 @@ MyReal ClassificationLayer::crossEntropy(MyReal *data_Out) {
   return CELoss;
 }
 
-void ClassificationLayer::crossEntropy_diff(MyReal *data_Out,
-                                            MyReal *data_Out_bar,
-                                            MyReal loss_bar) {
-  MyReal exp_sum, exp_sum_bar;
-  MyReal label_pr_bar = -loss_bar;
+void ClassificationLayer::crossEntropy_diff(double *data_Out,
+                                            double *data_Out_bar,
+                                            double loss_bar) {
+  double exp_sum, exp_sum_bar;
+  double label_pr_bar = -loss_bar;
 
   /* Recompute exp_sum */
   exp_sum = 0.0;
@@ -630,8 +630,8 @@ void ClassificationLayer::crossEntropy_diff(MyReal *data_Out,
   }
 }
 
-int ClassificationLayer::prediction(MyReal *data_Out, int *class_id_ptr) {
-  MyReal exp_sum, max;
+int ClassificationLayer::prediction(double *data_Out, int *class_id_ptr) {
+  double exp_sum, max;
   int class_id = -1;
   int success = 0;
 
@@ -663,16 +663,16 @@ int ClassificationLayer::prediction(MyReal *data_Out, int *class_id_ptr) {
   return success;
 }
 
-MyReal Layer::ReLu_act(MyReal x) {
-  MyReal max = 0.0;
+double Layer::ReLu_act(double x) {
+  double max = 0.0;
 
   if (x > 0.0) max = x;
 
   return max;
 }
 
-MyReal Layer::dReLu_act(MyReal x) {
-  MyReal diff;
+double Layer::dReLu_act(double x) {
+  double diff;
   if (x >= 0.0)
     diff = 1.0;
   else
@@ -681,13 +681,13 @@ MyReal Layer::dReLu_act(MyReal x) {
   return diff;
 }
 
-MyReal Layer::SmoothReLu_act(MyReal x) {
+double Layer::SmoothReLu_act(double x) {
   /* range of quadratic interpolation */
-  MyReal eta = 0.1;
+  double eta = 0.1;
   /* Coefficients of quadratic interpolation */
-  MyReal a = 1. / (4. * eta);
-  MyReal b = 1. / 2.;
-  MyReal c = eta / 4.;
+  double a = 1. / (4. * eta);
+  double b = 1. / 2.;
+  double c = eta / 4.;
 
   if (-eta < x && x < eta) {
     /* Quadratic Activation */
@@ -698,12 +698,12 @@ MyReal Layer::SmoothReLu_act(MyReal x) {
   }
 }
 
-MyReal Layer::dSmoothReLu_act(MyReal x) {
+double Layer::dSmoothReLu_act(double x) {
   /* range of quadratic interpolation */
-  MyReal eta = 0.1;
+  double eta = 0.1;
   /* Coefficients of quadratic interpolation */
-  MyReal a = 1. / (4. * eta);
-  MyReal b = 1. / 2.;
+  double a = 1. / (4. * eta);
+  double b = 1. / 2.;
 
   if (-eta < x && x < eta) {
     return 2. * a * x + b;
@@ -712,16 +712,16 @@ MyReal Layer::dSmoothReLu_act(MyReal x) {
   }
 }
 
-MyReal Layer::tanh_act(MyReal x) { return tanh(x); }
+double Layer::tanh_act(double x) { return tanh(x); }
 
-MyReal Layer::dtanh_act(MyReal x) {
-  MyReal diff = 1.0 - pow(tanh(x), 2);
+double Layer::dtanh_act(double x) {
+  double diff = 1.0 - pow(tanh(x), 2);
 
   return diff;
 }
 
 ConvLayer::ConvLayer(int idx, int dimI, int dimO, int csize_in, int nconv_in,
-                     MyReal deltaT, int Activ, MyReal Gammatik, MyReal Gammaddt)
+                     double deltaT, int Activ, double Gammatik, double Gammaddt)
     : Layer(idx, CONVOLUTION, dimI, dimO, dimI / nconv_in,
             csize_in * csize_in * nconv_in * nconv_in, deltaT, Activ, Gammatik,
             Gammaddt) {
@@ -755,12 +755,12 @@ ConvLayer::~ConvLayer() {}
  * Where state_bar _must_ be at the old time. Note that the adjoint variable
  * state_bar carries withit all the information of the objective derivative.
  */
-MyReal ConvLayer::updateWeightDerivative(
-    MyReal *state, MyReal *update_bar, int output_conv, /* output convolution */
+double ConvLayer::updateWeightDerivative(
+    double *state, double *update_bar, int output_conv, /* output convolution */
     int j,                                              /* pixel index */
     int k)                                              /* pixel index */
 {
-  MyReal val = 0;
+  double val = 0;
 
   int fcsize_s_l = -fcsize;
   int fcsize_s_u = fcsize;
@@ -793,23 +793,23 @@ MyReal ConvLayer::updateWeightDerivative(
 
   for (int input_image = 0; input_image < nconv;
        input_image++, center_index += img_size, input_wght_idx += csize2) {
-    MyReal update_val = update_bar[center_index];
+    double update_val = update_bar[center_index];
 
-    MyReal *state_base = state + center_index + offset;
-    MyReal *weights_bar_base = weights_bar + input_wght_idx + wght_idx;
+    double *state_base = state + center_index + offset;
+    double *weights_bar_base = weights_bar + input_wght_idx + wght_idx;
 
-    MyReal *update_base = update_bar + center_index + offset_adj;
-    MyReal *weights_base = weights + input_wght_idx + wght_idx_adj;
+    double *update_base = update_bar + center_index + offset_adj;
+    double *weights_base = weights + input_wght_idx + wght_idx_adj;
 
     // weight derivative
     for (int s = 0; s <= fcsize_s; s++, state_base += img_size_sqrt,
              weights_bar_base += csize, update_base -= img_size_sqrt,
              weights_base += csize) {
-      MyReal *state_local = state_base;
-      MyReal *weights_bar_local = weights_bar_base;
+      double *state_local = state_base;
+      double *weights_bar_local = weights_bar_base;
 
-      MyReal *update_local = update_base;
-      MyReal *weights_local = weights_base;
+      double *update_local = update_base;
+      double *weights_local = weights_base;
 
       for (int t = 0; t <= fcsize_t; t++, state_local++, weights_bar_local++,
                update_local--, weights_local++) {
@@ -822,12 +822,12 @@ MyReal ConvLayer::updateWeightDerivative(
   return val;
 }
 
-MyReal ConvLayer::apply_conv(MyReal *state,
+double ConvLayer::apply_conv(double *state,
                              int output_conv, /* output convolution */
                              int j,           /* pixel index */
                              int k)           /* pixel index */
 {
-  MyReal val = 0.0;
+  double val = 0.0;
 
   int fcsize_s_l = -fcsize;
   int fcsize_s_u = fcsize;
@@ -851,13 +851,13 @@ MyReal ConvLayer::apply_conv(MyReal *state,
   /* loop over all the images */
   for (int input_image = 0; input_image < nconv;
        input_image++, center_index += img_size, input_wght_idx += csize2) {
-    MyReal *state_base = state + center_index;
-    MyReal *weights_base = weights + input_wght_idx;
+    double *state_base = state + center_index;
+    double *weights_base = weights + input_wght_idx;
 
     for (int s = 0; s <= fcsize_s;
          s++, state_base += img_size_sqrt, weights_base += csize) {
-      MyReal *state_local = state_base;
-      MyReal *weights_local = weights_base;
+      double *state_local = state_base;
+      double *weights_local = weights_base;
 
       for (int t = 0; t <= fcsize_t; t++, state_local++, weights_local++) {
         val += (*state_local) * (*weights_local);
@@ -868,12 +868,12 @@ MyReal ConvLayer::apply_conv(MyReal *state,
   return val;
 }
 
-MyReal ConvLayer::apply_conv_trans(MyReal *state,
+double ConvLayer::apply_conv_trans(double *state,
                                    int output_conv, /* output convolution */
                                    int j,           /* pixel index */
                                    int k)           /* pixel index */
 {
-  MyReal val = 0.0;
+  double val = 0.0;
 
   int fcsize_s_l = -fcsize;
   int fcsize_s_u = fcsize;
@@ -896,13 +896,13 @@ MyReal ConvLayer::apply_conv_trans(MyReal *state,
     int offset = center_index - fcsize_t_l;
     int wght_idx = input_wght_idx + fcsize * (csize + 1) + fcsize_t_l;
 
-    MyReal *state_base = state + offset - img_size_sqrt * fcsize_s_l;
-    MyReal *weights_base = weights + wght_idx + csize * fcsize_s_l;
+    double *state_base = state + offset - img_size_sqrt * fcsize_s_l;
+    double *weights_base = weights + wght_idx + csize * fcsize_s_l;
 
     for (int s = 0; s <= fcsize_s;
          s++, state_base -= img_size_sqrt, weights_base += csize) {
-      MyReal *state_local = state_base;
-      MyReal *weights_local = weights_base;
+      double *state_local = state_base;
+      double *weights_local = weights_base;
 
       for (int t = 0; t <= fcsize_t; t++, state_local--, weights_local++) {
         val += (*state_local) * (*weights_local);
@@ -913,7 +913,7 @@ MyReal ConvLayer::apply_conv_trans(MyReal *state,
   return val;
 }
 
-void ConvLayer::applyFWD(MyReal *state) {
+void ConvLayer::applyFWD(double *state) {
   /* Apply step */
   for (int io = 0; io < dim_Out; io++) update[io] = state[io];
 
@@ -921,8 +921,8 @@ void ConvLayer::applyFWD(MyReal *state) {
   for (int i = 0; i < nconv; i++) {
     for (int j = 0; j < img_size_sqrt; j++) {
       int state_index = i * img_size + j * img_size_sqrt;
-      MyReal *update_local = state + state_index;
-      MyReal *bias_local = bias + j * img_size_sqrt;
+      double *update_local = state + state_index;
+      double *bias_local = bias + j * img_size_sqrt;
 
       for (int k = 0; k < img_size_sqrt; k++, update_local++, bias_local++) {
         // (*update_local) += dt*tanh(apply_conv(update, i, j, k) +
@@ -934,7 +934,7 @@ void ConvLayer::applyFWD(MyReal *state) {
   }
 }
 
-void ConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
+void ConvLayer::applyBWD(double *state, double *state_bar,
                          int compute_gradient) {
   /* state_bar is the adjoint of the state variable, it contains the
      old time adjoint information, and is modified on the way out to
@@ -943,7 +943,7 @@ void ConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
   /* Okay, for my own clarity:
      state       = forward state solution
      state_bar   = backward adjoint solution (in - new time, out - current time)
-     update_bar  = update to the bacward solution, this is "MyReal dipped" in
+     update_bar  = update to the bacward solution, this is "double dipped" in
      that it is used to compute the weight and bias derivative. Note that
      because this is written as a forward update (the residual is F = u_{n+1} -
      u_n - dt * sigma(W_n * u_n + b_n) the adjoint variable is also the
@@ -984,14 +984,14 @@ void ConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
     /* loop over full image */
     for (int j = 0; j < img_size_sqrt; j++) {
       int state_index = i * img_size + j * img_size_sqrt;
-      MyReal *state_bar_local = state_bar + state_index;
-      MyReal *update_bar_local = update_bar + state_index;
-      MyReal *bias_local = bias + j * img_size_sqrt;
+      double *state_bar_local = state_bar + state_index;
+      double *update_bar_local = update_bar + state_index;
+      double *bias_local = bias + j * img_size_sqrt;
 
       for (int k = 0; k < img_size_sqrt;
            k++, state_bar_local++, update_bar_local++, bias_local++) {
         /* compute the affine transformation */
-        MyReal local_update = apply_conv(state, i, j, k) + (*bias_local);
+        double local_update = apply_conv(state, i, j, k) + (*bias_local);
 
         /* derivative of the update, this is the contribution from old time */
         // (*update_bar_local) = dt * dactivation(local_update) *
@@ -1009,9 +1009,9 @@ void ConvLayer::applyBWD(MyReal *state, MyReal *state_bar,
     for (int j = 0; j < img_size_sqrt; j++) {
       int state_index = i * img_size + j * img_size_sqrt;
 
-      MyReal *state_bar_local = state_bar + state_index;
-      MyReal *update_bar_local = update_bar + state_index;
-      MyReal *bias_bar_local = bias_bar + j * img_size_sqrt;
+      double *state_bar_local = state_bar + state_index;
+      double *update_bar_local = update_bar + state_index;
+      double *bias_bar_local = bias_bar + j * img_size_sqrt;
 
       for (int k = 0; k < img_size_sqrt;
            k++, state_bar_local++, update_bar_local++, bias_bar_local++) {

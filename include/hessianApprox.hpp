@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include "defs.hpp"
 #include "linalg.hpp"
 
 #pragma once
@@ -16,12 +15,12 @@ class HessianApprox {
   /**
    * Compute the BFGS descent direction
    */
-  virtual void computeAscentDir(int k, MyReal *gradient, MyReal *ascentdir) = 0;
+  virtual void computeAscentDir(int k, double *gradient, double *ascentdir) = 0;
 
   /**
    * Update the BFGS memory (like s, y, rho, H0...)
    */
-  virtual void updateMemory(int k, MyReal *design, MyReal *gradient) = 0;
+  virtual void updateMemory(int k, double *design, double *gradient) = 0;
 };
 
 class L_BFGS : public HessianApprox {
@@ -29,36 +28,36 @@ class L_BFGS : public HessianApprox {
   int M; /* Length of the l-bfgs memory (stages) */
 
   /* L-BFGS memory */
-  MyReal **s;           /* storing M (x_{k+1} - x_k) vectors */
-  MyReal **y;           /* storing M (\nabla f_{k+1} - \nabla f_k) vectors */
-  MyReal *rho;          /* storing M 1/y^Ts values */
-  MyReal H0;            /* Initial Hessian scaling factor */
-  MyReal *design_old;   /* Design at previous iteration */
-  MyReal *gradient_old; /* Gradient at previous iteration */
+  double **s;           /* storing M (x_{k+1} - x_k) vectors */
+  double **y;           /* storing M (\nabla f_{k+1} - \nabla f_k) vectors */
+  double *rho;          /* storing M 1/y^Ts values */
+  double H0;            /* Initial Hessian scaling factor */
+  double *design_old;   /* Design at previous iteration */
+  double *gradient_old; /* Gradient at previous iteration */
 
  public:
   L_BFGS(MPI_Comm comm, int dimN, /* Local design dimension */
          int stage);
   ~L_BFGS();
 
-  void computeAscentDir(int k, MyReal *gradient, MyReal *ascentdir);
+  void computeAscentDir(int k, double *gradient, double *ascentdir);
 
-  void updateMemory(int k, MyReal *design, MyReal *gradient);
+  void updateMemory(int k, double *design, double *gradient);
 };
 
 class BFGS : public HessianApprox {
  private:
-  MyReal *A;
-  MyReal *B;
-  MyReal *Hy;
+  double *A;
+  double *B;
+  double *Hy;
 
  protected:
-  MyReal *s;
-  MyReal *y;
-  MyReal
+  double *s;
+  double *y;
+  double
       *Hessian; /* Storing the Hessian approximation (flattened: dimN*dimN) */
-  MyReal *design_old;   /* Design at previous iteration */
-  MyReal *gradient_old; /* Gradient at previous iteration */
+  double *design_old;   /* Design at previous iteration */
+  double *gradient_old; /* Gradient at previous iteration */
 
  public:
   BFGS(MPI_Comm comm, int N);
@@ -66,9 +65,9 @@ class BFGS : public HessianApprox {
 
   void setIdentity();
 
-  void computeAscentDir(int k, MyReal *gradient, MyReal *ascentdir);
+  void computeAscentDir(int k, double *gradient, double *ascentdir);
 
-  void updateMemory(int k, MyReal *design, MyReal *gradient);
+  void updateMemory(int k, double *design, double *gradient);
 };
 
 /**
@@ -79,7 +78,7 @@ class Identity : public HessianApprox {
   Identity(MPI_Comm comm, int N);
   ~Identity();
 
-  void computeAscentDir(int k, MyReal *currgrad, MyReal *ascentdir);
+  void computeAscentDir(int k, double *currgrad, double *ascentdir);
 
-  void updateMemory(int k, MyReal *design, MyReal *gradient);
+  void updateMemory(int k, double *design, double *gradient);
 };

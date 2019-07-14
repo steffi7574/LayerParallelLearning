@@ -1,7 +1,6 @@
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
-#include "defs.hpp"
 #pragma once
 
 /**
@@ -10,7 +9,7 @@
  *     vectors x and y of dimemsion dimN
  * Out: returns xTy
  */
-MyReal vecdot(int dimN, MyReal *x, MyReal *y);
+double vecdot(int dimN, double *x, double *y);
 
 /**
  * Parallel dot-product xTy, invokes an MPI_Allreduce call
@@ -19,37 +18,37 @@ MyReal vecdot(int dimN, MyReal *x, MyReal *y);
  *     MPI communicator
  * Out: returns global xTy on all procs
  */
-MyReal vecdot_par(int dimN, MyReal *x, MyReal *y, MPI_Comm comm);
+double vecdot_par(int dimN, double *x, double *y, MPI_Comm comm);
 
 /**
  * Return the maximum value of a vector
  */
-MyReal vecmax(int dimN, MyReal *x);
+double vecmax(int dimN, double *x);
 
 /**
  * Return the index of the maximum entry of the vector
  */
-int argvecmax(int dimN, MyReal *x);
+int argvecmax(int dimN, double *x);
 
 /**
  * Computes square of the l2-norm of x
  */
-MyReal vecnormsq(int dimN, MyReal *x);
+double vecnormsq(int dimN, double *x);
 
 /**
  * Parallel l2-norm computation, invokes an MPI_Allreduce x
  */
-MyReal vecnorm_par(int dimN, MyReal *x, MPI_Comm comm);
+double vecnorm_par(int dimN, double *x, MPI_Comm comm);
 
 /**
  * Copy a vector u into u_copy
  */
-int vec_copy(int N, MyReal *u, MyReal *u_copy);
+int vec_copy(int N, double *u, double *u_copy);
 
 /**
  * Compute matrix x* y^T
  */
-void vecvecT(int N, MyReal *x, MyReal *y, MyReal *XYT);
+void vecvecT(int N, double *x, double *y, double *XYT);
 
 /**
  * Compute Matrix-vector product Hx
@@ -58,4 +57,4 @@ void vecvecT(int N, MyReal *x, MyReal *y, MyReal *XYT);
  *     vector x
  * Out: H*x will be stored in Hx
  */
-void matvec(int dimN, MyReal *H, MyReal *x, MyReal *Hx);
+void matvec(int dimN, double *H, double *x, double *Hx);

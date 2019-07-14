@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
          ndesign_global);
 
   /* Initialize Hessian approximation */
-  HessianApprox *hessian = 0;
+  HessianApprox *hessian;
   switch (config->hessianapprox_type) {
     case BFGS_SERIAL:
       hessian = new BFGS(MPI_COMM_WORLD, ndesign_local);

@@ -6,6 +6,7 @@ import os
 import copy
 import subprocess
 import string
+sys.path.insert(0, '../pythonutil')
 from config import *
 from util import *
 
@@ -45,12 +46,13 @@ for j,ml in enumerate(braid_maxlevelslist):
            os.mkdir(testfoldername)
        
         # create a link to training and validation data
-        datafolder = "../" + config.datafolder
-        make_link(datafolder, testfoldername + "/" + config.datafolder)
+        datafolder = config.datafolder
+        make_link(datafolder, testfoldername + "/data" )
         
         # Set the new configuration
         konfig = copy.deepcopy(config)
         konfig.braid_maxlevels = ml 
+        konfig.datafolder = "data"
     
         # create the config file
         testconfig = testname + ".cfg"

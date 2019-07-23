@@ -1,3 +1,4 @@
+# cpp
 build/
 *out*
 *.o
@@ -5,3 +6,8 @@ build/
 *run_*
 *optim.dat
 main
+
+# Ignore IDE configurations
+.idea
+.vscode
+tags

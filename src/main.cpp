@@ -1,6 +1,6 @@
-// TODO: Copyright
+// Copyright
 //
-// TODO: Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
+// Underlying paper:
 //
 // Layer-Parallel Training of Deep Residual Neural Networks
 // S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
 //
 // Download: https://arxiv.org/pdf/1812.04352.pdf
 //
-// TODO: Authors of this paper are authors of this code. Further help for this
-// code came from Roland Siegbert <siegbert@cats.rwth-aachen.de>.
-//
-
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>

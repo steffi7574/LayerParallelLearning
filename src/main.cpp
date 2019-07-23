@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
 
   /* Open and prepare optimization output file*/
   if (myid == MASTER_NODE) {
-    sprintf(optimfilename, "%s/%s.dat", config->datafolder, "optim");
+    sprintf(optimfilename, "%s.dat", "optim");
     optimfile = fopen(optimfilename, "w");
     config->writeToFile(optimfile);
     fprintf(optimfile,

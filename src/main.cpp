@@ -258,8 +258,6 @@ int main(int argc, char *argv[]) {
       fflush(optimfile);
     }
 
-    // TODO: Do you want to have the convergence check here? I'd move it after
-    // writing some tests actually.
     /** Check optimization convergence
      *
      *  Algorithm (2): Step 6

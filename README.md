@@ -18,28 +18,9 @@ Run the test cases by callying './main' with the corresponding configuration fil
 
 An optimization history file 'optim.dat' will be flushed to the examples subfolder.
 
-## Roland / Stef combo - LEARNING/TODO:
+## Contributors
 
-### Overview:
-
--   Xbraid =\> 3 braid apps know one net
--   One NN
--   Braid has to be initialized first -\> Decides about layers per core
--   Tangling with NN is given due to reason above
-    -   create nn
-    -   give nn to braid
-    -   init nn
-
-## 2Dos 😊
-
--   [x] Clean up syntax (google std)
--   [ ] Associate code with [paper](https://arxiv.org/pdf/1812.04352.pdf)
--   [ ] Refactoring (data(ste)) = Make code more readable by applying [SOLID](https://en.wikipedia.org/wiki/SOLID) principles
-    -   [ ] Single Responsibility
-    -   [ ] Open-Closed
-    -   [ ] Liskov Substitution
-    -   [ ] Interface Segregation
-    -   [ ] Dependency Inversion
--   [ ] Extract methods and clean up objects
--   [ ] Park old code in separate branches and tag them as deprecated
--   [ ] Would this code benefit from an update of XBraid?
+* Stefanie Guenther <stefanie.guenther@scicomp.uni-kl.de>
+* Eric C. Cyr <eccyr@sandia.gov>
+* J.B. Schroder <jbschroder@unm.edu>
+* Roland A. Siegbert <roland.siegbert@rwth-aachen.de>

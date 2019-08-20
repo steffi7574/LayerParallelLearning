@@ -10,15 +10,14 @@
 #pragma once
 
 /**
- * Define the state vector at one time-step
+ * Define the network state one layer. It contains the transformed data batch in the vector **state, and a pointer to the actual layer. 
  */
 class myBraidVector {
  protected:
   int nbatch;    /* Number of examples */
   int nchannels; /* Number of channels */
 
-  MyReal *
-      *state;   /* Network state at one layer, dimensions: nbatch * nchannels */
+  MyReal **state;   /* Network state at one layer, dimensions: nbatch * nchannels */
   Layer *layer; /* Pointer to layer information */
 
   /* Flag that determines if the layer and state have just been received and
@@ -51,7 +50,7 @@ class myBraidVector {
 };
 
 /**
- * Wrapper for the primal braid app.
+ * Wrapper for the primal braid app. Most important routines are the Step function, which applies the layer transformation (and hence steps forward to the next layer) and the EvaluateObjective function, which (surprise!) evaluates the loss function and adds the regularization terms to get the objective funcioon value.
  * virtual function are overwritten from the adjoint app class
  */
 class myBraidApp : public BraidApp {

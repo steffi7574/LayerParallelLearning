@@ -50,8 +50,9 @@ class myBraidVector {
 };
 
 /**
- * Wrapper for the primal braid app. Most important routines are the Step function, which applies the layer transformation (and hence steps forward to the next layer) and the EvaluateObjective function, which (surprise!) evaluates the loss function and adds the regularization terms to get the objective funcioon value.
- * virtual function are overwritten from the adjoint app class
+ * Wrapper for the primal braid app. Most important routines are the Step function, which applies the layer transformations (and hence steps forward to the next layer), the SetInitialCondition, which applies the opening layer and the EvaluateObjective function, which (surprise!) evaluates the loss function and adds the regularization terms to get the objective function value.
+ * 
+ * The adjoint braid app inherits from this class, and overwrites those with the corresponding derivatives. 
  */
 class myBraidApp : public BraidApp {
  protected:

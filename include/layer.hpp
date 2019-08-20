@@ -62,7 +62,8 @@ class Layer {
   /* Set time step size */
   void setDt(MyReal DT);
 
-  /* Set design and gradient memory location */
+  /* Set design and gradient memory location.
+   * The design vector is allocated within the Network block. For each layer in the block, the local memory location within the network's design vector is passed here to the layer, and stored as *weights and *bias (and their derivatives weights_bar and bias_bar). */
   void setMemory(MyReal *design_memloc, MyReal *gradient_memloc);
 
   /* Some Get..() functions */
@@ -90,13 +91,13 @@ class Layer {
   int getnConv();
   int getCSize();
 
-  /* Get the layer index (i.e. the time step) */
+  /* Get the layers ID (i.e. the time step number) */
   int getIndex();
 
   /* Prints to screen */
   void print_data(MyReal *data_Out);
 
-  /* Activation function and derivative */
+  /* Applies the activation function and derivative */
   MyReal activation(MyReal x);
   MyReal dactivation(MyReal x);
 

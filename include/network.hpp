@@ -9,13 +9,20 @@
 #include "util.hpp"
 #pragma once
 
+/*
+ * The Network class logically connects the layers. 
+ * Each processor instantiates one object of this class containing 
+ * a sub-block of layers from [startlayerID, endlayerID], where those ID's are anything between -1 (being the opening layer) and nlayers_global-1 (being the classification layer). The distribution for the actual startlayerIDs and endlayerIDs at each processor come from Xbraid.
+ * All layers are stored in the vector **layer, except for the opening layer, which is in *openlayer. 
+ * Each network block contains (and allocates!) the *design and *gradient vector, which are the vectorized weights and biases at each layer (see createNetworkBlock).
+ */
 class Network {
  protected:
   int nlayers_global; /* Total number of Layers of the network */
   int nlayers_local;  /* Number of Layers in this network block */
 
   int nchannels;   /* Width of the network */
-  MyReal dt;       /* Time step size */
+  MyReal dt;       /* Time step size (distance between two layers).*/
   MyReal loss;     /* Value of the loss function */
   MyReal accuracy; /* Accuracy of the network prediction (percentage of
                       successfully predicted classes) */
@@ -44,6 +51,10 @@ class Network {
 
   ~Network();
 
+  /* 
+   * This calls the layer's constructor for all layers in [StartlayerID, EndLayerID]. 
+   * 
+   * */
   void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config,
                           MPI_Comm Comm);
 
@@ -105,6 +116,8 @@ class Network {
    */
   void setInitialDesign(Config *config);
 
+  /* Helper function for createNetworkBlock. It basically checks what kind of layer is required at this index and calls the corresponding layer constructor. 
+  */
   Layer *createLayer(int index, Config *config);
 
   /* Replace the layer with one that is received from the left neighbouring
@@ -113,6 +126,8 @@ class Network {
 
   /**
    * Applies the classification and evaluates loss/accuracy
+   * This routine should only be called at the last processor, which contains the classification layer.
+   * Maybe this one should not be inside the Network class? Don't know.
    */
   void evalClassification(DataSet *data, MyReal **state, int output);
 
@@ -125,6 +140,7 @@ class Network {
   /**
    * Update the network design parameters: new_design = old_design + stepsize *
    * direction
+   * I guess this might rather be a routine for the optimizer...
    */
   void updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm);
 };

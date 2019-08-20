@@ -76,6 +76,12 @@ int main(int argc, char *argv[]) {
   MyReal ls_stepsize;
   MyReal ls_objective, test_obj;
   int ls_iter;
+  
+  /* --- Nested Iteration --- */
+  int NI_levels;         /**< Number of nested iteration levels to use */
+                         /**< TBD declare a vector of networks */ 
+                        
+
 
   /* --- Time measurements --- */
   struct rusage r_usage;
@@ -124,6 +130,7 @@ int main(int argc, char *argv[]) {
                            config->fval_labels);
 
   /* Initialize XBraid */
+  // TBD: This will need to be moved inside the NI loop
   primaltrainapp =
       new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
   adjointtrainapp = new myAdjointBraidApp(
@@ -132,6 +139,7 @@ int main(int argc, char *argv[]) {
       new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
 
   /* Initialize the network  */
+  // TBD: This will need to be moved inside the NI loop, and done as we move through the vector of networks
   primaltrainapp->GetGridDistribution(&ilower, &iupper);
   network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
   network->setInitialDesign(config);
@@ -139,12 +147,14 @@ int main(int argc, char *argv[]) {
   ndesign_global = network->getnDesignGlobal();
 
   /* Print some neural network information */
+  // TBD: This will need to be moved inside the NI loop
   printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
          config->nlayers);
   printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
          ndesign_global);
 
   /* Initialize Hessian approximation */
+  // TBD: This will need to be moved inside the NI loop, along with the deletion of the Hessian at the end of the loop
   HessianApprox *hessian = NULL;
   switch (config->hessianapprox_type) {
     case BFGS_SERIAL:
@@ -162,6 +172,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* Initialize optimization parameters */
+  // TBD: This will need to be moved inside the NI loop, along with the deletion of the ascent dir at the end of the loop
   ascentdir = new MyReal[ndesign_local];
   stepsize = config->getStepsize(0);
   gnorm = 0.0;
@@ -173,6 +184,7 @@ int main(int argc, char *argv[]) {
   ls_stepsize = stepsize;
 
   /* Open and prepare optimization output file*/
+  // TBD: This will need to be moved inside the NI loop, but the file should be opened only once.  So don't move all of this inside the loop 
   if (myid == MASTER_NODE) {
     sprintf(optimfilename, "%s.dat", "optim");
     optimfile = fopen(optimfilename, "w");
@@ -184,9 +196,12 @@ int main(int argc, char *argv[]) {
   }
 
   /* Measure wall time */
+  // TBD: Leave this outside the NI loop 
   StartTime = MPI_Wtime();
   StopTime = 0.0;
   UsedTime = 0.0;
+
+  // TBD: Insert the start of the NI loop, indent the main optimization iteration inwards 
 
   /** Main optimization iteration
    *
@@ -334,7 +349,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
+
   /* --- Run final validation and write prediction file --- */
+  // TBD: You probably want this in the NI loop, do you get better validation for finer networks?
   if (config->validationlevel > -1) {
     if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
 
@@ -345,6 +362,13 @@ int main(int argc, char *argv[]) {
     printf("Final validation accuracy:  %2.2f%%\n", accur_val);
   }
 
+  // TBD: End NI Loop 
+  //
+  // If not last network, then need to interpolate (piece-wise
+  // constant, linear, or spline) the current network up to the next finer
+  // network.  Stefanie showed me where these library routines are inside of
+  // network-->layer, but I need to refresh this
+  
   // write_vector("design.dat", design, ndesign);
 
   /* Print some statistics */
@@ -362,6 +386,9 @@ int main(int argc, char *argv[]) {
     printf(" Processors used:  %d\n", size);
     printf("\n");
   }
+
+  // TBD:  Need to deallocate the vector of networks, and make sure that any
+  // deletions below that should be done in the NI loop are done there.
 
   /* Clean up XBraid */
   delete network;

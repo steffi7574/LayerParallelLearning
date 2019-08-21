@@ -240,11 +240,11 @@ int main(int argc, char *argv[]) {
     UsedTime = StopTime - StartTime;
     if (myid == MASTER_NODE) {
       printf(
-          "\n|| r ||\t|| r_adj ||\tObjective\tLoss\t\t\t|| grad "
-          "||\t\tStepsize\t\tls_iter\tAccur_train\tAccur_val\tTime(sec)\n");
+          "\niter \t|| r ||\t\t|| r_adj ||\tObjective\t\tLoss\t\t\t|| grad "
+          "||\t\tStepsize\tls_iter\tAccur_train\tAccur_val\tTime(sec)\n");
       printf(
-          "%03d\t%1.8e\t%1.8e\t%1.14e\t%1.14e\t%1.14e\t%5f\t%2d\t%2.2f%%\t%2."
-          "2f%%\t%.1f\n\n",
+          "%03d\t%1.8e\t%1.8e\t%1.14e\t%1.14e\t%1.14e\t%5f\t%2d\t%2.2f%%\t\t%2."
+          "2f%%\t\t%.1f\n\n",
           iter, rnorm, rnorm_adj, objective, losstrain_out, gnorm, stepsize,
           ls_iter, accurtrain_out, accurval_out, UsedTime);
       fprintf(optimfile,

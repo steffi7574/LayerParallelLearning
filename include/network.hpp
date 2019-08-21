@@ -9,6 +9,14 @@
 #include "util.hpp"
 #pragma once
 
+/* The network class logically connects the layers. Each processor owns one 
+ * block of a network containing a portion of all layers with indices in
+ * [startlayerID, endLayerID]. The **layer vector stores pointers to these 
+ * layers, except for the opening layer, which is stored separately. 
+ * Most important routines are createNetworkBlock() which creates the layers
+ * and allocates the weights, and setInitialDesign() which provides an 
+ * for the network weights. 
+*/
 class Network {
  protected:
   int nlayers_global; /* Total number of Layers of the network */
@@ -44,6 +52,11 @@ class Network {
 
   ~Network();
 
+  /* This processor creates a network block containing layers at all time steps 
+   * in the interval [startLayerID, endLayerID]. 
+   * Here, the design and gradient vectors containing the weights, biases and 
+   * their gradients for those layers is allocated. 
+   */
   void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config,
                           MPI_Comm Comm);
 
@@ -105,6 +118,12 @@ class Network {
    */
   void setInitialDesign(Config *config);
 
+  /*
+   * Return a newly constructed layer. The time-step index decides if it is
+   * an openinglayer (-1), a hidden layer, or a classification layer
+   * (nlayers_global-2). The config file provides information on the kind of 
+   * layer that is to be created (Dense or Convolutional). 
+   */
   Layer *createLayer(int index, Config *config);
 
   /* Replace the layer with one that is received from the left neighbouring

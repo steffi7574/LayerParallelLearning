@@ -110,14 +110,6 @@ class Layer {
    */
   void unpackDesign(MyReal *buffer);
 
-  /* Scales the weights by a factor and resets the gradient to zero. */
-  void scaleDesign(MyReal factor);
-
-  /**
-   * Sets the bar variables to zero
-   */
-  void resetBar();
-
   /**
    * Evaluate Tikhonov Regularization
    * Returns 1/2 * \|weights||^2 + 1/2 * \|bias\|^2

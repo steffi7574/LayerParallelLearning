@@ -15,11 +15,12 @@
 // Underlying paper:
 //
 // Layer-Parallel Training of Deep Residual Neural Networks
-// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
+// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Cyr, and N.R. Gauger
 //
 // Download: https://arxiv.org/pdf/1812.04352.pdf
 //
 #include <mpi.h>
+#include <vector>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,8 +43,11 @@ int main(int argc, char *argv[]) {
   DataSet *trainingdata;   /**< Training dataset */
   DataSet *validationdata; /**< Validation dataset */
 
-  /* --- Network --- */
-  Network *network; /**< DNN Network architecture */
+  /* --- Vector of Networks (For Nested Iteration) --- */
+  int NI_levels = 1;                    /**< Number of nested iteration levels to use */
+  std::vector<Network*>  vnetworks;     /**< Vector of networks */ 
+
+  /* --- Other Network Values --- */
   int ilower,
       iupper; /**< Index of first and last layer stored on this processor */
   MyReal accur_train = 0.0; /**< Accuracy on training data */
@@ -77,11 +81,6 @@ int main(int argc, char *argv[]) {
   MyReal ls_objective, test_obj;
   int ls_iter;
   
-  /* --- Nested Iteration --- */
-  int NI_levels;         /**< Number of nested iteration levels to use */
-                         /**< TBD declare a vector of networks */ 
-                        
-
   /* --- Time measurements --- */
   struct rusage r_usage;
   MyReal StartTime, StopTime, myMB, globalMB;
@@ -98,7 +97,10 @@ int main(int argc, char *argv[]) {
   config = new Config();
   trainingdata = new DataSet();
   validationdata = new DataSet();
-  network = new Network();
+  for(int i = 0; i < NI_levels; i++)
+  {
+     vnetworks.push_back( new Network() );
+  }
 
   /* Read config file */
   if (argc != 2) {
@@ -131,19 +133,19 @@ int main(int argc, char *argv[]) {
   /* Initialize XBraid */
   // TBD: This will need to be moved inside the NI loop
   primaltrainapp =
-      new myBraidApp(trainingdata, network, config, MPI_COMM_WORLD);
+      new myBraidApp(trainingdata, vnetworks[0], config, MPI_COMM_WORLD);
   adjointtrainapp = new myAdjointBraidApp(
-      trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
+      trainingdata, vnetworks[0], config, primaltrainapp->getCore(), MPI_COMM_WORLD);
   primalvalapp =
-      new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
+      new myBraidApp(validationdata, vnetworks[0], config, MPI_COMM_WORLD);
 
   /* Initialize the network  */
   // TBD: This will need to be moved inside the NI loop, and done as we move through the vector of networks
   primaltrainapp->GetGridDistribution(&ilower, &iupper);
-  network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
-  network->setInitialDesign(config);
-  ndesign_local = network->getnDesignLocal();
-  ndesign_global = network->getnDesignGlobal();
+  vnetworks[0]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
+  vnetworks[0]->setInitialDesign(config);
+  ndesign_local = vnetworks[0]->getnDesignLocal();
+  ndesign_global = vnetworks[0]->getnDesignGlobal();
 
   /* Print some neural network information */
   // TBD: This will need to be moved inside the NI loop
@@ -220,14 +222,14 @@ int main(int argc, char *argv[]) {
 
     /* Get output */
     objective = primaltrainapp->getObjective();
-    loss_train = network->getLoss();
-    accur_train = network->getAccuracy();
+    loss_train = vnetworks[0]->getLoss();
+    accur_train = vnetworks[0]->getAccuracy();
 
     /* --- Validation data: Get accuracy --- */
     if (config->validationlevel > 0) {
       primalvalapp->run();
-      loss_val = network->getLoss();
-      accur_val = network->getAccuracy();
+      loss_val = vnetworks[0]->getLoss();
+      accur_val = vnetworks[0]->getAccuracy();
     }
 
     /* --- Optimization control and output ---*/
@@ -236,7 +238,7 @@ int main(int argc, char *argv[]) {
      *
      *  Algorithm (2): Step 3
      */
-    gnorm = vecnorm_par(ndesign_local, network->getGradient(), MPI_COMM_WORLD);
+    gnorm = vecnorm_par(ndesign_local, vnetworks[0]->getGradient(), MPI_COMM_WORLD);
 
     /* Communicate loss and accuracy. This is actually only needed for output.
      * TODO: Remove it. */
@@ -295,8 +297,8 @@ int main(int argc, char *argv[]) {
      *
      *  Algorithm (2): Step 4
      */
-    hessian->updateMemory(iter, network->getDesign(), network->getGradient());
-    hessian->computeAscentDir(iter, network->getGradient(), ascentdir);
+    hessian->updateMemory(iter, vnetworks[0]->getDesign(), vnetworks[0]->getGradient());
+    hessian->computeAscentDir(iter, vnetworks[0]->getGradient(), ascentdir);
     stepsize = config->getStepsize(iter);
 
     /** Update the design/network control parameter in negative ascent direction
@@ -304,12 +306,12 @@ int main(int argc, char *argv[]) {
      *
      *  Algorithm (2): Step 5
      */
-    vec_axpy(ndesign_local, -1.0*stepsize, ascentdir, network->getDesign());
-    network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+    vec_axpy(ndesign_local, -1.0*stepsize, ascentdir, vnetworks[0]->getDesign());
+    vnetworks[0]->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
     if (config->stepsize_type == BACKTRACKINGLS) {
       /* Compute wolfe condition */
-      wolfe = vecdot_par(ndesign_local, network->getGradient(), ascentdir,
+      wolfe = vecdot_par(ndesign_local, vnetworks[0]->getGradient(), ascentdir,
                          MPI_COMM_WORLD);
 
       /* Start linesearch iterations */
@@ -338,8 +340,8 @@ int main(int argc, char *argv[]) {
           }
 
           /* Go back part of the step */
-          vec_axpy(ndesign_local, (1.0 - config->ls_factor) * stepsize, ascentdir, network->getDesign());
-          network->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+          vec_axpy(ndesign_local, (1.0 - config->ls_factor) * stepsize, ascentdir, vnetworks[0]->getDesign());
+          vnetworks[0]->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
 
           /* Decrease the stepsize */
           ls_stepsize = ls_stepsize * config->ls_factor;
@@ -357,7 +359,7 @@ int main(int argc, char *argv[]) {
 
     primalvalapp->getCore()->SetPrintLevel(0);
     primalvalapp->run();
-    loss_val = network->getLoss();
+    loss_val = vnetworks[0]->getLoss();
 
     printf("Final validation accuracy:  %2.2f%%\n", accur_val);
   }
@@ -368,6 +370,9 @@ int main(int argc, char *argv[]) {
   // constant, linear, or spline) the current network up to the next finer
   // network.  Stefanie showed me where these library routines are inside of
   // network-->layer, but I need to refresh this
+  //
+  // Probably also want to deallocate things from the coarser network 
+  // to save memory
   
   // write_vector("design.dat", design, ndesign);
 
@@ -389,10 +394,13 @@ int main(int argc, char *argv[]) {
 
   // TBD:  Need to deallocate the vector of networks, and make sure that any
   // deletions below that should be done in the NI loop are done there.
+  for(long unsigned int i = 0; i < vnetworks.size(); i++)
+  {
+      delete vnetworks[i];
+  }
+  vnetworks.clear();
 
   /* Clean up XBraid */
-  delete network;
-
   delete primaltrainapp;
   delete adjointtrainapp;
   delete primalvalapp;

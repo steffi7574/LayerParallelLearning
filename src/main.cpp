@@ -77,15 +77,14 @@ int main(int argc, char *argv[]) {
   MyReal ls_objective, test_obj;
   int ls_iter;
 
-  /* --- other --- */
-  // TODO: What is this? Why do you need it?
-  int myid;
-  int size;
+  /* --- Time measurements --- */
   struct rusage r_usage;
   MyReal StartTime, StopTime, myMB, globalMB;
   MyReal UsedTime = 0.0;
 
   /* Initialize MPI */
+  int myid;
+  int size;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -161,8 +160,6 @@ int main(int argc, char *argv[]) {
       printf("Error: unexpected hessianapprox_type returned");
       return 0;
   }
-
-  /* Allocate ascent direction for design updates */
 
   /* Initialize optimization parameters */
   ascentdir = new MyReal[ndesign_local];

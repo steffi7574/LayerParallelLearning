@@ -297,13 +297,12 @@ void Network::setInitialDesign(Config *config) {
   /* Scatter initial design to all processors */
   MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
 
-  /* Scale the initial design by a factor and read from file, if set */
-
   /* Opening layer on first processor */
   if (startlayerID == 0) {
-    /* Scale design by the factor */
+    /* Scale design by the factor and reset gradient */
     factor = config->weights_open_init;
-    openlayer->scaleDesign(factor);
+    vec_scale(openlayer->getnDesign(), factor, openlayer->getWeights());
+    vec_setZero(openlayer->getnDesign(), openlayer->getWeightsBar());
 
     /* if set, overwrite opening design from file */
     if (strcmp(config->weightsopenfile, "NONE") != 0) {
@@ -322,9 +321,10 @@ void Network::setInitialDesign(Config *config) {
       factor = config->weights_class_init;
     }
 
-    /* Set memory location and scale the current design by the factor */
+    /* Scale the current design by the factor and reset gradient */
     int storeID = getLocalID(ilayer);
-    layers[storeID]->scaleDesign(factor);
+    vec_scale(layers[storeID]->getnDesign(), factor, layers[storeID]->getWeights());
+    vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeights());
 
     /* if set, overwrite classification design from file */
     if (ilayer == nlayers_global - 1) {
@@ -524,12 +524,4 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
   delete[] tmpstate;
 }
 
-void Network::updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm) {
-  /* Update design locally on this network-block */
-  for (int id = 0; id < ndesign_local; id++) {
-    design[id] += stepsize * direction[id];
-  }
 
-  /* Communicate design across neighbouring processors (ghostlayers) */
-  MPI_CommunicateNeighbours(comm);
-}

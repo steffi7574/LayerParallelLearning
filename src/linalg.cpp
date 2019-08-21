@@ -51,7 +51,7 @@ MyReal vecmax(int dimN, MyReal *x) {
 
 int argvecmax(int dimN, MyReal *x) {
   MyReal max = -1e+12;
-  int i_max;
+  int i_max=-1;
   for (int i = 0; i < dimN; i++) {
     if (x[i] > max) {
       max = x[i];
@@ -86,6 +86,32 @@ int vec_copy(int N, MyReal *u, MyReal *u_copy) {
 
   return 0;
 }
+
+int vec_setZero(int N, MyReal*x){
+  for (int i = 0; i < N; i++) {
+    x[i] = 0.0;
+  }
+  return 0;
+}
+
+int vec_axpy(int N, MyReal alpha, MyReal *x, MyReal *y){
+  for (int i = 0; i < N; i++) {
+    y[i] += alpha*x[i];
+  }
+  return 0;
+}
+
+int vec_scale(int N, MyReal alpha, MyReal *x)
+{
+  for (int i = 0; i < N; i++)
+  {
+    x[i] = alpha * x[i];
+  }
+
+  return 0;
+}
+
+
 
 void vecvecT(int N, MyReal *x, MyReal *y, MyReal *XYT) {
   for (int i = 0; i < N; i++) {

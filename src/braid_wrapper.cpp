@@ -587,7 +587,8 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
   uprimal = (myBraidVector *)ubaseprimal->userVector;
 
   /* Reset gradient before the update */
-  if (compute_gradient) uprimal->getLayer()->resetBar();
+  if (compute_gradient) 
+      vec_setZero(uprimal->getLayer()->getnDesign(), uprimal->getLayer()->getWeightsBar());
 
   /* Take one step backwards, updates adjoint state and gradient, if desired. */
   uprimal->getLayer()->setDt(deltaT);
@@ -639,7 +640,7 @@ braid_Int myAdjointBraidApp::Init(braid_Real t, braid_Vector *u_ptr) {
     uprimal = (myBraidVector *)ubaseprimal->userVector;
 
     /* Reset the gradient before updating it */
-    uprimal->getLayer()->resetBar();
+    vec_setZero(uprimal->getLayer()->getnDesign(), uprimal->getLayer()->getWeightsBar());
 
     /* Derivative of classification */
     network->evalClassification_diff(data, uprimal->getState(), u->getState(),
@@ -739,7 +740,7 @@ braid_Int myAdjointBraidApp::SetInitialCondition() {
       uadjoint = (myBraidVector *)ubaseadjoint->userVector;
 
       /* Reset the gradient before updating it */
-      uprimal->getLayer()->resetBar();
+      vec_setZero(uprimal->getLayer()->getnDesign(), uprimal->getLayer()->getWeightsBar());
 
       // printf("%d: objective_diff at ilayer %d using %1.14e primal %1.14e\n",
       // app->myid, uprimal->layer->getIndex(), uprimal->layer->getWeights()[0],
@@ -771,7 +772,7 @@ braid_Int myAdjointBraidApp::EvaluateObjective() {
     uadjoint = (myBraidVector *)ubase->userVector;
 
     /* Reset the gradient */
-    openlayer->resetBar();
+    vec_setZero(openlayer->getnDesign(), openlayer->getWeightsBar());
 
     /* Apply opening layer backwards for all examples */
     for (int iex = 0; iex < nbatch; iex++) {

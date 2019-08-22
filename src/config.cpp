@@ -42,6 +42,10 @@ Config::Config() {
   nfeatures = 2;
   nclasses = 5;
 
+  /* Nested Iteration */
+  NI_levels = 1;
+  NI_rfactor = 1;
+
   /* Neural Network */
   nchannels = 8;
   nlayers = 32;
@@ -155,6 +159,10 @@ int Config::readFromFile(char *configfilename) {
       }
     } else if (strcmp(co->key, "T") == 0) {
       T = atof(co->value);
+    } else if (strcmp(co->key, "NI_levels") == 0) {
+      NI_levels = atoi(co->value);
+    } else if (strcmp(co->key, "NI_rfactor") == 0) {
+      NI_rfactor = atoi(co->value);
     } else if (strcmp(co->key, "braid_cfactor") == 0) {
       braid_cfactor = atoi(co->value);
     } else if (strcmp(co->key, "braid_cfactor0") == 0) {
@@ -396,6 +404,10 @@ int Config::writeToFile(FILE *outfile) {
   fprintf(outfile, "#                Activation           %s \n", activname);
   fprintf(outfile, "#                openlayer type       %d \n",
           openlayer_type);
+  fprintf(outfile, "# N Iter setup:  NI levels            %d \n",
+          NI_levels);
+  fprintf(outfile, "#                NI rfactor           %d \n",
+          NI_rfactor);
   fprintf(outfile, "# XBraid setup:  max levels           %d \n",
           braid_maxlevels);
   fprintf(outfile, "#                min coarse           %d \n",

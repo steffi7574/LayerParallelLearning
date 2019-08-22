@@ -60,6 +60,10 @@ class Config {
   MyReal weights_init;
   MyReal weights_class_init;
 
+  /* Nested Iteration */
+  int NI_levels;
+  int NI_rfactor;
+
   /* XBraid */
   int braid_cfactor0;
   int braid_cfactor;

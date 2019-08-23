@@ -278,10 +278,9 @@ int Network::computeLayermax() {
   return max;
 }
 
-void Network::setInitialDesign(Config *config) {
+void Network::setDesignRandom(double factor_openweights, double factor_hiddenweights, double factor_classiweights ){
   MyReal factor;
   MyReal *design_init;
-  char filename[255];
   int myid;
   MPI_Comm_rank(comm, &myid);
 
@@ -297,50 +296,62 @@ void Network::setInitialDesign(Config *config) {
   /* Scatter initial design to all processors */
   MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
 
-  /* Opening layer on first processor */
+  /* Scale the opening layer weights on first processor and reset gradient */
   if (startlayerID == 0) {
-    /* Scale design by the factor and reset gradient */
-    factor = config->weights_open_init;
+    factor = factor_openweights;
     vec_scale(openlayer->getnDesign(), factor, openlayer->getWeights());
     vec_setZero(openlayer->getnDesign(), openlayer->getWeightsBar());
-
-    /* if set, overwrite opening design from file */
-    if (strcmp(config->weightsopenfile, "NONE") != 0) {
-      sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
-      read_vector(filename, openlayer->getWeights(), openlayer->getnDesign());
-    }
   }
 
-  /* Intermediate (hidden) and classification layers */
+  /* Scale the intermediate (hidden) and classification layers and reset gradient */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
     if (ilayer < nlayers_global - 1)  // Intermediate layer
     {
-      factor = config->weights_init;
+      factor = factor_hiddenweights;
     } else  // Classification layer
     {
-      factor = config->weights_class_init;
+      factor = factor_classiweights;
     }
-
-    /* Scale the current design by the factor and reset gradient */
     int storeID = getLocalID(ilayer);
     vec_scale(layers[storeID]->getnDesign(), factor, layers[storeID]->getWeights());
     vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeightsBar());
 
-    /* if set, overwrite classification design from file */
-    if (ilayer == nlayers_global - 1) {
-      if (strcmp(config->weightsclassificationfile, "NONE") != 0) {
-        sprintf(filename, "%s/%s", config->datafolder,
-                config->weightsclassificationfile);
-        read_vector(filename, layers[storeID]->getWeights(),
-                    layers[storeID]->getnDesign());
-      }
-    }
   }
 
   /* Communicate the neighbours across processors */
   MPI_CommunicateNeighbours();
 
   if (myid == 0) delete[] design_init;
+}
+
+
+void Network::setDesignFromFile(const char* datafolder, const char* openlayerfile, const char* hiddenlayerfile, const char* classificationlayerfile) {
+  char filename[255];
+  bool communicate = false;
+
+  /* Read the opening weights, if set (on first processor only) */
+  if (startlayerID == 0) {
+    if (strcmp(openlayerfile, "NONE") != 0) {
+      sprintf(filename, "%s/%s", datafolder, openlayerfile);
+      read_vector(filename, openlayer->getWeights(), openlayer->getnDesign());
+      vec_setZero(openlayer->getnDesign(), openlayer->getWeightsBar());
+      communicate = true;
+    }
+  }
+
+  /* Read the classification layer weights, if set (on last processor only) */
+  if (endlayerID == nlayers_global - 1) {
+    int storeID = getLocalID(nlayers_global-1);
+    if (strcmp(classificationlayerfile, "NONE") != 0) {
+      sprintf(filename, "%s/%s", datafolder, classificationlayerfile);
+      read_vector(filename, layers[storeID]->getWeights(), layers[storeID]->getnDesign());
+      vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeightsBar());
+      communicate = true;
+    }
+  }
+
+  /* Communicate the neighbours across processors */
+  if (communicate) MPI_CommunicateNeighbours();
 }
 
 void Network::MPI_CommunicateNeighbours() {

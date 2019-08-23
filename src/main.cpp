@@ -172,9 +172,15 @@ int main(int argc, char *argv[]) {
      vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
      // TODO:  If NI_iter > 0:  Change setInitialDesign() so that it takes a vector and 
      //                        interpolates onto the new bigger design vector
-     vnetworks[NI_iter]->setInitialDesign(config);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
+     /* Set initial design */
+    //  if (NI_iter == 0){
+       vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init, config->weights_class_init);
+       vnetworks[NI_iter]->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL, config->weightsclassificationfile);
+    //  } else {
+       
+    //  }
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Currently, the 
      //                         networks are just all deallocated at once, at the end of main().
      // SG: Good question. I think for the nested iterations we can safely deallocate it. But for the full multigrid, do we need the 'old' network weights at some point when cycling through the grids? Maybe for now we can leave it, as long as we don't run out of memory.

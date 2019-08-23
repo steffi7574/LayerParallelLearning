@@ -112,11 +112,18 @@ class Network {
   Layer *getLayer(int layerindex);
 
   /*
-   * Set an initial guess on the network design:
-   * Random initialization, scaled by given factors
-   * If set, reads in opening and classification weights from file
+   * Set the design to random values, scaled by the given factors for weights 
+   * at opening layer, hidden layers, and classification layer
    */
-  void setInitialDesign(Config *config);
+  void setDesignRandom(double factor_openweights, double factor_hiddenweights, double factor_classiweights );
+
+
+  /* 
+   * Read layer weights from file, if set
+   * In: names of files that contain the layer weights and folder containing the files.
+   */
+  void setDesignFromFile(const char* datafolder, const char* openlayerfile, const char* hiddenlayerfile, const char* classificationlayerfile);
+
 
   /*
    * Return a newly constructed layer. The time-step index decides if it is

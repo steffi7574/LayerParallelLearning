@@ -67,8 +67,8 @@ void myBraidVector::setSendflag(MyReal value) { sendflag = value; }
 /* ========================================================= */
 /* ========================================================= */
 myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
-                       MPI_Comm comm)
-    : BraidApp(comm, 0.0, config->T, config->nlayers - 2) {
+                       MPI_Comm comm, int current_nlayers)
+    : BraidApp(comm, 0.0, config->T, current_nlayers) {
   MPI_Comm_rank(comm, &myid);
   network = Network;
   data = Data;
@@ -535,8 +535,8 @@ MyReal myBraidApp::run() {
 /* ========================================================= */
 myAdjointBraidApp::myAdjointBraidApp(DataSet *Data, Network *Network,
                                      Config *config, BraidCore *Primalcoreptr,
-                                     MPI_Comm comm)
-    : myBraidApp(Data, Network, config, comm) {
+                                     MPI_Comm comm, int current_nlayers)
+    : myBraidApp(Data, Network, config, comm, current_nlayers) {
   primalcore = Primalcoreptr;
 
   /* Store all primal points */

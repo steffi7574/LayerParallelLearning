@@ -49,14 +49,15 @@ Network::Network(MPI_Comm Comm) {
   MPI_Comm_rank(comm, &mpirank);
 }
 
-void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config) {
+void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config, 
+                               int current_nhiddenlayers) {
   /* Initilizize */
   startlayerID = StartLayerID;
   endlayerID = EndLayerID;
   nlayers_local = endlayerID - startlayerID + 1;
-  nlayers_global = config->nlayers;
+  nlayers_global = current_nhiddenlayers+2; // hidden + opening + classification
   nchannels = config->nchannels;
-  dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
+  dt = (config->T) / (MyReal)(current_nhiddenlayers);
 
   ndesign_local = 0;
   int mylayermax = 0;

@@ -21,6 +21,7 @@
 //
 #include "config.hpp"
 
+#include <ctype.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -45,6 +46,8 @@ Config::Config() {
   /* Nested Iteration */
   NI_levels = 1;
   NI_rfactor = 1;
+  NI_tols = (int*) malloc(sizeof(int));
+  NI_tols[0] = 60; 
 
   /* Neural Network */
   nchannels = 8;
@@ -89,9 +92,13 @@ Config::Config() {
   validationlevel = 1;
 }
 
-Config::~Config() {}
+Config::~Config() { free(NI_tols); }
 
 int Config::readFromFile(char *configfilename) {
+   
+   /* Tracks number of Nested Iteration Tolerances */
+   int NI_num_tols=1;
+
   /* Parse the config file */
   config_option *co;
   if ((co = parsefile(configfilename)) == NULL) {
@@ -163,6 +170,9 @@ int Config::readFromFile(char *configfilename) {
       NI_levels = atoi(co->value);
     } else if (strcmp(co->key, "NI_rfactor") == 0) {
       NI_rfactor = atoi(co->value);
+    } else if (strcmp(co->key, "NI_tols") == 0) {
+      free(NI_tols);
+      string_to_intarray(co->value, &NI_tols, &NI_num_tols);
     } else if (strcmp(co->key, "braid_cfactor") == 0) {
       braid_cfactor = atoi(co->value);
     } else if (strcmp(co->key, "braid_cfactor0") == 0) {
@@ -270,12 +280,19 @@ int Config::readFromFile(char *configfilename) {
     }
   }
 
-  /* Sanity check */
+  /* Sanity checks */
   if (nfeatures > nchannels || nclasses > nchannels) {
     printf("ERROR! Choose a wider netword!\n");
     printf(" -- nFeatures = %d\n", nfeatures);
     printf(" -- nChannels = %d\n", nchannels);
     printf(" -- nClasses = %d\n", nclasses);
+    exit(1);
+  }
+
+  if (NI_num_tols != NI_levels) {
+    printf("ERROR! Number of entered NI tolerances (NI_tols) must equal number of NI levels (NI_levels)!\n"); 
+    printf(" -- num NI_tols = %d\n", NI_num_tols);
+    printf(" -- NI_levels = %d\n", NI_levels); 
     exit(1);
   }
 
@@ -408,6 +425,10 @@ int Config::writeToFile(FILE *outfile) {
           NI_levels);
   fprintf(outfile, "#                NI rfactor           %d \n",
           NI_rfactor);
+  for(int i = 0; i < NI_levels; i++){
+     fprintf(outfile, "#                NI tols[%d]      %d \n",
+                i, NI_tols[i]);
+  }
   fprintf(outfile, "# XBraid setup:  max levels           %d \n",
           braid_maxlevels);
   fprintf(outfile, "#                min coarse           %d \n",
@@ -478,4 +499,34 @@ MyReal Config::getStepsize(int optimiter) {
   }
 
   return stepsize;
+}
+
+void Config::string_to_intarray(char* str, int** NI_tols, int* NI_num_tols)
+{
+   /* We hardcode in a length limit of 100 for the possible number of integers */
+   int   len = 0;
+   int   temp[100];
+   char* ptr;
+
+   while( *str != '\0' ){
+      
+      if (isdigit(*str)){
+         /* If we end up wanting floats, instead ints, you'll need to  use 
+          * "strtof(str, &ptr)", and change some types, i.e., NI_tols to float* */
+         temp[len++] = strtol(str, &ptr, 10);
+      }
+      else {
+         ptr = str + 1;
+      }
+
+      str = ptr;
+   }
+   
+   /* Copy over output */
+   (*NI_tols) = (int*) malloc(len*sizeof(int));
+   for(int i = 0; i < len; i++){
+      (*NI_tols)[i] = temp[i];
+   }
+   *NI_num_tols = len;
+
 }

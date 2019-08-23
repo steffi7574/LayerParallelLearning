@@ -58,7 +58,7 @@ class Network {
    * Here, the design and gradient vectors containing the weights, biases and 
    * their gradients for those layers is allocated. 
    */
-  void createLayerBlock(int StartLayerID, int EndLayerID, Config *config);
+  void createLayerBlock(int StartLayerID, int EndLayerID, Config *config, int current_nhiddenlayers);
 
   /* Get number of channels */
   int getnChannels();

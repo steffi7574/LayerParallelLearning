@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
         *  Algorithm (2): Step 5
         */
        vec_axpy(ndesign_local, -1.0*stepsize, ascentdir, vnetworks[NI_iter]->getDesign());
-       vnetworks[NI_iter]->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+       vnetworks[NI_iter]->MPI_CommunicateNeighbours();
 
        if (config->stepsize_type == BACKTRACKINGLS) {
          /* Compute wolfe condition */
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
 
              /* Go back part of the step */
              vec_axpy(ndesign_local, (1.0 - config->ls_factor) * stepsize, ascentdir, vnetworks[NI_iter]->getDesign());
-             vnetworks[NI_iter]->MPI_CommunicateNeighbours(MPI_COMM_WORLD);
+             vnetworks[NI_iter]->MPI_CommunicateNeighbours();
 
              /* Decrease the stepsize */
              ls_stepsize = ls_stepsize * config->ls_factor;

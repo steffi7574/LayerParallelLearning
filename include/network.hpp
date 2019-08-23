@@ -13,7 +13,7 @@
  * block of a network containing a portion of all layers with indices in
  * [startlayerID, endLayerID]. The **layer vector stores pointers to these 
  * layers, except for the opening layer, which is stored separately. 
- * Most important routines are createNetworkBlock() which creates the layers
+ * Most important routines are createLayerBlock() which creates the layers
  * and allocates the weights, and setInitialDesign() which provides an 
  * for the network weights. 
 */
@@ -58,7 +58,7 @@ class Network {
    * Here, the design and gradient vectors containing the weights, biases and 
    * their gradients for those layers is allocated. 
    */
-  void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config);
+  void createLayerBlock(int StartLayerID, int EndLayerID, Config *config);
 
   /* Get number of channels */
   int getnChannels();
@@ -92,12 +92,6 @@ class Network {
    *  Return number of design variables (local on this processor or global) */
   int getnDesignLocal();
   int getnDesignGlobal();
-
-  /**
-   * Compute max. number of layer's ndesign on this processor
-   * excluding opening and classification layer
-   */
-  int computeLayermax();
 
   /* Return ndesign_layermax */
   int getnDesignLayermax();

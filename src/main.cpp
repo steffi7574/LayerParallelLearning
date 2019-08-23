@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   /* Initialize the network  */
   primaltrainapp->GetGridDistribution(&ilower, &iupper);
-  network->createNetworkBlock(ilower, iupper, config);
+  network->createLayerBlock(ilower, iupper, config);
   network->setInitialDesign(config);
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();

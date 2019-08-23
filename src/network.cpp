@@ -22,7 +22,7 @@
 #include "network.hpp"
 #include <assert.h>
 
-Network::Network() {
+Network::Network(MPI_Comm Comm) {
   nlayers_global = 0;
   nlayers_local = 0;
   nchannels = 0;
@@ -45,11 +45,12 @@ Network::Network() {
   layer_left = NULL;
   layer_right = NULL;
 
-  comm = MPI_COMM_WORLD;
+  comm = Comm;
+  MPI_Comm_rank(comm, &mpirank);
 }
 
 void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
-                                 Config *config, MPI_Comm Comm) {
+                                 Config *config) {
   /* Initilizize */
   startlayerID = StartLayerID;
   endlayerID = EndLayerID;
@@ -57,7 +58,6 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
   dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
-  comm = Comm;
 
   /* --- Create the layers --- */
   ndesign_local = 0;
@@ -74,8 +74,7 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 
   layers = new Layer *[nlayers_local];  // Intermediate and classification layer
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    /* Create a layer at time step ilayer. Local storage at ilayer -
-     * startlayerID */
+    /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
     int storeID = getLocalID(ilayer);
     layers[storeID] = createLayer(ilayer, config);
     ndesign_local += layers[storeID]->getnDesign();

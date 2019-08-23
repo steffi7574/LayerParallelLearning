@@ -325,7 +325,7 @@ void Network::setInitialDesign(Config *config) {
     /* Scale the current design by the factor and reset gradient */
     int storeID = getLocalID(ilayer);
     vec_scale(layers[storeID]->getnDesign(), factor, layers[storeID]->getWeights());
-    vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeights());
+    vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeightsBar());
 
     /* if set, overwrite classification design from file */
     if (ilayer == nlayers_global - 1) {

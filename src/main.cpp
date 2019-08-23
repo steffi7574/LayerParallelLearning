@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
   /* Initialize vector of networks for nested iteration */
   for(int i = 0; i < config->NI_levels; i++)
   {
-     vnetworks.push_back( new Network() );
+     vnetworks.push_back( new Network(MPI_COMM_WORLD) );
   }
 
 
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
      // TODO:  If NI_iter > 0:  Change createNetworkBlock() so that it creates a bigger 
      //                         network (as specified by config->NI_rfactor)
      // SG: I think only the 'config->nlayers' needs to be changed in that actually... 
-     vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
+     vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config);
      // TODO:  If NI_iter > 0:  Change setInitialDesign() so that it takes a vector and 
      //                        interpolates onto the new bigger design vector
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();

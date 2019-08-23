@@ -156,6 +156,7 @@ int main(int argc, char *argv[]) {
   {
 
      /* Initialize XBraid */
+     // SG: TODO: Change the constructor of the myBraidApp so that it uses the correct (bigger) number of time steps. It currently takes the config file and passes the config->T and config->nlayers-2 to XBraid. 
      primaltrainapp =
          new myBraidApp(trainingdata, vnetworks[NI_iter], config, MPI_COMM_WORLD);
      adjointtrainapp = new myAdjointBraidApp(
@@ -167,6 +168,7 @@ int main(int argc, char *argv[]) {
      primaltrainapp->GetGridDistribution(&ilower, &iupper);
      // TODO:  If NI_iter > 0:  Change createNetworkBlock() so that it creates a bigger 
      //                         network (as specified by config->NI_rfactor)
+     // SG: I think only the 'config->nlayers' needs to be changed in that actually... 
      vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
      // TODO:  If NI_iter > 0:  Change setInitialDesign() so that it takes a vector and 
      //                        interpolates onto the new bigger design vector
@@ -175,6 +177,7 @@ int main(int argc, char *argv[]) {
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Currently, the 
      //                         networks are just all deallocated at once, at the end of main().
+     // SG: Good question. I think for the nested iterations we can safely deallocate it. But for the full multigrid, do we need the 'old' network weights at some point when cycling through the grids? Maybe for now we can leave it, as long as we don't run out of memory.
 
      /* Print some neural network information */
      if (myid == MASTER_NODE) {

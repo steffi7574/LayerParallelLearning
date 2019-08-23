@@ -46,9 +46,10 @@ class Network {
   Layer *layer_right; /* Copy of first layer of right-neighbouring processor */
 
   MPI_Comm comm; /* MPI communicator */
+  int mpirank;   /* rank of this processor */
 
  public:
-  Network();
+  Network(MPI_Comm comm);
 
   ~Network();
 
@@ -57,8 +58,7 @@ class Network {
    * Here, the design and gradient vectors containing the weights, biases and 
    * their gradients for those layers is allocated. 
    */
-  void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config,
-                          MPI_Comm Comm);
+  void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config);
 
   /* Get number of channels */
   int getnChannels();

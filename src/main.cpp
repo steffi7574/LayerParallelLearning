@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
   config = new Config();
   trainingdata = new DataSet();
   validationdata = new DataSet();
-  network = new Network();
+  network = new Network(MPI_COMM_WORLD);
 
   /* Read config file */
   if (argc != 2) {
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   /* Initialize the network  */
   primaltrainapp->GetGridDistribution(&ilower, &iupper);
-  network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
+  network->createNetworkBlock(ilower, iupper, config);
   network->setInitialDesign(config);
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();

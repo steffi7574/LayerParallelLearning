@@ -338,12 +338,12 @@ void Network::setInitialDesign(Config *config) {
   }
 
   /* Communicate the neighbours across processors */
-  MPI_CommunicateNeighbours(comm);
+  MPI_CommunicateNeighbours();
 
   if (myid == 0) delete[] design_init;
 }
 
-void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
+void Network::MPI_CommunicateNeighbours() {
   int myid, comm_size;
   MPI_Comm_rank(comm, &myid);
   MPI_Comm_size(comm, &comm_size);

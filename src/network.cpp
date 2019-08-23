@@ -49,14 +49,15 @@ Network::Network() {
 }
 
 void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
-                                 Config *config, MPI_Comm Comm) {
+                                 Config *config, MPI_Comm Comm, 
+                                 int current_nlayers) {
   /* Initilizize */
   startlayerID = StartLayerID;
   endlayerID = EndLayerID;
   nlayers_local = endlayerID - startlayerID + 1;
-  nlayers_global = config->nlayers;
+  nlayers_global = current_nlayers+2;
   nchannels = config->nchannels;
-  dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
+  dt = (config->T) / (MyReal)(current_nlayers);  // nlayers-2 = nhiddenlayers
   comm = Comm;
 
   /* --- Create the layers --- */

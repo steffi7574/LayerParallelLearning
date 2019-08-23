@@ -34,6 +34,10 @@ class Config {
   /* Helper function: Parse the config file */
   config_option *parsefile(char *path);
 
+  /* Helper function: convert a string of integers to an array of integers*/
+  void string_to_intarray(char* str, int** NI_tols, int* NI_num_tols);
+
+
  public: /* List all configuration options here */
   /* Data set */
   const char *datafolder;
@@ -63,6 +67,7 @@ class Config {
   /* Nested Iteration */
   int NI_levels;
   int NI_rfactor;
+  int *NI_tols;
 
   /* XBraid */
   int braid_cfactor0;

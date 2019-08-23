@@ -43,8 +43,9 @@ int main(int argc, char *argv[]) {
   DataSet *trainingdata;   /**< Training dataset */
   DataSet *validationdata; /**< Validation dataset */
 
-  /* --- Vector of Networks For Nested Iteration --- */
+  /* --- Nested Iteration --- */
   std::vector<Network*>  vnetworks;     /**< Vector of networks */ 
+  int current_nlayers;                  /**< nlayers to be used on the current NI level */
 
   /* --- Other Network Values --- */
   int ilower,
@@ -120,6 +121,9 @@ int main(int argc, char *argv[]) {
   }
 
 
+  /* Initialize the number of layers for the first level of NI */
+  current_nlayers = config->nlayers - 2;
+
   /* Initialize training and validation data */
   trainingdata->initialize(config->ntraining, config->nfeatures,
                            config->nclasses, config->nbatch, MPI_COMM_WORLD);
@@ -155,36 +159,39 @@ int main(int argc, char *argv[]) {
   for(int NI_iter = 0; NI_iter < config->NI_levels; NI_iter++)
   {
 
+     /* Compute number of layers for the next level of NI */
+     if(NI_iter > 0) {
+         current_nlayers *= config->NI_rfactor; 
+     } 
+
      /* Initialize XBraid */
-     // SG: TODO: Change the constructor of the myBraidApp so that it uses the correct (bigger) number of time steps. It currently takes the config file and passes the config->T and config->nlayers-2 to XBraid. 
      primaltrainapp =
-         new myBraidApp(trainingdata, vnetworks[NI_iter], config, MPI_COMM_WORLD);
+         new myBraidApp(trainingdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nlayers);
      adjointtrainapp = new myAdjointBraidApp(
-         trainingdata, vnetworks[NI_iter], config, primaltrainapp->getCore(), MPI_COMM_WORLD);
+         trainingdata, vnetworks[NI_iter], config, primaltrainapp->getCore(), MPI_COMM_WORLD, current_nlayers);
      primalvalapp =
-         new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD);
+         new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nlayers);
 
      /* Initialize the network  */
      primaltrainapp->GetGridDistribution(&ilower, &iupper);
-     // TODO:  If NI_iter > 0:  Change createNetworkBlock() so that it creates a bigger 
-     //                         network (as specified by config->NI_rfactor)
-     // SG: I think only the 'config->nlayers' needs to be changed in that actually... 
-     vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
+     vnetworks[NI_iter]->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD, current_nlayers);
      // TODO:  If NI_iter > 0:  Change setInitialDesign() so that it takes a vector and 
-     //                        interpolates onto the new bigger design vector
+     //                         interpolates onto the new bigger design vector
+     //                         
+     //                         Implement other interpolations, linear, quadratic, spline, ...
      vnetworks[NI_iter]->setInitialDesign(config);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
-     // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Currently, the 
-     //                         networks are just all deallocated at once, at the end of main().
-     // SG: Good question. I think for the nested iterations we can safely deallocate it. But for the full multigrid, do we need the 'old' network weights at some point when cycling through the grids? Maybe for now we can leave it, as long as we don't run out of memory.
+     
+     // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, 
+     //                         unles we run into memory issues. 
 
      /* Print some neural network information */
      if (myid == MASTER_NODE) {
         printf("\n------------------------ Begin Nested Iteration %d------------------------\n\n", NI_iter);
      }
      printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
-            config->nlayers);
+            current_nlayers);
      printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
             ndesign_global);
 
@@ -262,8 +269,7 @@ int main(int argc, char *argv[]) {
         */
        gnorm = vecnorm_par(ndesign_local, vnetworks[NI_iter]->getGradient(), MPI_COMM_WORLD);
 
-       /* Communicate loss and accuracy. This is actually only needed for output.
-        * TODO: Remove it. */
+       /* Communicate loss and accuracy. Some of this information is used for early halting in NI */
        MPI_Allreduce(&loss_train, &losstrain_out, 1, MPI_MyReal, MPI_SUM,
                      MPI_COMM_WORLD);
        MPI_Allreduce(&loss_val, &lossval_out, 1, MPI_MyReal, MPI_SUM,
@@ -307,6 +313,12 @@ int main(int argc, char *argv[]) {
        if (iter == config->maxoptimiter - 1) {
          if (myid == MASTER_NODE) {
            printf("\nMax. optimization iterations reached.\n");
+         }
+         break;
+       }
+       if ( (accurtrain_out > config->NI_tols[NI_iter]) && (NI_iter != (config->NI_levels-1) ) ){
+         if (myid == MASTER_NODE) {
+           printf("\nNI tolerance reached.\n"); 
          }
          break;
        }
@@ -385,8 +397,6 @@ int main(int argc, char *argv[]) {
        printf("Final validation accuracy:  %2.2f%%\n", accur_val);
      }
 
-     // TODO: Check below deallocations 
-     
      /* Clean up XBraid */
      delete primaltrainapp;
      delete adjointtrainapp;

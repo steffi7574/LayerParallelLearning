@@ -58,7 +58,7 @@ class Network {
    * their gradients for those layers is allocated. 
    */
   void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config,
-                          MPI_Comm Comm);
+                          MPI_Comm Comm, int current_nlayers);
 
   /* Get number of channels */
   int getnChannels();

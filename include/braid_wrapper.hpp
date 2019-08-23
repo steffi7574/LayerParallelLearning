@@ -68,7 +68,7 @@ class myBraidApp : public BraidApp {
 
  public:
   /* Constructor */
-  myBraidApp(DataSet *Data, Network *Network, Config *Config, MPI_Comm Comm);
+  myBraidApp(DataSet *Data, Network *Network, Config *Config, MPI_Comm Comm, int current_nlayers);
 
   /* Destructor */
   ~myBraidApp();
@@ -144,7 +144,8 @@ class myAdjointBraidApp : public myBraidApp {
 
  public:
   myAdjointBraidApp(DataSet *Data, Network *Network, Config *config,
-                    BraidCore *Primalcoreptr, MPI_Comm comm);
+                    BraidCore *Primalcoreptr, MPI_Comm comm, 
+                    int current_nlayers);
 
   ~myAdjointBraidApp();
 

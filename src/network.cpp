@@ -99,7 +99,7 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config,
     istart += openlayer->getnDesign();
   }
   for (int ilayer = startlayerID; ilayer <= endlayerID;
-       ilayer++)  // intermediate and hidden layers
+       ilayer++)  // intermediate and classification layers
   {
     layers[getLocalID(ilayer)]->setMemory(&(design[istart]),
                                           &(gradient[istart]));
@@ -301,6 +301,45 @@ void Network::setDesignRandom(double factor_openweights, double factor_hiddenwei
   MPI_CommunicateNeighbours();
 
   if (myid == 0) delete[] design_init;
+}
+
+
+
+void Network::interpolateDesign(int rfactor, Network* coarse_net){
+
+  int nDim;
+  Layer *clayer, *flayer;
+
+  /* Copy the opening layer, which is stored on the first processor */
+  if (mpirank == 0){
+    nDim = openlayer->getnDesign();
+    vec_copy(nDim, coarse_net->openlayer->getWeights(), openlayer->getWeights());
+  }
+
+  /* Interpolate hidden layers (only copying so far) */
+  for (int ilayer = coarse_net->getStartLayerID(); ilayer <= coarse_net->getEndLayerID(); ilayer++) { // this loops over hidden layers of the coarse net. 
+    if (ilayer == coarse_net->getnLayersGlobal()-2) continue; // classification layer, treated separately
+
+    /* Get pointer to the coarse-grid layer */
+    clayer = coarse_net->getLayer(ilayer);
+    nDim = clayer->getnDesign();
+      
+    for (int irfac = 0; irfac < rfactor; irfac++){
+      /* get pointer to the fine-grid layer */
+      flayer = getLayer(ilayer*rfactor + irfac);
+      /* copy the design */
+      vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+      /* reset gradient */
+      vec_setZero(nDim, flayer->getWeightsBar());
+    }
+  }
+
+  /* Copy classification layer */
+  clayer = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
+  flayer = getLayer(nlayers_global - 2);
+  nDim =  clayer->getnDesign();
+  vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+  vec_setZero(nDim, flayer->getWeightsBar());
 }
 
 

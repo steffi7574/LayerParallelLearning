@@ -120,6 +120,12 @@ class Network {
 
 
   /*
+   * Interpolate a design from a coarser network to this one. 
+   * Coarse and fine-grid network layers MUST have same dimensions!
+   */
+  void interpolateDesign(int rfactor, Network* coarse_net);
+
+  /*
    * Return a newly constructed layer. The time-step index decides if it is
    * an openinglayer (-1), a hidden layer, or a classification layer
    * (nlayers_global-2). The config file provides information on the kind of 

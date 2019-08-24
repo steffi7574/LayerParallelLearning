@@ -175,21 +175,20 @@ int main(int argc, char *argv[]) {
      /* Initialize the network  */
      primaltrainapp->GetGridDistribution(&ilower, &iupper);
      vnetworks[NI_iter]->createLayerBlock(ilower, iupper, config, current_nhiddenlayers);
-
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
+     if (NI_iter == 0){
+        /* Init coarsest grid with scaled random vars, or from file, if set */
+        vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init,  config->weights_class_init);
+        vnetworks[NI_iter]->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL,  config->weightsclassificationfile);
+     } else {      
+        /* Interpolate from coarser to finer grid */
+        vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1]);
+     }
 
-     // TODO:  If NI_iter > 0:  Change setInitialDesign() so that it takes a vector and 
-     //                         interpolates onto the new bigger design vector
-     //                         
-     //                         Implement other interpolations, linear, quadratic, spline, ...
- 
-    //  if (NI_iter == 0){
-       vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init, config->weights_class_init);
-       vnetworks[NI_iter]->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL, config->weightsclassificationfile);
-    //  } else {
-       
-    //  }
+    char designfilename[255];
+    sprintf(designfilename, "design_NI%d.dat", NI_iter);
+    write_vector(designfilename, vnetworks[NI_iter]->getDesign(), ndesign_global);
 
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, unles we run into memory issues. 
 

@@ -284,7 +284,7 @@ void Network::setDesignRandom(double factor_openweights, double factor_hiddenwei
 
   /* Scale the intermediate (hidden) and classification layers and reset gradient */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 1)  // Intermediate layer
+    if (ilayer < nlayers_global - 2)  // Intermediate layer
     {
       factor = factor_hiddenweights;
     } else  // Classification layer
@@ -319,8 +319,8 @@ void Network::setDesignFromFile(const char* datafolder, const char* openlayerfil
   }
 
   /* Read the classification layer weights, if set (on last processor only) */
-  if (endlayerID == nlayers_global - 1) {
-    int storeID = getLocalID(nlayers_global-1);
+  if (endlayerID == nlayers_global - 2) {
+    int storeID = getLocalID(nlayers_global-2);
     if (strcmp(classificationlayerfile, "NONE") != 0) {
       sprintf(filename, "%s/%s", datafolder, classificationlayerfile);
       read_vector(filename, layers[storeID]->getWeights(), layers[storeID]->getnDesign());

@@ -292,7 +292,7 @@ void Network::setInitialDesign(Config *config) {
 
   /* Intermediate (hidden) and classification layers */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 1)  // Intermediate layer
+    if (ilayer < nlayers_global - 2)  // Intermediate layer
     {
       factor = config->weights_init;
     } else  // Classification layer
@@ -306,7 +306,7 @@ void Network::setInitialDesign(Config *config) {
     vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeightsBar());
 
     /* if set, overwrite classification design from file */
-    if (ilayer == nlayers_global - 1) {
+    if (ilayer == nlayers_global - 2) {
       if (strcmp(config->weightsclassificationfile, "NONE") != 0) {
         sprintf(filename, "%s/%s", config->datafolder,
                 config->weightsclassificationfile);

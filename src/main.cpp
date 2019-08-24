@@ -186,9 +186,9 @@ int main(int argc, char *argv[]) {
         vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1]);
      }
 
-    char designfilename[255];
-    sprintf(designfilename, "design_NI%d.dat", NI_iter);
-    write_vector(designfilename, vnetworks[NI_iter]->getDesign(), ndesign_global);
+    // char designfilename[255];
+    // sprintf(designfilename, "design_NI%d.dat", NI_iter);
+    // write_vector(designfilename, vnetworks[NI_iter]->getDesign(), ndesign_global);
 
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, unles we run into memory issues. 
 

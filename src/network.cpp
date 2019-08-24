@@ -312,34 +312,48 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net){
 
   /* Copy the opening layer, which is stored on the first processor */
   if (mpirank == 0){
+    clayer = coarse_net->openlayer;
+    flayer = openlayer;
     nDim = openlayer->getnDesign();
-    vec_copy(nDim, coarse_net->openlayer->getWeights(), openlayer->getWeights());
+    vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+    vec_setZero(nDim, flayer->getWeightsBar());
   }
 
   /* Interpolate hidden layers (only copying so far) */
-  for (int ilayer = coarse_net->getStartLayerID(); ilayer <= coarse_net->getEndLayerID(); ilayer++) { // this loops over hidden layers of the coarse net. 
-    if (ilayer == coarse_net->getnLayersGlobal()-2) continue; // classification layer, treated separately
+  /* TODO: add linear, and/or quadratic interpolation? */
+  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) { 
+    if (ilayer == nlayers_global-2) continue; // this excludes the classification layer
 
-    /* Get pointer to the coarse-grid layer */
-    clayer = coarse_net->getLayer(ilayer);
-    nDim = clayer->getnDesign();
+      /* Get pointer to the left-sided coarse point */
+      int clayerID = ilayer / rfactor;  // This should round to the lower integer floor(ilayer/rfactor) !
+      clayer = coarse_net->getLayer(clayerID);   
+      if (clayer == NULL) {
+        printf("\n\n ERROR: Can't access left neighbouring coarse-grid layer!\n");
+        printf("\n\n Might be that it's not stored on this processor. Need to communicate? To be implemented...\n");
+        // TODO: Fix it!
+        exit(1);
+      }
       
-    for (int irfac = 0; irfac < rfactor; irfac++){
       /* get pointer to the fine-grid layer */
-      flayer = getLayer(ilayer*rfactor + irfac);
-      /* copy the design */
+      flayer = getLayer(ilayer);
+
+      /* copy the design and reset the gradient */
+      nDim = clayer->getnDesign();
       vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
-      /* reset gradient */
       vec_setZero(nDim, flayer->getWeightsBar());
-    }
   }
 
-  /* Copy classification layer */
+  /* Copy classification layer, which is stored on the last processor */
   clayer = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
-  flayer = getLayer(nlayers_global - 2);
-  nDim =  clayer->getnDesign();
-  vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
-  vec_setZero(nDim, flayer->getWeightsBar());
+  if (clayer != NULL)
+  {
+    flayer = getLayer(nlayers_global - 2);
+    nDim =  clayer->getnDesign();
+    vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+    vec_setZero(nDim, flayer->getWeightsBar());
+  }
+  /* Communicate ghost layers */
+  MPI_CommunicateNeighbours();
 }
 
 

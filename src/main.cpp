@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
         vnetworks[NI_iter]->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL,  config->weightsclassificationfile);
      } else {      
         /* Interpolate from coarser to finer grid */
-        vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1]);
+        vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1], config->NI_interp_type);
      }
 
     // char designfilename[255];

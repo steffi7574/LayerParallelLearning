@@ -122,8 +122,12 @@ class Network {
   /*
    * Interpolate a design from a coarser network to this one. 
    * Coarse and fine-grid network layers MUST have same dimensions!
+   * NI_interp_type: 0  : Carries out piece-wise constant everywhere
+   *                 1  : Carries out linear interpolation everywhere, except at
+   *                      the last interval of new layers where piece-wise 
+   *                      constant is used.
    */
-  void interpolateDesign(int rfactor, Network* coarse_net);
+  void interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_type);
 
   /*
    * Return a newly constructed layer. The time-step index decides if it is

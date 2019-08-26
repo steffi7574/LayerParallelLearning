@@ -66,6 +66,7 @@ class Config {
 
   /* Nested Iteration */
   int NI_levels;
+  int NI_interp_type;
   int NI_rfactor;
   int *NI_tols;
 

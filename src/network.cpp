@@ -304,52 +304,73 @@ void Network::setDesignRandom(double factor_openweights, double factor_hiddenwei
 }
 
 
-
-void Network::interpolateDesign(int rfactor, Network* coarse_net){
+void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_type){
 
   int nDim;
-  Layer *clayer, *flayer;
+  Layer *clayer_left, *clayer_right, *flayer;
 
   /* Copy the opening layer, which is stored on the first processor */
   if (mpirank == 0){
-    clayer = coarse_net->openlayer;
+    clayer_left = coarse_net->openlayer;
     flayer = openlayer;
     nDim = openlayer->getnDesign();
-    vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+    vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
     vec_setZero(nDim, flayer->getWeightsBar());
   }
 
   /* Interpolate hidden layers (only copying so far) */
-  /* TODO: add linear, and/or quadratic interpolation? */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) { 
     if (ilayer == nlayers_global-2) continue; // this excludes the classification layer
 
       /* Get pointer to the left-sided coarse point */
-      int clayerID = ilayer / rfactor;  // This should round to the lower integer floor(ilayer/rfactor) !
-      clayer = coarse_net->getLayer(clayerID);   
-      if (clayer == NULL) {
+      int clayerID = ilayer / rfactor;  // This should round down, floor(ilayer/rfactor) !
+      clayer_left = coarse_net->getLayer(clayerID);   
+      if (clayer_left == NULL) {
         printf("\n\n ERROR: Can't access left neighbouring coarse-grid layer!\n");
         printf("\n\n Might be that it's not stored on this processor. Need to communicate? To be implemented...\n");
         // TODO: Fix it!
         exit(1);
       }
+
+      /* If doing linear, get pointer to the right-sided coarse point (if not at last hidden layer) */
+      if ( (NI_interp_type == 1)  &&  ((clayerID+1) != (coarse_net->getnLayersGlobal()-2)) ) {
+        clayer_right = coarse_net->getLayer(clayerID + 1); // Point to the right neighbor   
+        if (clayer_right == NULL) {
+          printf("\n\n ERROR: Can't access right neighbouring coarse-grid layer!\n");
+          printf("\n\n Might be that it's not stored on this processor. Need to communicate? To be implemented...\n");
+          // TODO: Fix it!
+          exit(1);
+          }
+      }
+
       
-      /* get pointer to the fine-grid layer */
+      /* Get pointer to the fine-grid layer */
       flayer = getLayer(ilayer);
 
-      /* copy the design and reset the gradient */
-      nDim = clayer->getnDesign();
-      vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+      /* Interpolate the design and reset the gradient to 0
+       * 
+       * Note: Always do piece-wise constant interpolation for NI_interp_type 0,
+       *       OR if you are in the last interval of new layers being added   */
+      nDim = clayer_left->getnDesign();
+      vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
       vec_setZero(nDim, flayer->getWeightsBar());
+      if ( (NI_interp_type == 1)  &&  ((clayerID+1) != (coarse_net->getnLayersGlobal()-2)) ) {
+        /* Do linear interp because we are not at last interval of layers and NI_interp_type is 1 */
+        MyReal scale2 = ((MyReal) (ilayer % rfactor)) / ((MyReal) rfactor);
+        MyReal scale1 = 1.0 - scale2;
+        vec_scale(nDim, scale1, flayer->getWeights());
+        vec_axpy(nDim, scale2, clayer_right->getWeights(), flayer->getWeights());
+        //printf("\nCheck   %d  %f  %f \n",ilayer, scale1, scale2);
+      }
   }
 
   /* Copy classification layer, which is stored on the last processor */
-  clayer = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
-  if (clayer != NULL)
+  clayer_left = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
+  if (clayer_left != NULL)
   {
     flayer = getLayer(nlayers_global - 2);
-    nDim =  clayer->getnDesign();
-    vec_copy(nDim, clayer->getWeights(), flayer->getWeights());
+    nDim =  clayer_left->getnDesign();
+    vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
     vec_setZero(nDim, flayer->getWeightsBar());
   }
   /* Communicate ghost layers */

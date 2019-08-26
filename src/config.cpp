@@ -44,6 +44,7 @@ Config::Config() {
   nclasses = 5;
 
   /* Nested Iteration */
+  NI_interp_type = 0;
   NI_levels = 1;
   NI_rfactor = 1;
   NI_tols = (int*) malloc(sizeof(int));
@@ -168,6 +169,8 @@ int Config::readFromFile(char *configfilename) {
       T = atof(co->value);
     } else if (strcmp(co->key, "NI_levels") == 0) {
       NI_levels = atoi(co->value);
+    } else if (strcmp(co->key, "NI_interp_type") == 0) {
+      NI_interp_type = atoi(co->value);
     } else if (strcmp(co->key, "NI_rfactor") == 0) {
       NI_rfactor = atoi(co->value);
     } else if (strcmp(co->key, "NI_tols") == 0) {
@@ -293,6 +296,12 @@ int Config::readFromFile(char *configfilename) {
     printf("ERROR! Number of entered NI tolerances (NI_tols) must equal number of NI levels (NI_levels)!\n"); 
     printf(" -- num NI_tols = %d\n", NI_num_tols);
     printf(" -- NI_levels = %d\n", NI_levels); 
+    exit(1);
+  }
+
+  if ( (NI_interp_type != 0) && (NI_interp_type != 1)) {
+    printf("ERROR! NI_interp_type incorrect, only 0 (piece-wise constant) and 1 (linear) supported!\n"); 
+    printf(" -- NI_interp_type = %d\n", NI_interp_type);
     exit(1);
   }
 
@@ -425,8 +434,10 @@ int Config::writeToFile(FILE *outfile) {
           NI_levels);
   fprintf(outfile, "#                NI rfactor           %d \n",
           NI_rfactor);
+  fprintf(outfile, "#                NI interp type       %d \n",
+          NI_interp_type);
   for(int i = 0; i < NI_levels; i++){
-     fprintf(outfile, "#                NI tols[%d]      %d \n",
+     fprintf(outfile, "#                NI tols[%d]          %d \n",
                 i, NI_tols[i]);
   }
   fprintf(outfile, "# XBraid setup:  max levels           %d \n",

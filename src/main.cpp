@@ -134,7 +134,8 @@ int main(int argc, char *argv[]) {
 
   /* Initialize the network  */
   network->createLayerBlock(startlayerID, endlayerID, config);
-  network->setInitialDesign(config);
+  network->setDesignRandom(config->weights_open_init, config->weights_init, config->weights_class_init);
+  network->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL, config->weightsclassificationfile);
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();
 

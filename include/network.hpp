@@ -9,6 +9,14 @@
 #include "util.hpp"
 #pragma once
 
+/* The network class logically connects the layers. Each processor owns one 
+ * block of the global network containing a portion of all layers with indices in
+ * [startlayerID, endLayerID], where startlayerID >= -1 (-1 for the openinglayer), endlayerID <= nlayers_global -2) (nlayers_global -2 is the classification layer).  
+ * Pointers to these layers are stored in the vector **layers.  
+ * Most important routines are createLayerBlock() which creates the layers
+ * and allocates the weights, and setInitialDesign() which provides an 
+ * for the network weights. 
+*/
 class Network {
  protected:
   int nlayers_global; /* Total number of Layers of the network */
@@ -31,21 +39,24 @@ class Network {
   MyReal *design;   /* Local vector of design variables*/
   MyReal *gradient; /* Local Gradient */
 
-  Layer *openlayer;  /* At first processor: openinglayer, else: NULL */
-  Layer **layers;    /* Array of hidden layers (includes classification layer at
-                        last processor */
+  Layer **layers;    /* Array of layers */
   Layer *layer_left; /* Copy of last layer of left-neighbouring processor */
-  Layer *layer_right; /* Copy of first layer of right-neighbouring processor */
+  Layer *layer_right;/* Copy of first layer of right-neighbouring processor */
 
   MPI_Comm comm; /* MPI communicator */
+  int mpirank;   /* rank of this processor */
 
  public:
-  Network();
+  Network(MPI_Comm comm);
 
   ~Network();
 
-  void createNetworkBlock(int StartLayerID, int EndLayerID, Config *config,
-                          MPI_Comm Comm);
+  /* This processor creates a network block containing layers at all time steps 
+   * in the interval [startLayerID, endLayerID]. 
+   * Here, the design and gradient vectors containing the weights, biases and 
+   * their gradients for those layers is allocated. 
+   */
+  void createLayerBlock(int StartLayerID, int EndLayerID, Config *config);
 
   /* Get number of channels */
   int getnChannels();
@@ -80,12 +91,6 @@ class Network {
   int getnDesignLocal();
   int getnDesignGlobal();
 
-  /**
-   * Compute max. number of layer's ndesign on this processor
-   * excluding opening and classification layer
-   */
-  int computeLayermax();
-
   /* Return ndesign_layermax */
   int getnDesignLayermax();
 
@@ -99,17 +104,28 @@ class Network {
   Layer *getLayer(int layerindex);
 
   /*
-   * Set an initial guess on the network design:
-   * Random initialization, scaled by given factors
-   * If set, reads in opening and classification weights from file
+   * Sets the design vector of all layers to random values, scaled by the given factors
    */
-  void setInitialDesign(Config *config);
+void setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification);
 
+
+/* 
+ * Reads in design variables from file
+ * Currently only opening weights and classification weights can be read. 
+ */
+void setDesignFromFile(const char* datafolder, const char* openingfilename, const char* hiddenfilename, const char* classificationfilename);
+
+  /*
+   * Return a newly constructed layer. The time-step index decides if it is
+   * an openinglayer (-1), a hidden layer, or a classification layer
+   * (nlayers_global-2). The config file provides information on the kind of 
+   * layer that is to be created (Dense or Convolutional). 
+   */
   Layer *createLayer(int index, Config *config);
 
   /* Replace the layer with one that is received from the left neighbouring
    * processor */
-  void MPI_CommunicateNeighbours(MPI_Comm comm);
+  void MPI_CommunicateNeighbours();
 
   /**
    * Applies the classification and evaluates loss/accuracy
@@ -122,9 +138,4 @@ class Network {
   void evalClassification_diff(DataSet *data, MyReal **primalstate,
                                MyReal **adjointstate, int compute_gradient);
 
-  /**
-   * Update the network design parameters: new_design = old_design + stepsize *
-   * direction
-   */
-  void updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm);
 };

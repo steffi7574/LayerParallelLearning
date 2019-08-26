@@ -44,8 +44,7 @@ int main(int argc, char *argv[]) {
 
   /* --- Network --- */
   Network *network; /**< DNN Network architecture */
-  int ilower,
-      iupper; /**< Index of first and last layer stored on this processor */
+  int startlayerID, endlayerID; /**< Index of first and last layer stored on this processor */
   MyReal accur_train = 0.0; /**< Accuracy on training data */
   MyReal accur_val = 0.0;   /**< Accuracy on validation data */
   MyReal loss_train = 0.0;  /**< Loss function on training data */
@@ -93,7 +92,7 @@ int main(int argc, char *argv[]) {
   config = new Config();
   trainingdata = new DataSet();
   validationdata = new DataSet();
-  network = new Network();
+  network = new Network(MPI_COMM_WORLD);
 
   /* Read config file */
   if (argc != 2) {
@@ -130,16 +129,18 @@ int main(int argc, char *argv[]) {
       trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
   primalvalapp =
       new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
+  primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
+  if (startlayerID == 0) startlayerID = startlayerID - 1; // -1 is index of the opening layer
 
   /* Initialize the network  */
-  primaltrainapp->GetGridDistribution(&ilower, &iupper);
-  network->createNetworkBlock(ilower, iupper, config, MPI_COMM_WORLD);
-  network->setInitialDesign(config);
+  network->createLayerBlock(startlayerID, endlayerID, config);
+  network->setDesignRandom(config->weights_open_init, config->weights_init, config->weights_class_init);
+  network->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL, config->weightsclassificationfile);
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();
 
   /* Print some neural network information */
-  printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
+  printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID,
          config->nlayers);
   printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
          ndesign_global);
@@ -290,7 +291,8 @@ int main(int argc, char *argv[]) {
      *
      *  Algorithm (2): Step 5
      */
-    network->updateDesign(-1.0 * stepsize, ascentdir, MPI_COMM_WORLD);
+    vec_axpy(ndesign_local, -1.0*stepsize, ascentdir, network->getDesign());
+    network->MPI_CommunicateNeighbours();
 
     if (config->stepsize_type == BACKTRACKINGLS) {
       /* Compute wolfe condition */
@@ -323,8 +325,8 @@ int main(int argc, char *argv[]) {
           }
 
           /* Go back part of the step */
-          network->updateDesign((1.0 - config->ls_factor) * stepsize, ascentdir,
-                                MPI_COMM_WORLD);
+          vec_axpy(ndesign_local, (1.0 - config->ls_factor) * stepsize, ascentdir, network->getDesign());
+          network->MPI_CommunicateNeighbours();
 
           /* Decrease the stepsize */
           ls_stepsize = ls_stepsize * config->ls_factor;

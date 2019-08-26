@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2019.08.26
+### Added
+- Critical bugfix for initialization of network design variables
+- Cleaning up the network class
+- Fixing output format
+
 ## [1.0.1] - 2019.07.09
 ### Added
 - This CHANGELOG file.

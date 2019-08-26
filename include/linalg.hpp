@@ -47,6 +47,21 @@ MyReal vecnorm_par(int dimN, MyReal *x, MPI_Comm comm);
 int vec_copy(int N, MyReal *u, MyReal *u_copy);
 
 /**
+ * Scale a vector by the factor alpha x = alpha*x
+ */
+int vec_scale(int N, MyReal alpha, MyReal *x);
+
+/**
+ * Set a vector to zero 
+ */
+int vec_setZero(int N, MyReal*x);
+
+/**
+ * Compute AXPY: y = ax+y
+ */
+int vec_axpy(int N, MyReal alpha, MyReal *x, MyReal *y);
+
+/**
  * Compute matrix x* y^T
  */
 void vecvecT(int N, MyReal *x, MyReal *y, MyReal *XYT);

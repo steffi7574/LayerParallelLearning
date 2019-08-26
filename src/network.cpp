@@ -22,7 +22,7 @@
 #include "network.hpp"
 #include <assert.h>
 
-Network::Network() {
+Network::Network(MPI_Comm Comm) {
   nlayers_global = 0;
   nlayers_local = 0;
   nchannels = 0;
@@ -41,15 +41,14 @@ Network::Network() {
   gradient = NULL;
 
   layers = NULL;
-  openlayer = NULL;
   layer_left = NULL;
   layer_right = NULL;
 
-  comm = MPI_COMM_WORLD;
+  comm = Comm;
+  MPI_Comm_rank(comm, &mpirank);
 }
 
-void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
-                                 Config *config, MPI_Comm Comm) {
+void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config) {
   /* Initilizize */
   startlayerID = StartLayerID;
   endlayerID = EndLayerID;
@@ -57,45 +56,28 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
   dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
-  comm = Comm;
 
-  /* --- Create the layers --- */
   ndesign_local = 0;
+  int mylayermax = 0;
 
-  if (startlayerID == 0)  // Opening layer
-  {
-    /* Create the opening layer */
-    int index = -1;
-    openlayer = createLayer(index, config);
-    ndesign_local += openlayer->getnDesign();
-    // printf("Create opening layer %d, ndesign_local %d \n", index,
-    // openlayer->getnDesign());
-  }
 
-  layers = new Layer *[nlayers_local];  // Intermediate and classification layer
+  /* Create vector of layers on this processor */
+  layers = new Layer *[nlayers_local];  
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    /* Create a layer at time step ilayer. Local storage at ilayer -
-     * startlayerID */
-    int storeID = getLocalID(ilayer);
-    layers[storeID] = createLayer(ilayer, config);
-    ndesign_local += layers[storeID]->getnDesign();
+
+    /* Create a layer */
+    Layer* newlayer = createLayer(ilayer, config);
+    ndesign_local += newlayer->getnDesign();
     // printf("creating hidden/class layer %d/%d, ndesign_local%d\n", ilayer,
     // nlayers_local, layers[storeID]->getnDesign());
+
+    /* Update layermax */
+    if (newlayer->getnDesign() > mylayermax && ilayer < nlayers_global - 2) 
+      mylayermax = newlayer->getnDesign();
+
+    /* Store the new layer in the layer vector */
+    layers[getLocalID(ilayer)] = newlayer;
   }
-
-  /* Create left neighbouring layer */
-  int leftID = startlayerID - 1;
-  layer_left = createLayer(leftID, config);
-
-  /* Create right neighbrouing layer */
-  int rightID = endlayerID + 1;
-  layer_right = createLayer(rightID, config);
-
-  /* Sum up global number of design vars */
-  MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, comm);
-
-  /* Store maximum number of designs over all layers layermax */
-  ndesign_layermax = computeLayermax();
 
   /* Allocate memory for network design and gradient variables */
   design = new MyReal[ndesign_local];
@@ -103,26 +85,28 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 
   /* Set the memory locations for all layers */
   int istart = 0;
-  if (openlayer != NULL)  // Openlayer on first processor
+  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) 
   {
-    openlayer->setMemory(&(design[istart]), &(gradient[istart]));
-    istart += openlayer->getnDesign();
-  }
-  for (int ilayer = startlayerID; ilayer <= endlayerID;
-       ilayer++)  // intermediate and hidden layers
-  {
-    layers[getLocalID(ilayer)]->setMemory(&(design[istart]),
-                                          &(gradient[istart]));
-    istart += layers[getLocalID(ilayer)]->getnDesign();
+    getLayer(ilayer)->setMemory(&(design[istart]), &(gradient[istart]));
+    istart += getLayer(ilayer)->getnDesign();
   }
 
-  /* left anr right neighbouring layer design, if exists */
+  /* Communicate global ndesign and layermax */
+  MPI_Allreduce(&ndesign_local, &ndesign_global, 1, MPI_INT, MPI_SUM, comm);
+  MPI_Allreduce(&mylayermax, &ndesign_layermax, 1, MPI_INT, MPI_MAX, comm);
+
+  /* Create left and right neighbouring layer */
+  int leftID = startlayerID - 1;
+  int rightID = endlayerID + 1;
+  layer_left = createLayer(leftID, config);
+  layer_right = createLayer(rightID, config);
+
+  /* Allocate neighbouring layer's design, if exist on this proc */
   if (layer_left != NULL) {
     MyReal *left_design = new MyReal[layer_left->getnDesign()];
     MyReal *left_gradient = new MyReal[layer_left->getnDesign()];
     layer_left->setMemory(left_design, left_gradient);
   }
-  /* Create and initialize right neighbouring layer design, if exists */
   if (layer_right != NULL) {
     MyReal *right_design = new MyReal[layer_right->getnDesign()];
     MyReal *right_gradient = new MyReal[layer_right->getnDesign()];
@@ -131,10 +115,8 @@ void Network::createNetworkBlock(int StartLayerID, int EndLayerID,
 }
 
 Network::~Network() {
-  /* Delete openlayer */
-  if (openlayer != NULL) delete openlayer;
 
-  /* Delete intermediate and classification layers */
+  /* Delete the layers */
   for (int ilayer = 0; ilayer < nlayers_local; ilayer++) {
     delete layers[ilayer];
   }
@@ -239,10 +221,7 @@ Layer *Network::createLayer(int index, Config *config) {
 Layer *Network::getLayer(int layerindex) {
   Layer *layer;
 
-  if (layerindex == -1)  // opening layer
-  {
-    layer = openlayer;
-  } else if (layerindex == startlayerID - 1) {
+  if (layerindex == startlayerID - 1) {
     layer = layer_left;
   } else if (startlayerID <= layerindex && layerindex <= endlayerID) {
     layer = layers[getLocalID(layerindex)];
@@ -257,36 +236,14 @@ Layer *Network::getLayer(int layerindex) {
 
 int Network::getnDesignLayermax() { return ndesign_layermax; }
 
-int Network::computeLayermax() {
-  int ndesignlayer;
-  int max = 0;
 
-  /* Loop over all local layers */
-  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 2)  // excludes classification layer
-    {
-      /* Update maximum */
-      ndesignlayer = layers[getLocalID(ilayer)]->getnDesign();
-      if (ndesignlayer > max) max = ndesignlayer;
-    }
-  }
-
-  /* Get maximum over all local layer blocks */
-  int mymax = max;
-  MPI_Allreduce(&mymax, &max, 1, MPI_INT, MPI_MAX, comm);
-
-  return max;
-}
-
-void Network::setInitialDesign(Config *config) {
+void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification) {
   MyReal factor;
   MyReal *design_init;
-  char filename[255];
   int myid;
   MPI_Comm_rank(comm, &myid);
 
-  /* Initialize design with random numbers (do on one processor and scatter for
-   * scaling test) */
+  /* Create a random vector (do it on one processor for scaling test) */
   if (myid == 0) {
     srand(1.0);
     design_init = new MyReal[ndesign_global];
@@ -294,56 +251,48 @@ void Network::setInitialDesign(Config *config) {
       design_init[i] = (MyReal)rand() / ((MyReal)RAND_MAX);
     }
   }
-  /* Scatter initial design to all processors */
+  /* Scatter random vector to local design for all procs */
   MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
 
-  /* Scale the initial design by a factor and read from file, if set */
-
-  /* Opening layer on first processor */
-  if (startlayerID == 0) {
-    /* Scale design by the factor */
-    factor = config->weights_open_init;
-    openlayer->scaleDesign(factor);
-
-    /* if set, overwrite opening design from file */
-    if (strcmp(config->weightsopenfile, "NONE") != 0) {
-      sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
-      read_vector(filename, openlayer->getWeights(), openlayer->getnDesign());
-    }
-  }
-
-  /* Intermediate (hidden) and classification layers */
+  /* Scale the weights and reset the gradien */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 1)  // Intermediate layer
-    {
-      factor = config->weights_init;
-    } else  // Classification layer
-    {
-      factor = config->weights_class_init;
+    if (ilayer == -1){  // opening layer
+      factor = factor_open;
+    } else if (ilayer == nlayers_global - 2) { // classification layer
+      factor = factor_classification;
+    } else { // hidden layer
+      factor = factor_hidden;
     }
-
-    /* Set memory location and scale the current design by the factor */
-    int storeID = getLocalID(ilayer);
-    layers[storeID]->scaleDesign(factor);
-
-    /* if set, overwrite classification design from file */
-    if (ilayer == nlayers_global - 1) {
-      if (strcmp(config->weightsclassificationfile, "NONE") != 0) {
-        sprintf(filename, "%s/%s", config->datafolder,
-                config->weightsclassificationfile);
-        read_vector(filename, layers[storeID]->getWeights(),
-                    layers[storeID]->getnDesign());
-      }
-    }
+    vec_scale(getLayer(ilayer)->getnDesign(), factor, getLayer(ilayer)->getWeights());
+    vec_setZero(getLayer(ilayer)->getnDesign(), getLayer(ilayer)->getWeightsBar());
   }
 
   /* Communicate the neighbours across processors */
-  MPI_CommunicateNeighbours(comm);
+  MPI_CommunicateNeighbours();
 
   if (myid == 0) delete[] design_init;
+
 }
 
-void Network::MPI_CommunicateNeighbours(MPI_Comm comm) {
+
+void Network::setDesignFromFile(const char* datafolder, const char* openingfilename, const char* hiddenfilename, const char* classificationfilename) {
+
+  char filename[255];
+
+  /* if set, overwrite opening design from file */
+  if (strcmp(openingfilename, "NONE") != 0) {
+    sprintf(filename, "%s/%s", datafolder, openingfilename);
+    read_vector(filename, getLayer(-1)->getWeights(), getLayer(-1)->getnDesign());
+  }
+
+  /* if set, overwrite classification design from file */
+  if (strcmp(classificationfilename, "NONE") != 0) {
+    sprintf(filename, "%s/%s", datafolder, classificationfilename);
+    read_vector(filename, getLayer(nlayers_global-2)->getWeights(), getLayer(nlayers_global-2)->getnDesign());
+  }
+}
+
+void Network::MPI_CommunicateNeighbours() {
   int myid, comm_size;
   MPI_Comm_rank(comm, &myid);
   MPI_Comm_size(comm, &comm_size);
@@ -524,12 +473,4 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
   delete[] tmpstate;
 }
 
-void Network::updateDesign(MyReal stepsize, MyReal *direction, MPI_Comm comm) {
-  /* Update design locally on this network-block */
-  for (int id = 0; id < ndesign_local; id++) {
-    design[id] += stepsize * direction[id];
-  }
 
-  /* Communicate design across neighbouring processors (ghostlayers) */
-  MPI_CommunicateNeighbours(comm);
-}

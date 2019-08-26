@@ -41,7 +41,6 @@ Network::Network(MPI_Comm Comm) {
   gradient = NULL;
 
   layers = NULL;
-  openlayer = NULL;
   layer_left = NULL;
   layer_right = NULL;
 
@@ -61,30 +60,23 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
   ndesign_local = 0;
   int mylayermax = 0;
 
-  /* Create Opening layer on first processor */
-  if (mpirank == 0) {
-    int index = -1;
-    openlayer = createLayer(index, config);
-    ndesign_local += openlayer->getnDesign();
-    // printf("Create opening layer %d, ndesign_local %d \n", index,
-    // openlayer->getnDesign());
-  }
 
-  /* Create vector of layers on this processor (hidden and classification) */
+  /* Create vector of layers on this processor */
   layers = new Layer *[nlayers_local];  
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
 
-    /* Create a layer at time step ilayer. Local storage at ilayer - startlayerID */
-    int storeID = getLocalID(ilayer);
-    layers[storeID] = createLayer(ilayer, config);
-
-    /* Update parameters */
-    int ndesign_thislayer = layers[storeID]->getnDesign();
-    ndesign_local += ndesign_thislayer;
-    if (ndesign_thislayer > mylayermax && ilayer < nlayers_global - 2) 
-      mylayermax = ndesign_thislayer;
+    /* Create a layer */
+    Layer* newlayer = createLayer(ilayer, config);
+    ndesign_local += newlayer->getnDesign();
     // printf("creating hidden/class layer %d/%d, ndesign_local%d\n", ilayer,
     // nlayers_local, layers[storeID]->getnDesign());
+
+    /* Update layermax */
+    if (newlayer->getnDesign() > mylayermax && ilayer < nlayers_global - 2) 
+      mylayermax = newlayer->getnDesign();
+
+    /* Store the new layer in the layer vector */
+    layers[getLocalID(ilayer)] = newlayer;
   }
 
   /* Allocate memory for network design and gradient variables */
@@ -93,17 +85,10 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
 
   /* Set the memory locations for all layers */
   int istart = 0;
-  if (openlayer != NULL)  // Openlayer on first processor
+  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) 
   {
-    openlayer->setMemory(&(design[istart]), &(gradient[istart]));
-    istart += openlayer->getnDesign();
-  }
-  for (int ilayer = startlayerID; ilayer <= endlayerID;
-       ilayer++)  // intermediate and hidden layers
-  {
-    layers[getLocalID(ilayer)]->setMemory(&(design[istart]),
-                                          &(gradient[istart]));
-    istart += layers[getLocalID(ilayer)]->getnDesign();
+    getLayer(ilayer)->setMemory(&(design[istart]), &(gradient[istart]));
+    istart += getLayer(ilayer)->getnDesign();
   }
 
   /* Communicate global ndesign and layermax */
@@ -130,10 +115,8 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
 }
 
 Network::~Network() {
-  /* Delete openlayer */
-  if (openlayer != NULL) delete openlayer;
 
-  /* Delete intermediate and classification layers */
+  /* Delete the layers */
   for (int ilayer = 0; ilayer < nlayers_local; ilayer++) {
     delete layers[ilayer];
   }
@@ -238,10 +221,7 @@ Layer *Network::createLayer(int index, Config *config) {
 Layer *Network::getLayer(int layerindex) {
   Layer *layer;
 
-  if (layerindex == -1)  // opening layer
-  {
-    layer = openlayer;
-  } else if (layerindex == startlayerID - 1) {
+  if (layerindex == startlayerID - 1) {
     layer = layer_left;
   } else if (startlayerID <= layerindex && layerindex <= endlayerID) {
     layer = layers[getLocalID(layerindex)];
@@ -276,28 +256,15 @@ void Network::setInitialDesign(Config *config) {
   /* Scatter initial design to all processors */
   MPI_ScatterVector(design_init, design, ndesign_local, 0, comm);
 
-  /* Opening layer on first processor */
-  if (startlayerID == 0) {
-    /* Scale design by the factor and reset gradient */
-    factor = config->weights_open_init;
-    vec_scale(openlayer->getnDesign(), factor, openlayer->getWeights());
-    vec_setZero(openlayer->getnDesign(), openlayer->getWeightsBar());
 
-    /* if set, overwrite opening design from file */
-    if (strcmp(config->weightsopenfile, "NONE") != 0) {
-      sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
-      read_vector(filename, openlayer->getWeights(), openlayer->getnDesign());
-    }
-  }
-
-  /* Intermediate (hidden) and classification layers */
+  /* Scale the weights */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
-    if (ilayer < nlayers_global - 2)  // Intermediate layer
-    {
-      factor = config->weights_init;
-    } else  // Classification layer
-    {
+    if (ilayer == -1){  // opening layer
+      factor = config->weights_open_init;
+    } else if (ilayer == nlayers_global - 2) { // classification layer
       factor = config->weights_class_init;
+    } else { // hidden layer
+      factor = config->weights_init;
     }
 
     /* Scale the current design by the factor and reset gradient */
@@ -305,16 +272,20 @@ void Network::setInitialDesign(Config *config) {
     vec_scale(layers[storeID]->getnDesign(), factor, layers[storeID]->getWeights());
     vec_setZero(layers[storeID]->getnDesign(), layers[storeID]->getWeightsBar());
 
-    /* if set, overwrite classification design from file */
-    if (ilayer == nlayers_global - 2) {
-      if (strcmp(config->weightsclassificationfile, "NONE") != 0) {
-        sprintf(filename, "%s/%s", config->datafolder,
-                config->weightsclassificationfile);
-        read_vector(filename, layers[storeID]->getWeights(),
-                    layers[storeID]->getnDesign());
-      }
-    }
   }
+
+  /* if set, overwrite opening design from file */
+  if (strcmp(config->weightsopenfile, "NONE") != 0) {
+    sprintf(filename, "%s/%s", config->datafolder, config->weightsopenfile);
+    read_vector(filename, getLayer(-1)->getWeights(), getLayer(-1)->getnDesign());
+  }
+
+
+    /* if set, overwrite classification design from file */
+    if (strcmp(config->weightsclassificationfile, "NONE") != 0) {
+      sprintf(filename, "%s/%s", config->datafolder, config->weightsclassificationfile);
+      read_vector(filename, getLayer(nlayers_global-2)->getWeights(), getLayer(nlayers_global-2)->getnDesign());
+    }
 
   /* Communicate the neighbours across processors */
   MPI_CommunicateNeighbours();

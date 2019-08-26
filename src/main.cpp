@@ -44,8 +44,7 @@ int main(int argc, char *argv[]) {
 
   /* --- Network --- */
   Network *network; /**< DNN Network architecture */
-  int ilower,
-      iupper; /**< Index of first and last layer stored on this processor */
+  int startlayerID, endlayerID; /**< Index of first and last layer stored on this processor */
   MyReal accur_train = 0.0; /**< Accuracy on training data */
   MyReal accur_val = 0.0;   /**< Accuracy on validation data */
   MyReal loss_train = 0.0;  /**< Loss function on training data */
@@ -130,16 +129,17 @@ int main(int argc, char *argv[]) {
       trainingdata, network, config, primaltrainapp->getCore(), MPI_COMM_WORLD);
   primalvalapp =
       new myBraidApp(validationdata, network, config, MPI_COMM_WORLD);
+  primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
+  if (startlayerID == 0) startlayerID = startlayerID - 1; // -1 is index of the opening layer
 
   /* Initialize the network  */
-  primaltrainapp->GetGridDistribution(&ilower, &iupper);
-  network->createLayerBlock(ilower, iupper, config);
+  network->createLayerBlock(startlayerID, endlayerID, config);
   network->setInitialDesign(config);
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();
 
   /* Print some neural network information */
-  printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
+  printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID,
          config->nlayers);
   printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
          ndesign_global);

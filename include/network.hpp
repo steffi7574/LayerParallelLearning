@@ -10,9 +10,9 @@
 #pragma once
 
 /* The network class logically connects the layers. Each processor owns one 
- * block of a network containing a portion of all layers with indices in
- * [startlayerID, endLayerID]. The **layer vector stores pointers to these 
- * layers, except for the opening layer, which is stored separately. 
+ * block of the global network containing a portion of all layers with indices in
+ * [startlayerID, endLayerID], where startlayerID >= -1 (-1 for the openinglayer), endlayerID <= nlayers_global -2) (nlayers_global -2 is the classification layer).  
+ * Pointers to these layers are stored in the vector **layers.  
  * Most important routines are createLayerBlock() which creates the layers
  * and allocates the weights, and setInitialDesign() which provides an 
  * for the network weights. 
@@ -39,11 +39,9 @@ class Network {
   MyReal *design;   /* Local vector of design variables*/
   MyReal *gradient; /* Local Gradient */
 
-  Layer *openlayer;  /* At first processor: openinglayer, else: NULL */
-  Layer **layers;    /* Array of hidden layers (includes classification layer at
-                        last processor */
+  Layer **layers;    /* Array of layers */
   Layer *layer_left; /* Copy of last layer of left-neighbouring processor */
-  Layer *layer_right; /* Copy of first layer of right-neighbouring processor */
+  Layer *layer_right;/* Copy of first layer of right-neighbouring processor */
 
   MPI_Comm comm; /* MPI communicator */
   int mpirank;   /* rank of this processor */
@@ -106,28 +104,29 @@ class Network {
   Layer *getLayer(int layerindex);
 
   /*
-   * Set the design to random values, scaled by the given factors for weights 
-   * at opening layer, hidden layers, and classification layer
+   * Sets the design vector of all layers to random values, scaled by the given factors
    */
-  void setDesignRandom(double factor_openweights, double factor_hiddenweights, double factor_classiweights );
-
-
-  /* 
-   * Read layer weights from file, if set
-   * In: names of files that contain the layer weights and folder containing the files.
-   */
-  void setDesignFromFile(const char* datafolder, const char* openlayerfile, const char* hiddenlayerfile, const char* classificationlayerfile);
+  void setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification);
 
 
   /*
-   * Interpolate a design from a coarser network to this one. 
+   * Interpolate a design from a coarser network to this one.
    * Coarse and fine-grid network layers MUST have same dimensions!
    * NI_interp_type: 0  : Carries out piece-wise constant everywhere
    *                 1  : Carries out linear interpolation everywhere, except at
-   *                      the last interval of new layers where piece-wise 
+   *                      the last interval of new layers where piece-wise
    *                      constant is used.
    */
   void interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_type);
+
+
+  /* 
+   * Reads in design variables from file
+   * Currently only opening weights and classification weights can be read. 
+   */
+  void setDesignFromFile(const char* datafolder, const char* openingfilename, const char* hiddenfilename, const char* classificationfilename);
+
+
 
   /*
    * Return a newly constructed layer. The time-step index decides if it is

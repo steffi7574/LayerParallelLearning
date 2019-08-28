@@ -46,10 +46,9 @@ int main(int argc, char *argv[]) {
   /* --- Nested Iteration --- */
   std::vector<Network*>  vnetworks;     /**< Vector of networks */ 
   int current_nhiddenlayers;            /**< nhiddenlayers to be used on the current NI level */
+  int startlayerID, endlayerID; /**< Index of first and last layer stored on this processor */
 
   /* --- Other Network Values --- */
-  int ilower,
-      iupper; /**< Index of first and last layer stored on this processor */
   MyReal accur_train = 0.0; /**< Accuracy on training data */
   MyReal accur_val = 0.0;   /**< Accuracy on validation data */
   MyReal loss_train = 0.0;  /**< Loss function on training data */
@@ -173,8 +172,9 @@ int main(int argc, char *argv[]) {
          new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
 
      /* Initialize the network  */
-     primaltrainapp->GetGridDistribution(&ilower, &iupper);
-     vnetworks[NI_iter]->createLayerBlock(ilower, iupper, config, current_nhiddenlayers);
+     primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
+     if (startlayerID == 0) startlayerID = startlayerID - 1; // -1 is index of the opening layer
+     vnetworks[NI_iter]->createLayerBlock(startlayerID, endlayerID, config, current_nhiddenlayers);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
      if (NI_iter == 0){
@@ -192,14 +192,13 @@ int main(int argc, char *argv[]) {
 
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, unles we run into memory issues. 
 
+
      /* Print some neural network information */
      if (myid == MASTER_NODE) {
         printf("\n------------------------ Begin Nested Iteration %d------------------------\n\n", NI_iter);
      }
-     printf("%d: Layer range: [%d, %d] / %d\n", myid, ilower, iupper,
-            current_nhiddenlayers+2);
-     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local,
-            ndesign_global);
+     printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID, current_nhiddenlayers+2);
+     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
      /* Initialize Hessian approximation */
      HessianApprox *hessian = NULL;

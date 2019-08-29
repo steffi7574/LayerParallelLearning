@@ -138,7 +138,7 @@ class Network {
 
   /* Replace the layer with one that is received from the left neighbouring
    * processor */
-  void MPI_CommunicateNeighbours();
+  int MPI_CommunicateNeighbours();
 
   /**
    * Applies the classification and evaluates loss/accuracy

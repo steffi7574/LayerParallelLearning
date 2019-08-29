@@ -241,11 +241,9 @@ int Network::getnDesignLayermax() { return ndesign_layermax; }
 void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification) {
   MyReal factor;
   MyReal *design_init=NULL;
-  int myid;
-  MPI_Comm_rank(comm, &myid);
 
   /* Create a random vector (do it on one processor for scaling test) */
-  if (myid == 0) {
+  if (mpirank == 0) {
     srand(1.0);
     design_init = new MyReal[ndesign_global];
     for (int i = 0; i < ndesign_global; i++) {
@@ -271,7 +269,7 @@ void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal f
   /* Communicate the neighbours across processors */
   MPI_CommunicateNeighbours();
 
-  if (myid == 0) delete[] design_init;
+  if (mpirank == 0) delete[] design_init;
 
 }
 
@@ -373,13 +371,12 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
 }
 
 
-void Network::MPI_CommunicateNeighbours() {
-  int myid, comm_size;
-  MPI_Comm_rank(comm, &myid);
-  MPI_Comm_size(comm, &comm_size);
+int Network::MPI_CommunicateNeighbours() {
+
   MPI_Request sendlastreq, recvlastreq;
   MPI_Request sendfirstreq, recvfirstreq;
   MPI_Status status;
+  Layer *layer = NULL;
 
   /* Allocate buffers */
   int size_left = -1;
@@ -390,11 +387,13 @@ void Network::MPI_CommunicateNeighbours() {
   MyReal *sendfirst = 0;
   MyReal *recvfirst = 0;
 
-  /* --- All but the first process receive the last layer from left neighbour
-   * --- */
-  if (myid > 0) {
+  /* Don't communicate on processors that don't have layers */
+  if (startlayerID > endlayerID) return 0; 
+
+  /* --- All but the first proc receive the left neighbour's last layer --- */
+  if (startlayerID > -1) {
     /* Receive from left neighbour */
-    int source = myid - 1;
+    int source = mpirank - 1;
 
     size_left = layer_left->getnDesign();
     recvlast = new MyReal[size_left];
@@ -402,61 +401,58 @@ void Network::MPI_CommunicateNeighbours() {
     MPI_Irecv(recvlast, size_left, MPI_MyReal, source, 0, comm, &recvlastreq);
   }
 
-  /* --- All but the last process sent their last layer to right neighbour ---
-   */
-  if (myid < comm_size - 1) {
-    size_left = layers[getLocalID(endlayerID)]->getnDesign();
+  /* --- All but the process with the classification layer sent their last layer to right neighbour --- */
+  if (endlayerID < nlayers_global - 2) {
+    layer = getLayer(endlayerID);
+    size_left = layer->getnDesign();
     sendlast = new MyReal[size_left];
 
     /* Pack the last layer into a buffer */
-    layers[getLocalID(endlayerID)]->packDesign(sendlast, size_left);
+    layer->packDesign(sendlast, size_left);
 
     /* Send to right neighbour */
-    int receiver = myid + 1;
+    int receiver = mpirank + 1;
     MPI_Isend(sendlast, size_left, MPI_MyReal, receiver, 0, comm, &sendlastreq);
   }
 
-  /* --- All but the last processor recv the first layer from the right
-   * neighbour --- */
-  if (myid < comm_size - 1) {
+  /* --- All but the process with the classification layer recv the right neighbour's first layer --- */
+  if (endlayerID < nlayers_global - 2) {
     /* Receive from right neighbour */
-    int source = myid + 1;
+    int source = mpirank + 1;
 
     size_right = layer_right->getnDesign();
     recvfirst = new MyReal[size_right];
 
-    MPI_Irecv(recvfirst, size_right, MPI_MyReal, source, 1, comm,
-              &recvfirstreq);
+    MPI_Irecv(recvfirst, size_right, MPI_MyReal, source, 1, comm, &recvfirstreq);
   }
 
-  /* --- All but the first processor send their first layer to the left
-   * neighbour --- */
-  if (myid > 0) {
-    size_right = layers[getLocalID(startlayerID)]->getnDesign();
+  /* --- All but the first processor send their first layer to the left neighbour --- */
+  if (startlayerID > -1) {
+    layer = getLayer(startlayerID);
+    size_right = layer->getnDesign();
     sendfirst = new MyReal[size_right];
 
     /* Pack the first layer into a buffer */
-    layers[getLocalID(startlayerID)]->packDesign(sendfirst, size_right);
+    layer->packDesign(sendfirst, size_right);
 
     /* Send to left neighbour */
-    int receiver = myid - 1;
-    MPI_Isend(sendfirst, size_right, MPI_MyReal, receiver, 1, comm,
-              &sendfirstreq);
+    int receiver = mpirank - 1;
+    MPI_Isend(sendfirst, size_right, MPI_MyReal, receiver, 1, comm, &sendfirstreq);
   }
 
   /* Wait to finish up communication */
-  if (myid > 0) MPI_Wait(&recvlastreq, &status);
-  if (myid < comm_size - 1) MPI_Wait(&sendlastreq, &status);
-  if (myid < comm_size - 1) MPI_Wait(&recvfirstreq, &status);
-  if (myid > 0) MPI_Wait(&sendfirstreq, &status);
+  if (startlayerID > -1) MPI_Wait(&recvlastreq, &status);
+  if (endlayerID < nlayers_global-2) MPI_Wait(&sendlastreq, &status);
+  if (endlayerID < nlayers_global-2) MPI_Wait(&recvfirstreq, &status);
+  if (startlayerID > -1) MPI_Wait(&sendfirstreq, &status);
 
   /* Unpack and store the left received layer */
-  if (myid > 0) {
+  if (startlayerID > -1) {
     layer_left->unpackDesign(recvlast);
   }
 
   /* Unpack and store the right received layer */
-  if (myid < comm_size - 1) {
+  if (endlayerID < nlayers_global - 2) {
     layer_right->unpackDesign(recvfirst);
   }
 
@@ -465,6 +461,8 @@ void Network::MPI_CommunicateNeighbours() {
   if (recvlast != 0) delete[] recvlast;
   if (sendfirst != 0) delete[] sendfirst;
   if (recvfirst != 0) delete[] recvfirst;
+
+  return 0;
 }
 
 void Network::evalClassification(DataSet *data, MyReal **state, int output) {
@@ -552,6 +550,7 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
   // primalstate[1][1], tmpstate[0], bias_bar[dim_Out-1]);
 
   delete[] tmpstate;
+
 }
 
 

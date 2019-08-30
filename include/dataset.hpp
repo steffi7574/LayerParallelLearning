@@ -24,15 +24,26 @@ class DataSet {
                     batch */
   int navail; /* Auxilliary: holding number of currently available batchIDs */
 
+  int lastlayer_proc; /* Stores the MPI_rank of the processor that holds the last layer */
+
  public:
   /* Default constructor */
+  DataSet(int nElements, int nFeatures, int nLabels, int nBatch);
   DataSet();
 
   /* Destructor */
   ~DataSet();
 
-  void initialize(int nElements, int nFeatures, int nLabels, int nBatch,
-                  MPI_Comm Comm);
+  /* Allocates the batchIDs and initializes with identity */
+  void initBatch();
+
+  /* Allocates vector of examples and read examples from the file*/
+  void loadExamples(const char *datafolder, const char *examplefile);
+
+  /* Allocates vector of labels and read labels from the file.
+   * Also, stores the rank of the processor who owns the labels. 
+   */
+  void loadLabels(const char *datafolder, const char *labelfile, int lastprocID);
 
   /* Return the batch size*/
   int getnBatch();
@@ -41,13 +52,15 @@ class DataSet {
    * processor, return NULL */
   MyReal *getExample(int id);
 
+  /* Return a pointer to the vector of examples */
+  MyReal **getExamples();
+
+  /* Return a pointer to the vector of labels */
+  MyReal **getLabels();
+
   /* Return the label vector of a certain batchID. If not stored on this
    * processor, return NULL */
   MyReal *getLabel(int id);
-
-  /* Read data from file */
-  void readData(const char *datafolder, const char *examplefile,
-                const char *labelfile);
 
   /* Select the current batch from all available IDs, either deterministic or
    * stochastic */

@@ -92,12 +92,9 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  /* Instantiate objects */
-  config = new Config();
-  trainingdata = new DataSet();
-  validationdata = new DataSet();
 
   /* Read config file */
+  config = new Config();
   if (argc != 2) {
     if (myid == MASTER_NODE) {
       printf("\n");
@@ -124,16 +121,8 @@ int main(int argc, char *argv[]) {
   current_nhiddenlayers = config->nlayers - 2;
 
   /* Initialize training and validation data */
-  trainingdata->initialize(config->ntraining, config->nfeatures,
-                           config->nclasses, config->nbatch, MPI_COMM_WORLD);
-  trainingdata->readData(config->datafolder, config->ftrain_ex,
-                         config->ftrain_labels);
-
-  validationdata->initialize(config->nvalidation, config->nfeatures,
-                             config->nclasses, config->nvalidation,
-                             MPI_COMM_WORLD);  // full validation set!
-  validationdata->readData(config->datafolder, config->fval_ex,
-                           config->fval_labels);
+  trainingdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);
+  validationdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
 
   /* Initialize and open optimization data file */
   if (myid == MASTER_NODE) {
@@ -170,13 +159,44 @@ int main(int argc, char *argv[]) {
          trainingdata, vnetworks[NI_iter], config, primaltrainapp->getCore(), MPI_COMM_WORLD, current_nhiddenlayers);
      primalvalapp =
          new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
-
-     /* Initialize the network  */
      primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
      if (startlayerID == 0) startlayerID = startlayerID - 1; // -1 is index of the opening layer
+
+     /* Read training and validation data */
+     if (startlayerID == -1) // processor that stores opening layer
+     {
+        if (trainingdata->getExamples() == NULL){// if it hasn't been allocated before on this proc
+          printf("%d: Reading examples...\n", myid);
+          trainingdata->loadExamples(config->datafolder, config->ftrain_ex);
+          validationdata->loadExamples(config->datafolder, config->fval_ex);
+        }
+     }
+     if (endlayerID == current_nhiddenlayers && startlayerID <= endlayerID) // processor that stores classification layer
+     {
+        if (trainingdata->getLabels() == NULL){  // if it hasn't been allocated before on this proc
+          printf("%d: Reading labels...\n", myid);
+          trainingdata->loadLabels(config->datafolder, config->ftrain_labels, myid);
+          validationdata->loadLabels(config->datafolder, config->fval_labels, myid);
+        }
+     }
+
+     /* Allocate and initialize batch on processors that store opening or classification layer */
+     if (startlayerID == -1 || endlayerID == current_nhiddenlayers)
+     {
+       trainingdata->initBatch();
+       validationdata->initBatch();
+     }
+
+           
+
+    printf("%d: I'm starting ...  \n", myid);
+     /* Initialize the network  */
      vnetworks[NI_iter]->createLayerBlock(startlayerID, endlayerID, config, current_nhiddenlayers);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
+
+     printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID, current_nhiddenlayers+2);
+
      if (NI_iter == 0){
         /* Init coarsest grid with scaled random vars, or from file, if set */
         vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init,  config->weights_class_init);
@@ -185,6 +205,7 @@ int main(int argc, char *argv[]) {
         /* Interpolate from coarser to finer grid */
         vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1], config->NI_interp_type);
      }
+    printf("%d: I'm still alive\n", myid);
 
     // char designfilename[255];
     // sprintf(designfilename, "design_NI%d.dat", NI_iter);
@@ -197,7 +218,6 @@ int main(int argc, char *argv[]) {
      if (myid == MASTER_NODE) {
         printf("\n------------------------ Begin Nested Iteration %d------------------------\n\n", NI_iter);
      }
-     printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID, current_nhiddenlayers+2);
      printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
      /* Initialize Hessian approximation */
@@ -244,8 +264,9 @@ int main(int argc, char *argv[]) {
       *
       */
      for (int iter = 0; iter < config->maxoptimiter; iter++) {
-       /* Set up the current batch */
-       trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
+       /* Set up the current batch. Only those processors that store opening or classification layer */
+       if (startlayerID == -1 || endlayerID == current_nhiddenlayers) 
+          trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
 
        /** Solve state and adjoint equations (2.15) and (2.17)
         *

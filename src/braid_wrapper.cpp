@@ -637,6 +637,8 @@ braid_Int myAdjointBraidApp::Init(braid_Real t, braid_Vector *u_ptr) {
   if (t == 0) {
     /* Get the primal vector */
     _braid_UGetLast(primalcore->GetCore(), &ubaseprimal);
+    if (ubaseprimal == NULL) return 0;
+    
     uprimal = (myBraidVector *)ubaseprimal->userVector;
 
     /* Reset the gradient before updating it */

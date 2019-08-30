@@ -21,53 +21,31 @@
 //
 #include "dataset.hpp"
 
-DataSet::DataSet() {
-  nelements = 0;
-  nfeatures = 0;
-  nlabels = 0;
-  nbatch = 0;
-  MPIsize = 0;
-  MPIrank = 0;
-  navail = 0;
+DataSet::DataSet(int nElements, int nFeatures, int nLabels, int nBatch) {
+  nelements = nElements;
+  nfeatures = nFeatures;
+  nlabels = nLabels;
+  nbatch = nBatch;
+
+  navail = nElements;
 
   examples = NULL;
   labels = NULL;
   batchIDs = NULL;
   availIDs = NULL;
-}
-
-void DataSet::initialize(int nElements, int nFeatures, int nLabels, int nBatch,
-                         MPI_Comm comm) {
-  nelements = nElements;
-  nfeatures = nFeatures;
-  nlabels = nLabels;
-  nbatch = nBatch;
-  navail = nelements;
-
-  MPI_Comm_rank(comm, &MPIrank);
-  MPI_Comm_size(comm, &MPIsize);
 
   /* Sanity check */
   if (nbatch > nelements) nbatch = nelements;
 
-  /* Allocate feature vectors on first processor */
-  if (MPIrank == 0) {
-    examples = new MyReal *[nelements];
-    for (int ielem = 0; ielem < nelements; ielem++) {
-      examples[ielem] = new MyReal[nfeatures];
-    }
-  }
-  /* Allocate label vectors on last processor */
-  if (MPIrank == MPIsize - 1) {
-    labels = new MyReal *[nelements];
-    for (int ielem = 0; ielem < nelements; ielem++) {
-      labels[ielem] = new MyReal[nlabels];
-    }
-  }
+  lastlayer_proc = -1;
+
+}
+
+void DataSet::initBatch() {
+
 
   /* Allocate and initialize availIDs and batchIDs on first and last processor
    */
-  if (MPIrank == 0 || MPIrank == MPIsize - 1) {
     availIDs = new int[nelements];  // all elements
     batchIDs = new int[nbatch];
 
@@ -80,11 +58,10 @@ void DataSet::initialize(int nElements, int nFeatures, int nLabels, int nBatch,
     for (int idx = 0; idx < nbatch; idx++) {
       batchIDs[idx] = idx;
     }
-  }
 }
 
 DataSet::~DataSet() {
-  /* Deallocate feature vectors on first processor */
+  /* Deallocate feature vectors */
   if (examples != NULL) {
     for (int ielem = 0; ielem < nelements; ielem++) {
       delete[] examples[ielem];
@@ -92,7 +69,7 @@ DataSet::~DataSet() {
     delete[] examples;
   }
 
-  /* Deallocate label vectors on last processor */
+  /* Deallocate label vectors */
   if (labels != NULL) {
     for (int ielem = 0; ielem < nelements; ielem++) {
       delete[] labels[ielem];
@@ -106,6 +83,8 @@ DataSet::~DataSet() {
 
 int DataSet::getnBatch() { return nbatch; }
 
+
+
 MyReal *DataSet::getExample(int id) {
   if (examples == NULL) return NULL;
 
@@ -118,21 +97,45 @@ MyReal *DataSet::getLabel(int id) {
   return labels[batchIDs[id]];
 }
 
-void DataSet::readData(const char *datafolder, const char *examplefile,
-                       const char *labelfile) {
-  char examplefilename[255], labelfilename[255];
+MyReal **DataSet::getExamples(){
+   return examples;
+}
 
-  /* Set the file names  */
-  sprintf(examplefilename, "%s/%s", datafolder, examplefile);
-  sprintf(labelfilename, "%s/%s", datafolder, labelfile);
+MyReal **DataSet::getLabels(){
+   return labels;
+}
 
-  /* Read feature vectors on first processor */
-  if (MPIrank == 0)
-    read_matrix(examplefilename, examples, nelements, nfeatures);
+void DataSet::loadExamples(const char *datafolder, const char *examplefile){
 
-  /* Read label vectors on last processor) */
-  if (MPIrank == MPIsize - 1)
-    read_matrix(labelfilename, labels, nelements, nlabels);
+  char filename[255];
+
+  /* Allocate the examples */
+  examples = new MyReal *[nelements];
+  for (int ielem = 0; ielem < nelements; ielem++) {
+    examples[ielem] = new MyReal[nfeatures];
+  }
+ 
+  /* Read examples from file */
+  sprintf(filename, "%s/%s", datafolder, examplefile);
+  read_matrix(filename, examples, nelements, nfeatures);
+}
+
+void DataSet::loadLabels(const char *datafolder, const char *labelfile, int mpirank){
+
+  char filename[255];
+
+  /* Allocate label vector */
+  labels = new MyReal *[nelements];
+  for (int ielem = 0; ielem < nelements; ielem++) {
+          labels[ielem] = new MyReal[nlabels];
+  }
+
+  /* Read label vector from file */
+  sprintf(filename, "%s/%s", datafolder, labelfile);
+  read_matrix(filename, labels, nelements, nlabels);
+
+  /* Store the rank of the processor that stores the labels */
+  lastlayer_proc = mpirank;
 }
 
 void DataSet::selectBatch(int batch_type, MPI_Comm comm) {
@@ -140,6 +143,8 @@ void DataSet::selectBatch(int batch_type, MPI_Comm comm) {
   int tmp;
   MPI_Request sendreq, recvreq;
   MPI_Status status;
+  int mpirank;
+  MPI_Comm_rank(comm, &mpirank);
 
   switch (batch_type) {
     case DETERMINISTIC:
@@ -148,8 +153,8 @@ void DataSet::selectBatch(int batch_type, MPI_Comm comm) {
 
     case STOCHASTIC:
 
-      /* Randomly choose a batch on first processor, send to last processor */
-      if (MPIrank == 0) {
+      /* Randomly choose a batch on first processor,  */
+      if (mpirank == 0) {
         /* Fill the batchID vector with randomly generated integer */
         rand_range = navail - 1;
         for (int ibatch = 0; ibatch < nbatch; ibatch++) {
@@ -167,20 +172,20 @@ void DataSet::selectBatch(int batch_type, MPI_Comm comm) {
           rand_range--;
         }
 
-        /* Send to the last processor */
-        int receiver = MPIsize - 1;
+        /* Send to the processor that stores the last layer */
+        int receiver = lastlayer_proc;
         MPI_Isend(batchIDs, nbatch, MPI_INT, receiver, 0, comm, &sendreq);
       }
 
       /* Receive the batch IDs on last processor */
-      if (MPIrank == MPIsize - 1) {
+      if (MPIrank == lastlayer_proc) {
         int source = 0;
         MPI_Irecv(batchIDs, nbatch, MPI_INT, source, 0, comm, &recvreq);
       }
 
       /* Wait to finish communication */
       if (MPIrank == 0) MPI_Wait(&sendreq, &status);
-      if (MPIrank == MPIsize - 1) MPI_Wait(&recvreq, &status);
+      if (MPIrank == lastlayer_proc) MPI_Wait(&recvreq, &status);
 
       break;  // break switch statement
   }

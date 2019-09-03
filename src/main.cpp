@@ -146,6 +146,9 @@ int main(int argc, char *argv[]) {
    * */
   for(int NI_iter = 0; NI_iter < config->NI_levels; NI_iter++)
   {
+     if (myid == MASTER_NODE) {
+        printf("\n------------------------ Begin Nested Iteration %d------------------------\n\n", NI_iter);
+     }
 
      /* Compute number of hidden layers for the next level of NI */
      if(NI_iter > 0) {
@@ -181,22 +184,19 @@ int main(int argc, char *argv[]) {
      }
 
      /* Allocate and initialize batch on processors that store opening or classification layer */
-     if (startlayerID == -1 || endlayerID == current_nhiddenlayers)
-     {
+     if (startlayerID == -1 || (endlayerID == current_nhiddenlayers && startlayerID <= endlayerID) ) {
        trainingdata->initBatch();
        validationdata->initBatch();
      }
 
-           
-
-    printf("%d: I'm starting ...  \n", myid);
-     /* Initialize the network  */
+     /* Create the network */
      vnetworks[NI_iter]->createLayerBlock(startlayerID, endlayerID, config, current_nhiddenlayers);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();
-
      printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID, current_nhiddenlayers+2);
+     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
 
+     /* Initialize network weights */
      if (NI_iter == 0){
         /* Init coarsest grid with scaled random vars, or from file, if set */
         vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init,  config->weights_class_init);
@@ -205,7 +205,6 @@ int main(int argc, char *argv[]) {
         /* Interpolate from coarser to finer grid */
         vnetworks[NI_iter]->interpolateDesign(config->NI_rfactor, vnetworks[NI_iter-1], config->NI_interp_type);
      }
-    printf("%d: I'm still alive\n", myid);
 
     // char designfilename[255];
     // sprintf(designfilename, "design_NI%d.dat", NI_iter);
@@ -214,11 +213,7 @@ int main(int argc, char *argv[]) {
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, unles we run into memory issues. 
 
 
-     /* Print some neural network information */
-     if (myid == MASTER_NODE) {
-        printf("\n------------------------ Begin Nested Iteration %d------------------------\n\n", NI_iter);
-     }
-     printf("%d: Design variables (local/global): %d/%d\n", myid, ndesign_local, ndesign_global);
+     
 
      /* Initialize Hessian approximation */
      HessianApprox *hessian = NULL;

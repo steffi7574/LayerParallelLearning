@@ -220,16 +220,15 @@ Layer *Network::createLayer(int index, Config *config) {
 }
 
 Layer *Network::getLayer(int layerindex) {
-  Layer *layer;
+  Layer *layer = NULL;
 
+  /* Get the layer, if stored */
   if (layerindex == startlayerID - 1) {
     layer = layer_left;
   } else if (startlayerID <= layerindex && layerindex <= endlayerID) {
     layer = layers[getLocalID(layerindex)];
   } else if (layerindex == endlayerID + 1) {
     layer = layer_right;
-  } else {
-    layer = NULL;
   }
 
   return layer;
@@ -301,54 +300,43 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
   Layer *clayer_left = NULL;
   Layer *clayer_right = NULL;
   Layer *flayer = NULL;
+  int clayerID;
 
-  /* Copy the opening layer, which is stored on the first processor */
-  if (mpirank == 0){
-    clayer_left = coarse_net->getLayer(-1);
-    flayer = getLayer(-1);
-    nDim = flayer->getnDesign();
-    vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
-    vec_setZero(nDim, flayer->getWeightsBar());
-  }
-
-  /* Interpolate hidden layers */
+  /* Loop over all ayers */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) { 
-    if (ilayer == nlayers_global-2 || ilayer == -1) continue; // this excludes the classification and opening layers
+
+      /* Get pointer to the fine-grid layer */
+      flayer = layers[getLocalID(ilayer)];
 
       /* Get pointer to the left-sided coarse point */
-      int clayerID = ilayer / rfactor;  // This should round down, floor(ilayer/rfactor) !
+      if (ilayer == -1){
+        clayerID = -1;
+      } else if (ilayer == nlayers_global - 2) {
+        clayerID = coarse_net->getnLayersGlobal() - 2;
+      } else {
+        clayerID = (int) ilayer / rfactor;  // This floors to closest smaller integer. 
+      }
       clayer_left = coarse_net->getLayer(clayerID);   
       if (clayer_left == NULL) {
-        printf("\n\n ERROR: Can't access left neighbouring coarse-grid layer!\n");
-        printf("\n\n Might be that it's not stored on this processor. Need to communicate? To be implemented...\n");
-        // TODO: Fix it!
-        exit(1);
+        printf("\n\n%d: ERROR: Can't access coarse-grid layer! flayerID = %d, clayerID = %d\n", mpirank, ilayer, clayerID );
+        exit(1); // TODO: Fix it!
       }
-
-      /* If doing linear, get pointer to the right-sided coarse point (if not at last hidden layer) */
-      if ( (NI_interp_type == 1)  &&  ((clayerID+1) != (coarse_net->getnLayersGlobal()-2)) ) {
-        clayer_right = coarse_net->getLayer(clayerID + 1); // Point to the right neighbor   
-        if (clayer_right == NULL) {
-          printf("\n\n ERROR: Can't access right neighbouring coarse-grid layer!\n");
-          printf("\n\n Might be that it's not stored on this processor. Need to communicate? To be implemented...\n");
-          // TODO: Fix it!
-          exit(1);
-          }
-      }
-
-      
-      /* Get pointer to the fine-grid layer */
-      flayer = getLayer(ilayer);
-
-      /* Interpolate the design and reset the gradient to 0
-       * 
-       * Note: Always do piece-wise constant interpolation for NI_interp_type 0,
-       *       OR if you are in the last interval of new layers being added   */
+     
+      /* --- Interpolate the design and reset the gradient to 0 --- */
       nDim = clayer_left->getnDesign();
+
+      /* Always copy clayer to flayer weights */
       vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
       vec_setZero(nDim, flayer->getWeightsBar());
-      if ( (NI_interp_type == 1)  &&  ((clayerID+1) != (coarse_net->getnLayersGlobal()-2)) ) {
-        /* Do linear interp because we are not at last interval of layers and NI_interp_type is 1 */
+
+      /* If linear interpolation: Scale weights and add right clayer weights, if not at classification or opening layer */
+      if ( (NI_interp_type == 1)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) ) {
+
+        clayer_right = coarse_net->getLayer(clayerID + 1); 
+        if (clayer_right == NULL) {
+          printf("\n\n%d: ERROR: Can't access coarse-grid layer! flayerID = %d, clayerID = %d\n", mpirank, ilayer, clayerID );
+          exit(1); // TODO: Fix it!
+        }
         MyReal scale2 = ((MyReal) (ilayer % rfactor)) / ((MyReal) rfactor);
         MyReal scale1 = 1.0 - scale2;
         vec_scale(nDim, scale1, flayer->getWeights());
@@ -357,15 +345,6 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
       }
   }
 
-  /* Copy classification layer, which is stored on the last processor */
-  clayer_left = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
-  if (clayer_left != NULL)
-  {
-    flayer = getLayer(nlayers_global - 2);
-    nDim =  clayer_left->getnDesign();
-    vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
-    vec_setZero(nDim, flayer->getWeightsBar());
-  }
   /* Communicate ghost layers */
   MPI_CommunicateNeighbours();
 }

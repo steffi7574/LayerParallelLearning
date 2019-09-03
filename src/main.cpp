@@ -399,7 +399,7 @@ int main(int argc, char *argv[]) {
        primalvalapp->run();
        loss_val = vnetworks[NI_iter]->getLoss();
 
-       printf("Final validation accuracy:  %2.2f%%\n", accur_val);
+       if (myid == size-1) printf("Final validation accuracy:  %2.2f%%\n", accur_val);
      }
 
      /* Clean up XBraid */

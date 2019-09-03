@@ -358,13 +358,17 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
   }
 
   /* Copy classification layer, which is stored on the last processor */
-  clayer_left = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
-  if (clayer_left != NULL)
-  {
-    flayer = getLayer(nlayers_global - 2);
-    nDim =  clayer_left->getnDesign();
-    vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
-    vec_setZero(nDim, flayer->getWeightsBar());
+  int mpisize;
+  MPI_Comm_rank(comm, &mpisize);
+  if (mpirank == mpisize - 1) {
+    clayer_left = coarse_net->getLayer(coarse_net->getnLayersGlobal()-2); 
+    if (clayer_left != NULL)
+    {
+      flayer = getLayer(nlayers_global - 2);
+      nDim =  clayer_left->getnDesign();
+      vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
+      vec_setZero(nDim, flayer->getWeightsBar());
+    }
   }
   /* Communicate ghost layers */
   MPI_CommunicateNeighbours();

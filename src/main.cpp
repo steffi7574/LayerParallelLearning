@@ -122,7 +122,7 @@ int main(int argc, char *argv[]) {
 
   /* Initialize training and validation data */
   trainingdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);
-  validationdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
+  validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
 
   /* Initialize and open optimization data file */
   if (myid == MASTER_NODE) {

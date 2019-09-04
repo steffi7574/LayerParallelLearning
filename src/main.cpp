@@ -414,8 +414,10 @@ int main(int argc, char *argv[]) {
        primalvalapp->getCore()->SetPrintLevel(0);
        primalvalapp->run();
        loss_val = vnetworks[NI_iter]->getLoss();
+       accur_val = vnetworks[NI_iter]->getAccuracy();
+       MPI_Allreduce(&accur_val, &accurval_out, 1, MPI_MyReal, MPI_SUM, MPI_COMM_WORLD);
 
-       if (myid == size-1) printf("Final validation accuracy:  %2.2f%%\n", accur_val);
+       if (myid == MASTER_NODE) printf("Final validation accuracy:  %2.2f%%\n", accurval_out);
      }
 
      /* Clean up XBraid */

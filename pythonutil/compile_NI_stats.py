@@ -39,7 +39,7 @@ def print_stats(vals):
 ##
 #
 # Peaks with nested iter
-directory = "peaks_NI_experiments_old"
+directory = "peaks_NI_experiments"
 #
 # Peaks with no nested iteration, but 50% more optimization iters to make this
 # algorithm cost roughly as much as nested iteration
@@ -69,13 +69,13 @@ gammaddt   = [1e-5]
 gammaclass = [1e-7, 1e-2]
 #
 weights_open_init  = [1e-3, 1e-1]
-weights_init       = [0,    1e-3]
+weights_init       = [0,    1e-6]
 weights_class_init = [1e-3, 1e-1]
 #
 NI_levels      = [2]
 NI_rfactor     = [2]
 NI_interp_type = [0, 1]
-NI_tols        = ["50,50", "90,90"]
+NI_tols        = ["75,75", "90,90"]
 
 # number of processors
 # want that at least nlayers / cf
@@ -200,7 +200,7 @@ indys3 = sp.argsort(val_accuracies[indys2])[-5:]
 print("\nTop 5 Validation accuracies")
 print((val_accuracies[indys2])[indys3])
 print("\nCorresponding Reference Validation accuracies")
-print((val_accuracies[indys2])[indys3])
+print((val_accuracies_ref[indys2])[indys3])
 print("\nExperiments located in:")
 print((sp.asarray(job_names)[indys2])[indys3])
 

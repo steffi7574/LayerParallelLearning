@@ -39,14 +39,14 @@ def print_stats(vals):
 ##
 #
 # Peaks with nested iter
-directory = "peaks_NI_experiments"
+directory = "peaks_NI_experiments_old"
 #
 # Peaks with no nested iteration, but 50% more optimization iters to make this
 # algorithm cost roughly as much as nested iteration
-#directory_reference = "peaks_experiments_longer"
+directory_reference = "peaks_experiments_longer"
 #
 # Same as peaks_experiments, but with the same number of optimization iters as nested iteration 
-directory_reference = "peaks_experiments"
+#directory_reference = "peaks_experiments"
 
 
 sys.path.append('./'+directory+'/')
@@ -56,6 +56,7 @@ configfile = Config(directory+"/peaks.cfg")
 val_accuracies = []
 val_accuracies_ref = []
 val_accuracies_diff = []
+job_names = []
 
 ################################
 # Copy this section from submit_parameterstudy.py
@@ -160,9 +161,9 @@ for nl in range(len(nlayers)):
                                                 val_accuracies.append(find_val_acc(lines, konfig.NI_rfactor))
                                                 f.close()
                                                 if sp.isnan(val_accuracies[-1]) or val_accuracies[-1] == 0:
-                                                    print "Zero or nan val accuracy,  " + str(val_accuracies[-1]) + ",  " + jobname
+                                                    print("Zero or nan val accuracy,  " + str(val_accuracies[-1]) + ",  " + jobname)
                                             except:
-                                                print "\nCan't find " + jobname + "\n"
+                                                print("\nCan't find " + jobname + "\n")
                                                 val_accuracies.append(sp.nan) 
                                             
                                             try:
@@ -171,11 +172,11 @@ for nl in range(len(nlayers)):
                                                 val_accuracies_ref.append(find_val_acc(lines, 1))
                                                 f.close()
                                             except:
-                                                print "\nCan't find REFERENCE " + jobname_reference + "\n"
+                                                print("\nCan't find REFERENCE " + jobname_reference + "\n")
                                                 val_accuracies_ref.append(sp.nan) 
 
                                             val_accuracies_diff.append( val_accuracies[-1] - val_accuracies_ref[-1])
-                                            
+                                            job_names.append(jobname)
                                             # Account for missed filenames ... 
 
 # Need to account for entries that are "nan" and "0"
@@ -194,6 +195,13 @@ print_stats(val_accuracies_ref)
 print("\nStats for Nested Iteration MINUS Normal Experiments")
 print_stats(val_accuracies_diff[indys2])
 
-# Mean, median, min, max, st dev of differences 
+## Print top five NI results
+indys3 = sp.argsort(val_accuracies[indys2])[-5:]
+print("\nTop 5 Validation accuracies")
+print((val_accuracies[indys2])[indys3])
+print("\nCorresponding Reference Validation accuracies")
+print((val_accuracies[indys2])[indys3])
+print("\nExperiments located in:")
+print((sp.asarray(job_names)[indys2])[indys3])
 
 

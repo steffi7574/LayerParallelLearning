@@ -84,7 +84,8 @@ Config::Config() {
   gamma_class = 1e-07;
   stepsize_type = BACKTRACKINGLS;
   stepsize_init = 1.0;
-  maxoptimiter = 500;
+  maxoptimiter = (int*) malloc(sizeof(int));
+  maxoptimiter[0] = 500;
   gtol = 1e-08;
   ls_maxiter = 20;
   ls_factor = 0.5;
@@ -93,13 +94,14 @@ Config::Config() {
   validationlevel = 1;
 }
 
-Config::~Config() { free(NI_tols); }
+Config::~Config() { free(NI_tols); free(maxoptimiter); }
 
 int Config::readFromFile(char *configfilename) {
    
-   /* Tracks number of Nested Iteration Tolerances */
+   /* Tracks number of Nested Iteration Tolerances and Optimization Iteration Caps*/
    int NI_num_tols=1;
-
+   int maxoptimiter_num=1;
+   
   /* Parse the config file */
   config_option *co;
   if ((co = parsefile(configfilename)) == NULL) {
@@ -237,7 +239,8 @@ int Config::readFromFile(char *configfilename) {
     } else if (strcmp(co->key, "stepsize") == 0) {
       stepsize_init = atof(co->value);
     } else if (strcmp(co->key, "optim_maxiter") == 0) {
-      maxoptimiter = atoi(co->value);
+      free(maxoptimiter) ;
+      string_to_intarray(co->value, &maxoptimiter, &maxoptimiter_num);
     } else if (strcmp(co->key, "gtol") == 0) {
       gtol = atof(co->value);
     } else if (strcmp(co->key, "ls_maxiter") == 0) {
@@ -295,6 +298,13 @@ int Config::readFromFile(char *configfilename) {
   if (NI_num_tols != NI_levels) {
     printf("ERROR! Number of entered NI tolerances (NI_tols) must equal number of NI levels (NI_levels)!\n"); 
     printf(" -- num NI_tols = %d\n", NI_num_tols);
+    printf(" -- NI_levels = %d\n", NI_levels); 
+    exit(1);
+  }
+
+  if (maxoptimiter_num != NI_levels) {
+    printf("ERROR! Number of entered max optimization iterations (maxoptimiter) must equal number of NI levels (NI_levels)!\n"); 
+    printf(" -- num maxoptimiter= %d\n", maxoptimiter_num);
     printf(" -- NI_levels = %d\n", NI_levels); 
     exit(1);
   }
@@ -475,7 +485,10 @@ int Config::writeToFile(FILE *outfile) {
           stepsizetypename);
   fprintf(outfile, "#                stepsize             %f \n",
           stepsize_init);
-  fprintf(outfile, "#                max. optim iter      %d \n", maxoptimiter);
+  for(int i = 0; i < NI_levels; i++){
+     fprintf(outfile, "#                max. optim iter[%d]  %d \n",
+                i, maxoptimiter[i]);
+  }
   fprintf(outfile, "#                gtol                 %1.e \n", gtol);
   fprintf(outfile, "#                max. ls iter         %d \n", ls_maxiter);
   fprintf(outfile, "#                ls factor            %f \n", ls_factor);

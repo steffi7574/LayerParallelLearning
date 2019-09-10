@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
       * The following loop represents the paper's Algorithm (2)
       *
       */
-     for (int iter = 0; iter < config->maxoptimiter; iter++) {
+     for (int iter = 0; iter < config->maxoptimiter[NI_iter]; iter++) {
        /* Set up the current batch. Only those processors that store opening or classification layer */
        if (startlayerID == -1 || endlayerID == current_nhiddenlayers) 
           trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);
@@ -331,7 +331,7 @@ int main(int argc, char *argv[]) {
          }
          break;
        }
-       if (iter == config->maxoptimiter - 1) {
+       if (iter == config->maxoptimiter[NI_iter] - 1) {
          if (myid == MASTER_NODE) {
            printf("\nMax. optimization iterations reached.\n");
          }

@@ -25,12 +25,12 @@ def print_stats(vals):
     indys = (vals == 0) + sp.isnan(vals) 
     indys2 = sp.setdiff1d(sp.arange(len(vals)), indys.nonzero()[0]) 
     vals = vals[indys2]
-    print("  Mean   : " + str(sp.mean(vals) ))
-    print("  Median : " + str(sp.median(vals) ))
-    print("  Max    : " + str(max(vals) ))
-    print("  Min    : " + str(min(vals) ))
-    print("  Std Dev: " + str(sp.std(vals) ))
-    print("  Nan/0  : " + str(len(indys.nonzero()[0])))
+    print("  Mean   : " + str(sp.mean(vals) ) + " %")
+    print("  Median : " + str(sp.median(vals) ) + " %")
+    print("  Max    : " + str(max(vals) ) + " %")
+    print("  Min    : " + str(min(vals) ) + " %")
+    print("  Std Dev: " + str(sp.std(vals) ) + " %")
+    print("  Nan    : " + str(len(indys.nonzero()[0])))
 
     return indys2
 
@@ -186,10 +186,11 @@ val_accuracies_ref = sp.array(val_accuracies_ref)
 
 
 ## Print Mean, median, min, max, st dev of validation accuracies
-print("Nested Iteration Experiments")
+print("\n------------------------------------------")
+print("Nested Iteration Validation Accuracy Statistics")
 indys2 = print_stats(val_accuracies)
 
-print("\nNormal, Non Nested Iteration Experiments")
+print("\nNormal, Non-Nested Iteration Validation Accuracy Statistics")
 print_stats(val_accuracies_ref)
 
 print("\nStats for Nested Iteration MINUS Normal Experiments")
@@ -197,11 +198,22 @@ print_stats(val_accuracies_diff[indys2])
 
 ## Print top five NI results
 indys3 = sp.argsort(val_accuracies[indys2])[-5:]
-print("\nTop 5 Validation accuracies")
-print((val_accuracies[indys2])[indys3])
-print("\nCorresponding Reference Validation accuracies")
-print((val_accuracies_ref[indys2])[indys3])
+print("\n------------------------------------------")
+print("\nTop 5 Nested Iteration Validation accuracies")
+print( [ "%1.2f %%"%v for v in (val_accuracies[indys2])[indys3] ] )
+print("\nCorresponding Non-Nested Iteration Validation accuracies")
+print( [ "%1.2f %%"%v for v in (val_accuracies_ref[indys2])[indys3] ] )
 print("\nExperiments located in:")
 print((sp.asarray(job_names)[indys2])[indys3])
+
+## Print bottom five NI results
+indys4 = sp.argsort(val_accuracies[indys2])[0:5]
+print("\n------------------------------------------")
+print("\nWorst 5 Nested Iteration Validation accuracies")
+print( [ "%1.2f %%"%v for v in (val_accuracies[indys2])[indys4] ] )
+print("\nCorresponding Non-Nested Iteration Validation accuracies")
+print( [ "%1.2f %%"%v for v in (val_accuracies_ref[indys2])[indys4] ] )
+print("\nExperiments located in:")
+print((sp.asarray(job_names)[indys2])[indys4])
 
 

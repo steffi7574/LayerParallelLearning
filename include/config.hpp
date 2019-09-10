@@ -93,7 +93,7 @@ class Config {
   MyReal gamma_class;
   int stepsize_type;
   MyReal stepsize_init;
-  int maxoptimiter;
+  int* maxoptimiter;
   MyReal gtol;
   int ls_maxiter;
   MyReal ls_factor;

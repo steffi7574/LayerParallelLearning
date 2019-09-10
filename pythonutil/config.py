@@ -173,7 +173,6 @@ def read_config(filename):
                 case("braid_fmg") or \
                 case("braid_nrelax") or \
                 case("braid_nrelax0") or \
-                case("optim_maxiter") or \
                 case("ls_maxiter") or \
                 case("lbfgs_stages") or \
                 case("nbatch") or \
@@ -210,6 +209,7 @@ def read_config(filename):
                case("type_openlayer") or \
                case("batch_type") or \
                case("stepsize_type") or \
+               case("optim_maxiter") or \
                case("hessian_approx") :
                data_dict[this_param] = this_value
                break

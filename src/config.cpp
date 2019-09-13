@@ -309,8 +309,8 @@ int Config::readFromFile(char *configfilename) {
     exit(1);
   }
 
-  if ( (NI_interp_type != 0) && (NI_interp_type != 1)) {
-    printf("ERROR! NI_interp_type incorrect, only 0 (piece-wise constant) and 1 (linear) supported!\n"); 
+  if ( (NI_interp_type != 0) && (NI_interp_type != 1) && (NI_interp_type != 2)) {
+    printf("ERROR! NI_interp_type incorrect, only 0 (piece-wise constant), 1 (linear), and 2 (do-nothing) supported!\n"); 
     printf(" -- NI_interp_type = %d\n", NI_interp_type);
     exit(1);
   }

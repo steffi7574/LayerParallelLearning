@@ -329,8 +329,9 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
       vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
       vec_setZero(nDim, flayer->getWeightsBar());
 
-      /* If linear interpolation: Scale weights and add right clayer weights, if not at classification or opening layer */
       if ( (NI_interp_type == 1)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) ) {
+         /* If linear interpolation: Scale weights and add right clayer
+          * weights, if not at classification or opening layer */
 
         clayer_right = coarse_net->getLayer(clayerID + 1); 
         if (clayer_right == NULL) {
@@ -343,6 +344,16 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
         vec_axpy(nDim, scale2, clayer_right->getWeights(), flayer->getWeights());
         //printf("\nCheck   %d  %f  %f \n",ilayer, scale1, scale2);
       }
+      else if ( (NI_interp_type == 2)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) ) {
+         /* If 'Do Nothing' interpolation, set new layers to 0.  Then in main
+          * increase t_final so that the initial network propagation is the same */
+        
+        if (ilayer % rfactor != 0){
+          vec_setZero(nDim, flayer->getWeights());
+        }
+        //else do nothing
+      }
+
   }
 
   /* Communicate ghost layers */

@@ -130,6 +130,7 @@ braid_Int myBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
   /* Set time step size */
   u->getLayer()->setDt(deltaT);
 
+  //printf("DT  %1.16e \n", tstop - tstart);
   // printf("%d: step %d,%f -> %d, %f layer %d using %1.14e state %1.14e, %d\n",
   // app->myid, tstart, ts_stop, tstop, u->layer->getIndex(),
   // u->layer->getWeights()[3], u->state[1][1], u->layer->getnDesign());

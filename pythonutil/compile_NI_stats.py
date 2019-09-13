@@ -145,7 +145,7 @@ for nl in range(len(nlayers)):
                                             # (2) change nlayers to be the final nlayers
                                             jobname_reference =  \
                                                       "peaksOpt"  +\
-                                                      "_nl"      + str( (konfig.nlayers-2)*konfig.NI_rfactor + 2 )   +\
+                                                      "_nl"      + str( (konfig.nlayers-2)*( 2**(konfig.NI_levels-1)) + 2 )   +\
                                                       "_tik"     + str(konfig.gamma_tik)   +\
                                                       "_ddt"     + str(konfig.gamma_ddt)   +\
                                                       "_class"   + str(konfig.gamma_class) +\
@@ -158,7 +158,7 @@ for nl in range(len(nlayers)):
                                             try:
                                                 f = open(directory + '/' + jobname + "/run.out")
                                                 lines = f.readlines()
-                                                val_accuracies.append(find_val_acc(lines, konfig.NI_rfactor))
+                                                val_accuracies.append(find_val_acc(lines, konfig.NI_levels))
                                                 f.close()
                                                 if sp.isnan(val_accuracies[-1]) or val_accuracies[-1] == 0:
                                                     print("Zero or nan val accuracy,  " + str(val_accuracies[-1]) + ",  " + jobname)

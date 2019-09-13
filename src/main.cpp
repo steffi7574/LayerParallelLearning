@@ -154,6 +154,12 @@ int main(int argc, char *argv[]) {
      if(NI_iter > 0) {
          current_nhiddenlayers *= config->NI_rfactor; 
      } 
+     
+     /* If using do-nothing interpolation, then increase t_final by NI_rfactor,
+      * so that the network behavior stays the same */
+     if((config->NI_interp_type == 2) && (NI_iter != 0) ){
+       config->T = config->T * ((MyReal) config->NI_rfactor);
+     }
 
      /* Initialize XBraid */
      primaltrainapp =

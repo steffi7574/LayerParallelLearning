@@ -120,10 +120,6 @@ int main(int argc, char *argv[]) {
   /* Initialize the number of layers for the first level of NI */
   current_nhiddenlayers = config->nlayers - 2;
 
-  /* Initialize training and validation data */
-  trainingdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);
-  validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
-
   /* Initialize and open optimization data file */
   if (myid == MASTER_NODE) {
      sprintf(optimfilename, "%s.dat", "optim");
@@ -160,6 +156,10 @@ int main(int argc, char *argv[]) {
      if((config->NI_interp_type == 2) && (NI_iter != 0) ){
        config->T = config->T * ((MyReal) config->NI_rfactor);
      }
+
+     /* Initialize training and validation data */
+     trainingdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);
+     validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
 
      /* Initialize XBraid */
      primaltrainapp =
@@ -217,8 +217,6 @@ int main(int argc, char *argv[]) {
     // write_vector(designfilename, vnetworks[NI_iter]->getDesign(), ndesign_global);
 
      // TODO:  If NI_iter > 0:  Do we want to deallocate the previous network?  Don't do for now, unles we run into memory issues. 
-
-
      
 
      /* Initialize Hessian approximation */
@@ -430,6 +428,10 @@ int main(int argc, char *argv[]) {
      delete primaltrainapp;
      delete adjointtrainapp;
      delete primalvalapp;
+  
+     /* Delete training and validation examples  */
+     delete trainingdata;
+     delete validationdata;
      
      /* Delete optimization vars */
      delete hessian;
@@ -461,10 +463,6 @@ int main(int argc, char *argv[]) {
       delete vnetworks[i];
   }
   vnetworks.clear();
-
-  /* Delete training and validation examples  */
-  delete trainingdata;
-  delete validationdata;
 
   /* Close optim file */
   if (myid == MASTER_NODE) {

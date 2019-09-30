@@ -15,7 +15,7 @@
 // Underlying paper:
 //
 // Layer-Parallel Training of Deep Residual Neural Networks
-// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
+// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Cyr, and N.R. Gauger
 //
 // Download: https://arxiv.org/pdf/1812.04352.pdf
 //
@@ -239,8 +239,8 @@ int Network::getnDesignLayermax() { return ndesign_layermax; }
 
 void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification) {
   MyReal factor;
-  MyReal *design_init;
-  int myid;
+  MyReal *design_init = 0;
+  int myid = -1;
   MPI_Comm_rank(comm, &myid);
 
   /* Create a random vector (do it on one processor for scaling test) */

@@ -15,7 +15,7 @@
 // Underlying paper:
 //
 // Layer-Parallel Training of Deep Residual Neural Networks
-// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Czr, and N.R. Gauger
+// S. Guenther, L. Ruthotto, J.B. Schroder, E.C. Cyr, and N.R. Gauger
 //
 // Download: https://arxiv.org/pdf/1812.04352.pdf
 //

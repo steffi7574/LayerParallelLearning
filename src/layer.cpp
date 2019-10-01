@@ -302,13 +302,6 @@ DenseLayer::DenseLayer(int idx, int dimI, int dimO, MyReal deltaT, int Activ,
 DenseLayer::~DenseLayer() {}
 
 void DenseLayer::applyFWD(MyReal *state) {
-  MyReal wnorm = 0.0;
-  for(int i=0;i<dim_Out;i++)
-    for(int j=0;j<dim_In;j++)
-      wnorm += weights[i*j]*weights[i*j];
-  MyReal bnorm = bias[0]*bias[0];
-  // printf("DL::applyFWD %e %e\n",wnorm,bnorm);
-
   /* Affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Apply weights */

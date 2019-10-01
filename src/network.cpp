@@ -102,8 +102,6 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
     }
   }
 
-  printf("%d) Recurrent size = %d\n",mpirank,ndesign_local);
-
   /* Allocate memory for network design and gradient variables */
   design = new MyReal[ndesign_local];
   gradient = new MyReal[ndesign_local];
@@ -123,8 +121,6 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
       if(ilayer>-1 and ilayer!=nlayers_global-2)  
         istart = irecur_start;
     }
-
-    printf("%d) Layer %d = %d\n",mpirank,ilayer,istart);
 
     getLayer(ilayer)->setMemory(&(design[istart]), &(gradient[istart]));
     istart += getLayer(ilayer)->getnDesign();

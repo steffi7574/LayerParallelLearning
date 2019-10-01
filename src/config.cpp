@@ -53,6 +53,8 @@ Config::Config() {
   weights_init = 0.0;
   weights_class_init = 0.001;
 
+  nrecur_layers = 1;
+
   /* XBraid */
   braid_cfactor0 = 4;
   braid_cfactor = 4;
@@ -239,6 +241,8 @@ int Config::readFromFile(char *configfilename) {
       weights_init = atof(co->value);
     } else if (strcmp(co->key, "weights_class_init") == 0) {
       weights_class_init = atof(co->value);
+    } else if (strcmp(co->key, "recurrence") == 0) {
+      nrecur_layers = atoi(co->value);
     } else if (strcmp(co->key, "hessian_approx") == 0) {
       if (strcmp(co->value, "BFGS") == 0) {
         hessianapprox_type = BFGS_SERIAL;
@@ -261,6 +265,9 @@ int Config::readFromFile(char *configfilename) {
       break;
     }
   }
+
+  /* adjust the number of layers for the recurrence */
+  nlayers = nrecur_layers*(nlayers-2)+2;
 
   /* Sanity check */
   if (nfeatures > nchannels || nclasses > nchannels) {

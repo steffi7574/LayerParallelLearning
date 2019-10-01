@@ -60,6 +60,8 @@ class Config {
   MyReal weights_init;
   MyReal weights_class_init;
 
+  int nrecur_layers; /* how many layers of recurrence (default 1) */
+
   /* XBraid */
   int braid_cfactor0;
   int braid_cfactor;

@@ -110,6 +110,17 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  if ( config->nrecur_layers>1 and 
+       config->nrecur_layers % size != 0) {
+    if (myid == MASTER_NODE) {
+      printf("\n");
+      printf("The number of recurring layers is %d, and "
+              "does not evenly divide the number of processors!\n",config->nrecur_layers);
+    }
+    MPI_Finalize();
+    return 0;
+  }
+ 
   /* Initialize training and validation data */
   trainingdata->initialize(config->ntraining, config->nfeatures,
                            config->nclasses, config->nbatch, MPI_COMM_WORLD);

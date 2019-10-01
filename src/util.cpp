@@ -110,7 +110,7 @@ void MPI_ScatterVector(MyReal *sendbuffer, MyReal *recvbuffer,
     displs[i] = displs[i - 1] + sendcount[i - 1];
   }
 
-  /* Gatherv the vector */
+  /* Scatterv the vector */
   MPI_Scatterv(sendbuffer, sendcount, displs, MPI_MyReal, recvbuffer,
                localrecvcount, MPI_MyReal, rootprocessID, comm);
 

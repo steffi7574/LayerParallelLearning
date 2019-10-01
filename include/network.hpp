@@ -35,6 +35,8 @@ class Network {
   int ndesign_local;    /* Number of design vars of this local network block  */
   int ndesign_layermax; /* Max. number of design variables of all hidden layers
                          */
+  
+  int nrecur_layers;  /* How many layers of recurrence are used */
 
   MyReal *design;   /* Local vector of design variables*/
   MyReal *gradient; /* Local Gradient */

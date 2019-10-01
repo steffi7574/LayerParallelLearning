@@ -22,6 +22,8 @@
 #include "network.hpp"
 #include <assert.h>
 
+#include "recurrent_layer.hpp"
+
 Network::Network(MPI_Comm Comm) {
   nlayers_global = 0;
   nlayers_local = 0;
@@ -61,26 +63,12 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
   nlayers_global = config->nlayers;
   nchannels = config->nchannels;
   dt = (config->T) / (MyReal)(config->nlayers - 2);  // nlayers-2 = nhiddenlayers
-  nrecur_layers = config->nrecur_layers;
 
   ndesign_local = 0;
   int mylayermax = 0;
 
-  /* Check to ensure that, excepting one recurrence, all recurrent layers are on the same processor */
-  int nlayers_in_recur = (nlayers_global-2)/nrecur_layers;
-  {
-    int nlayers_local_mod = nlayers_local;
-
-    if (startlayerID==-1) nlayers_local_mod--;             // input layer
-    if (endlayerID==nlayers_global-2) nlayers_local_mod--; // output layer
-
-    if (nlayers_local_mod % nlayers_in_recur != 0) {
-      printf("WARNING: Rank %d) Local layers do not match the recurrence size %d (local layers %d, global layers %d)\n",
-             mpirank,nlayers_in_recur,nlayers_local,nlayers_global);
-    } 
-  }
-
   /* Create vector of layers on this processor */
+  bool recur_flag = true;
   layers = new Layer *[nlayers_local];  
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
 
@@ -94,12 +82,16 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
     /* Store the new layer in the layer vector */
     layers[getLocalID(ilayer)] = newlayer;
 
-    if(nrecur_layers>1) {
-      // for recurrent only, be more careful in how the layers are set
+    if(config->nrecur_size>0) {
+      // handle the open and end layers
       if (ilayer==-1                ||
-          ilayer==nlayers_global-2  ||
-          ilayer/nlayers_in_recur<1 ) // this only counts design variables for first recurence 
+          ilayer==nlayers_global-2)
         ndesign_local += newlayer->getnDesign();
+      else if(recur_flag) {  
+        // count the recurrent size only once
+        ndesign_local += newlayer->getnDesign();
+        recur_flag = false;
+      }
     }
     else { 
       // for a non-recurrent neural network
@@ -110,12 +102,14 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
     }
   }
 
+  printf("%d) Recurrent size = %d\n",mpirank,ndesign_local);
+
   /* Allocate memory for network design and gradient variables */
   design = new MyReal[ndesign_local];
   gradient = new MyReal[ndesign_local];
 
   int irecur_start = 0;
-  if(nrecur_layers>1) {
+  if(config->nrecur_size>0) {
     // the open network
     if(startlayerID==-1)
       irecur_start += getLayer(startlayerID)->getnDesign();
@@ -125,10 +119,12 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
   int istart = 0;
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) 
   {
-    if(nrecur_layers>1) {
-      if(ilayer % nlayers_in_recur==0 and ilayer!=endlayerID)  
+    if(config->nrecur_size>0) {
+      if(ilayer>-1 and ilayer!=nlayers_global-2)  
         istart = irecur_start;
     }
+
+    printf("%d) Layer %d = %d\n",mpirank,ilayer,istart);
 
     getLayer(ilayer)->setMemory(&(design[istart]), &(gradient[istart]));
     istart += getLayer(ilayer)->getnDesign();
@@ -232,9 +228,18 @@ Layer *Network::createLayer(int index, Config *config) {
           layer = new OpenConvLayerMNIST(config->nfeatures, nchannels);
         }
         break;
+      case RECURRENT:
+        if (config->weights_open_init == 0.0) {
+          layer = new OpenExpandZero(config->nfeatures, nchannels);
+        } else {
+          layer = new OpenDenseLayer(config->nfeatures, nchannels,
+                                     config->activation, config->gamma_tik);
+        }
+        break;
     }
   } else if (0 <= index && index < nlayers_global - 2)  // Intermediate layer
   {
+    int convolution_size = 3;
     switch (config->network_type) {
       case DENSE:
         layer =
@@ -243,11 +248,15 @@ Layer *Network::createLayer(int index, Config *config) {
         break;
       case CONVOLUTIONAL:
         // TODO: Fix
-        int convolution_size = 3;
         layer =
             new ConvLayer(index, nchannels, nchannels, convolution_size,
                           nchannels / config->nfeatures, dt, config->activation,
                           config->gamma_tik, config->gamma_ddt);
+        break;
+      case RECURRENT:
+        layer = 
+            new RecurrentLayer(index, config->nrecur_size, nchannels, nchannels, dt, config->activation,
+                               config->gamma_tik, config->gamma_ddt);
         break;
     }
   } else if (index == nlayers_global - 2)  // Classification layer

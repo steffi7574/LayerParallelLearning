@@ -53,6 +53,7 @@ Config::Config() {
   weights_init = 0.0;
   weights_class_init = 0.001;
 
+  nrecur_size = 0;
   nrecur_layers = 1;
 
   /* XBraid */
@@ -151,6 +152,8 @@ int Config::readFromFile(char *configfilename) {
         network_type = DENSE;
       } else if (strcmp(co->value, "convolutional") == 0) {
         network_type = CONVOLUTIONAL;
+      } else if (strcmp(co->value, "recurrent") == 0) {
+        network_type = RECURRENT;
       } else {
         printf("Invalid network type !");
         return -1;
@@ -243,6 +246,8 @@ int Config::readFromFile(char *configfilename) {
       weights_class_init = atof(co->value);
     } else if (strcmp(co->key, "recurrence") == 0) {
       nrecur_layers = atoi(co->value);
+    } else if (strcmp(co->key, "recurrence_size") == 0) {
+      nrecur_size = atoi(co->value);
     } else if (strcmp(co->key, "hessian_approx") == 0) {
       if (strcmp(co->value, "BFGS") == 0) {
         hessianapprox_type = BFGS_SERIAL;
@@ -343,6 +348,9 @@ int Config::writeToFile(FILE *outfile) {
       break;
     case CONVOLUTIONAL:
       networktypename = "convolutional";
+      break;
+    case RECURRENT:
+      networktypename = "recurrent";
       break;
     default:
       networktypename = "invalid!";

@@ -24,6 +24,7 @@ class Layer {
 
   int nconv;
   int csize;
+  int nrecur_size;
 
   int index;           /* Number of the layer */
   MyReal dt;           /* Step size for Layer update */
@@ -49,7 +50,8 @@ class Layer {
     CLASSIFICATION = 3,
     OPENCONV = 4,
     OPENCONVMNIST = 5,
-    CONVOLUTION = 6
+    CONVOLUTION = 6,
+    RECURRENT = 7
   };
 
   Layer();
@@ -89,6 +91,7 @@ class Layer {
 
   int getnConv();
   int getCSize();
+  int getRecurSize();
 
   /* Get the layer index (i.e. the time step) */
   int getIndex();

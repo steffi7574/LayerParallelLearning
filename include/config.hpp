@@ -10,7 +10,7 @@
 enum activation { TANH, RELU, SMRELU };
 
 /* Available network types */
-enum networkType { DENSE, CONVOLUTIONAL };
+enum networkType { DENSE, CONVOLUTIONAL, RECURRENT };
 
 /* Available batch types */
 enum batchtype { DETERMINISTIC, STOCHASTIC };
@@ -60,6 +60,7 @@ class Config {
   MyReal weights_init;
   MyReal weights_class_init;
 
+  int nrecur_size;   /* how many layers in the recurrence (default 0->no recurrence) */
   int nrecur_layers; /* how many layers of recurrence (default 1) */
 
   /* XBraid */

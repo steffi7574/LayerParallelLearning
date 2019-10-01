@@ -21,6 +21,8 @@
 //
 #include "braid_wrapper.hpp"
 
+#include "recurrent_layer.hpp"
+
 /* ========================================================= */
 myBraidVector::myBraidVector(int nChannels, int nBatch) {
   nchannels = nChannels;
@@ -267,13 +269,17 @@ braid_Int myBraidApp::Access(braid_Vector u_, BraidAccessStatus &astatus) {
   return 0;
 }
 
+namespace {
+const int LAYER_META_DATA_SZ = 13;
+}
+
 braid_Int myBraidApp::BufSize(braid_Int *size_ptr, BraidBufferStatus &bstatus) {
   int nchannels = network->getnChannels();
   int nbatch = data->getnBatch();
 
   /* Gather number of variables */
   int nuvector = nchannels * nbatch;
-  int nlayerinfo = 12;
+  int nlayerinfo = LAYER_META_DATA_SZ;
   int nlayerdesign = network->getnDesignLayermax();
 
   /* Set the size */
@@ -327,6 +333,8 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
   idx++;
   dbuffer[idx] = u->getLayer()->getCSize();
   idx++;
+  dbuffer[idx] = u->getLayer()->getRecurSize();
+  idx++;
   for (int i = 0; i < nweights; i++) {
     dbuffer[idx] = u->getLayer()->getWeights()[i];
     idx++;
@@ -337,7 +345,7 @@ braid_Int myBraidApp::BufPack(braid_Vector u_, void *buffer,
     idx++;
     // dbuffer[idx] = u->layer->getBiasBar()[i];  idx++;
   }
-  size += (12 + (nweights + nbias)) * sizeof(MyReal);
+  size += (LAYER_META_DATA_SZ + (nweights + nbias)) * sizeof(MyReal);
 
   bstatus.SetSize(size);
 
@@ -389,6 +397,8 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
   idx++;
   int csize = dbuffer[idx];
   idx++;
+  int nrecur_size = dbuffer[idx];
+  idx++;
 
   /* layertype decides on which layer should be created */
   switch (layertype) {
@@ -414,6 +424,10 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
     case Layer::CONVOLUTION:
       tmplayer = new ConvLayer(index, dimIn, dimOut, csize, nconv, 1.0, activ,
                                gammatik, gammaddt);
+      break;
+    case Layer::RECURRENT:
+      tmplayer =
+          new RecurrentLayer(index, nrecur_size, dimIn, dimOut, 1.0, activ, gammatik, gammaddt);
       break;
     default:
       printf("\n\n ERROR while unpacking a buffer: Layertype unknown!!\n\n");

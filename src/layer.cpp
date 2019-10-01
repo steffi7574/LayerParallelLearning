@@ -33,6 +33,7 @@ Layer::Layer() {
   nweights = 0;
   nconv = 0;
   csize = 0;
+  nrecur_size = 0;
 
   index = 0;
   dt = 0.0;
@@ -61,6 +62,8 @@ Layer::Layer(int idx, int Type, int dimI, int dimO, int dimB, int dimW,
   activ = Activ;
   gamma_tik = gammatik;
   gamma_ddt = gammaddt;
+
+  nrecur_size = 0;
 
   update = new MyReal[dimO];
   update_bar = new MyReal[dimO];
@@ -107,6 +110,7 @@ int Layer::getnDesign() { return ndesign; }
 
 int Layer::getnConv() { return nconv; }
 int Layer::getCSize() { return csize; }
+int Layer::getRecurSize() { return nrecur_size; }
 
 int Layer::getIndex() { return index; }
 
@@ -298,6 +302,13 @@ DenseLayer::DenseLayer(int idx, int dimI, int dimO, MyReal deltaT, int Activ,
 DenseLayer::~DenseLayer() {}
 
 void DenseLayer::applyFWD(MyReal *state) {
+  MyReal wnorm = 0.0;
+  for(int i=0;i<dim_Out;i++)
+    for(int j=0;j<dim_In;j++)
+      wnorm += weights[i*j]*weights[i*j];
+  MyReal bnorm = bias[0]*bias[0];
+  // printf("DL::applyFWD %e %e\n",wnorm,bnorm);
+
   /* Affine transformation */
   for (int io = 0; io < dim_Out; io++) {
     /* Apply weights */

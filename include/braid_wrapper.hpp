@@ -79,6 +79,9 @@ class myBraidApp : public BraidApp {
   /* Return the core */
   BraidCore *getCore();
 
+  /* Refine the grid, i.e., add new layers */
+  void Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers);
+
   /* Get xbraid's grid distribution */
   void GetGridDistribution(int *ilower_ptr, int *iupper_ptr);
 
@@ -149,6 +152,9 @@ class myAdjointBraidApp : public myBraidApp {
 
   ~myAdjointBraidApp();
 
+  /* Refine the grid, i.e., add new layers */
+  void Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers, BraidCore *Primalcoreptr);
+  
   /* Get the storage index of primal (reversed) */
   int GetPrimalIndex(int ts);
 

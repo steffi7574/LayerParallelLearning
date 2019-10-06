@@ -74,7 +74,7 @@ myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
   data = Data;
   objective = 0.0;
 
-  /* Initialize XBraid core */
+  /* Allocate and Initialize (braid_Init) XBraid core */
   core = new BraidCore(comm, this);
 
   /* Set braid options */
@@ -102,6 +102,37 @@ myBraidApp::~myBraidApp() {
 MyReal myBraidApp::getObjective() { return objective; }
 
 BraidCore *myBraidApp::getCore() { return core; }
+
+void myBraidApp::Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers)
+{
+  /* Use FRefine to refine the grid, i.e., add new layers */
+    
+  /* Set the refinement factors in core to rfactor */
+  braid_Int *rfactors = _braid_CoreElt(core->GetCore(), rfactors);
+  _braid_Grid **grids = _braid_CoreElt(core->GetCore(), grids);
+  int ilower  = _braid_GridElt(grids[0], ilower);
+  int iupper  = _braid_GridElt(grids[0], iupper);
+  for( int i = ilower; i <= iupper; i++) {
+    rfactors[i - ilower] = rfactor;
+  }
+
+  /* Call FRefine to create new core with more layers */
+  int refined = 0;
+  core->SetRefine(1);
+  core->SetStorage(0);
+  _braid_FRefine(core->GetCore(), &refined);
+  core->SetRefine(0);
+  if(refined == 0) {
+     printf("\n Error: FRefine() failed.\n");
+  }
+
+  /* Update network weights, data */
+  network = Network;
+  data = Data;
+  
+  /* Update to new number of layers */
+  ntime = current_nlayers;
+}
 
 void myBraidApp::GetGridDistribution(int *ilower_ptr, int *iupper_ptr) {
   core->GetDistribution(ilower_ptr, iupper_ptr);
@@ -548,6 +579,43 @@ myAdjointBraidApp::myAdjointBraidApp(DataSet *Data, Network *Network,
 }
 
 myAdjointBraidApp::~myAdjointBraidApp() {}
+
+void myAdjointBraidApp::Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers, BraidCore *Primalcoreptr)
+{
+  /* Update core structures */
+  primalcore =  Primalcoreptr;
+  primalcore->SetStorage(0);
+  core->SetRevertedRanks(1);
+  
+  /* Update network weights, data */
+  network = Network;
+  data = Data;
+  
+  /* Update to new number of layers */
+  ntime = current_nlayers;
+
+  /* Use FRefine to refine the grid, i.e., add new layers */
+    
+  /* Set the refinement factors in core to rfactor */
+  braid_Int *rfactors = _braid_CoreElt(core->GetCore(), rfactors);
+  _braid_Grid **grids = _braid_CoreElt(core->GetCore(), grids);
+  int ilower  = _braid_GridElt(grids[0], ilower);
+  int iupper  = _braid_GridElt(grids[0], iupper);
+  for( int i = ilower; i <= iupper; i++) {
+    rfactors[i - ilower] = rfactor;
+  }
+
+  /* Call FRefine to create new core with more layers */
+  int refined = 0;
+  core->SetRefine(1);
+  _braid_FRefine(core->GetCore(), &refined);
+  core->SetRefine(0);
+  if(refined == 0) {
+     printf("\n Error: FRefine() failed.\n");
+  }
+  
+}
+
 
 int myAdjointBraidApp::GetPrimalIndex(int ts) {
   int idx = network->getnLayersGlobal() - 2 - ts;

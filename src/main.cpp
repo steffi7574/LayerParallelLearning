@@ -161,13 +161,22 @@ int main(int argc, char *argv[]) {
      trainingdata = new DataSet(config->ntraining, config->nfeatures, config->nclasses, config->nbatch);
      validationdata = new DataSet(config->nvalidation, config->nfeatures, config->nclasses, config->nbatch);// full validation set!
 
-     /* Initialize XBraid */
-     primaltrainapp =
-         new myBraidApp(trainingdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
-     adjointtrainapp = new myAdjointBraidApp(
-         trainingdata, vnetworks[NI_iter], config, primaltrainapp->getCore(), MPI_COMM_WORLD, current_nhiddenlayers);
-     primalvalapp =
-         new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
+     if(NI_iter == 0){
+       /* Initialize XBraid */
+       primaltrainapp =
+           new myBraidApp(trainingdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
+       adjointtrainapp = new myAdjointBraidApp(
+           trainingdata, vnetworks[NI_iter], config, primaltrainapp->getCore(), MPI_COMM_WORLD, current_nhiddenlayers);
+       primalvalapp =
+           new myBraidApp(validationdata, vnetworks[NI_iter], config, MPI_COMM_WORLD, current_nhiddenlayers);
+     }
+     else{
+       /* Call Braid Refine Routine to add more layers */
+       primaltrainapp->Refine(config->NI_rfactor, vnetworks[NI_iter], trainingdata, current_nhiddenlayers);
+       adjointtrainapp->Refine(config->NI_rfactor, vnetworks[NI_iter], trainingdata, current_nhiddenlayers, primaltrainapp->getCore());
+       primalvalapp->Refine(config->NI_rfactor, vnetworks[NI_iter], validationdata, current_nhiddenlayers);
+     }
+     
      primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
      if (startlayerID == 0) startlayerID = startlayerID - 1; // -1 is index of the opening layer
 
@@ -423,15 +432,11 @@ int main(int argc, char *argv[]) {
 
        if (myid == MASTER_NODE) printf("Final validation accuracy:  %2.2f%%\n", accurval_out);
      }
-
-     /* Clean up XBraid */
-     delete primaltrainapp;
-     delete adjointtrainapp;
-     delete primalvalapp;
   
      /* Delete training and validation examples  */
-     delete trainingdata;
-     delete validationdata;
+     // TODO: somehow commenting these in give me a valgrind error...
+     //delete trainingdata;
+     //delete validationdata;
      
      /* Delete optimization vars */
      delete hessian;
@@ -470,6 +475,10 @@ int main(int argc, char *argv[]) {
     printf("Optimfile: %s\n", optimfilename);
   }
 
+  /* Clean up XBraid */
+  delete primaltrainapp;
+  delete adjointtrainapp;
+  delete primalvalapp;
   delete config;
 
   MPI_Finalize();

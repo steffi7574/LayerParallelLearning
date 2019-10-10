@@ -155,6 +155,9 @@ class myAdjointBraidApp : public myBraidApp {
   /* Refine the grid, i.e., add new layers */
   void Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers, BraidCore *Primalcoreptr);
   
+  /* Set Primal Core Pointer */
+  void SetPrimalCore(BraidCore *Primalcoreptr);
+  
   /* Get the storage index of primal (reversed) */
   int GetPrimalIndex(int ts);
 

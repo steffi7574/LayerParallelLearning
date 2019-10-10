@@ -148,7 +148,8 @@ int main(int argc, char *argv[]) {
 
      /* Compute number of hidden layers for the next level of NI */
      if(NI_iter > 0) {
-         current_nhiddenlayers *= config->NI_rfactor; 
+         current_nhiddenlayers *= config->NI_rfactor;
+         //current_nhiddenlayers += 1;  // TODO:  I was finding that the number of layers after FRefine was mysteriously +1, not sure
      } 
      
      /* If using do-nothing interpolation, then increase t_final by NI_rfactor,
@@ -172,9 +173,15 @@ int main(int argc, char *argv[]) {
      }
      else{
        /* Call Braid Refine Routine to add more layers */
-       primaltrainapp->Refine(config->NI_rfactor, vnetworks[NI_iter], trainingdata, current_nhiddenlayers);
+       
+       /* Call Refine for Adjoint first, because it depends on the data in Primal from coarser level */
        adjointtrainapp->Refine(config->NI_rfactor, vnetworks[NI_iter], trainingdata, current_nhiddenlayers, primaltrainapp->getCore());
+       
+       primaltrainapp->Refine(config->NI_rfactor, vnetworks[NI_iter], trainingdata, current_nhiddenlayers);
        primalvalapp->Refine(config->NI_rfactor, vnetworks[NI_iter], validationdata, current_nhiddenlayers);
+
+       /* Now, update primalcore for adjoint */
+       adjointtrainapp->SetPrimalCore(primaltrainapp->getCore());
      }
      
      primaltrainapp->GetGridDistribution(&startlayerID, &endlayerID);
@@ -205,6 +212,7 @@ int main(int argc, char *argv[]) {
      }
 
      /* Create the network */
+     fprintf(stderr, "%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID, current_nhiddenlayers+2);
      vnetworks[NI_iter]->createLayerBlock(startlayerID, endlayerID, config, current_nhiddenlayers);
      ndesign_local = vnetworks[NI_iter]->getnDesignLocal();
      ndesign_global = vnetworks[NI_iter]->getnDesignGlobal();

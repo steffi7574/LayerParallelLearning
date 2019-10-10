@@ -78,6 +78,7 @@ myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
   core = new BraidCore(comm, this);
 
   /* Set braid options */
+  core->SetStorage(0);  // TODO Do we want this SetStorage here? 
   core->SetMaxLevels(config->braid_maxlevels);
   core->SetMinCoarse(config->braid_mincoarse);
   core->SetPrintLevel(config->braid_printlevel);
@@ -580,19 +581,19 @@ myAdjointBraidApp::myAdjointBraidApp(DataSet *Data, Network *Network,
 
 myAdjointBraidApp::~myAdjointBraidApp() {}
 
-void myAdjointBraidApp::Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers, BraidCore *Primalcoreptr)
+
+void myAdjointBraidApp::SetPrimalCore(BraidCore *Primalcoreptr)
 {
   /* Update core structures */
   primalcore =  Primalcoreptr;
   primalcore->SetStorage(0);
-  core->SetRevertedRanks(1);
-  
-  /* Update network weights, data */
-  network = Network;
-  data = Data;
-  
-  /* Update to new number of layers */
-  ntime = current_nlayers;
+}
+
+void myAdjointBraidApp::Refine(int rfactor, Network *Network, DataSet *Data,  int current_nlayers, BraidCore *Primalcoreptr)
+{
+  /* Update core structures */
+  //primalcore =  Primalcoreptr;
+  //primalcore->SetStorage(0);
 
   /* Use FRefine to refine the grid, i.e., add new layers */
     
@@ -614,6 +615,16 @@ void myAdjointBraidApp::Refine(int rfactor, Network *Network, DataSet *Data,  in
      printf("\n Error: FRefine() failed.\n");
   }
   
+  /* Update network weights, data */
+  network = Network;
+  data = Data;
+  
+  /* Update to new number of layers */
+  ntime = current_nlayers;
+  
+  /* Set Reverted Ranks for Backwards in Time */
+  core->SetRevertedRanks(1);
+
 }
 
 

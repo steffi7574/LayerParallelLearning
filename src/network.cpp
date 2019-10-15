@@ -329,9 +329,9 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
       vec_copy(nDim, clayer_left->getWeights(), flayer->getWeights());
       vec_setZero(nDim, flayer->getWeightsBar());
 
-      if ( (NI_interp_type == 1)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) ) {
+      if ( (NI_interp_type == 1)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) && (ilayer < nlayers_global - 2 - rfactor ) ) {
          /* If linear interpolation: Scale weights and add right clayer
-          * weights, if not at classification or opening layer */
+          * weights, if not at classification or opening layer or at right-most hidden layer (where there is no layer to right to average with) */
 
         clayer_right = coarse_net->getLayer(clayerID + 1); 
         if (clayer_right == NULL) {
@@ -342,7 +342,7 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
         MyReal scale1 = 1.0 - scale2;
         vec_scale(nDim, scale1, flayer->getWeights());
         vec_axpy(nDim, scale2, clayer_right->getWeights(), flayer->getWeights());
-        //printf("\nCheck   %d  %f  %f \n",ilayer, scale1, scale2);
+        //fprintf(stderr, "\nCheck   %d  %d  %d  %d  %d  %d\n", ilayer, clayerID+1, getLocalID(ilayer), startlayerID, endlayerID, nlayers_global);
       }
       else if ( (NI_interp_type == 2)  &&  (ilayer != -1) && (ilayer != nlayers_global - 2 ) ) {
          /* If 'Do Nothing' interpolation, set new layers to 0.  Then in main

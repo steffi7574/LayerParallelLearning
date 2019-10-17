@@ -151,4 +151,9 @@ class Network {
   void evalClassification_diff(DataSet *data, MyReal **primalstate,
                                MyReal **adjointstate, int compute_gradient);
 
+  /**
+   * Dump network to file for debugging 
+   */
+  void toFile(); 
+
 };

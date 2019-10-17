@@ -293,6 +293,30 @@ void Network::setDesignFromFile(const char* datafolder, const char* openingfilen
   MPI_CommunicateNeighbours();
 }
 
+/* Write network to file */
+void Network::toFile(){
+  int ndim;
+  MyReal *weightsbias;
+  Layer *layer;
+  char filename[255];
+  FILE *file;
+
+  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) { 
+     /* Open file for writing this layer */
+     sprintf(filename, "layers%d_layer_%d.txt", nlayers_global, ilayer);
+     file = fopen(filename, "w");
+     /* Get pointer to layer, and weights */
+     layer = layers[getLocalID(ilayer)];
+     weightsbias = layer->getWeights();
+     ndim = layer->getnDesign();
+     //fprintf(file, "QQQQ   %d   %d   %d   %d    %d\n", ndim, layer->getDimBias(), layer->getnWeights(), layer->getDimIn(), layer->getDimOut());
+     for (int k = 0; k < ndim; k++) {
+        fprintf(file, "%1.16e \n", weightsbias[k]);
+     }
+     
+     fclose(file);
+  }
+}
 
 void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_type){
 
@@ -304,7 +328,6 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
 
   /* Loop over all ayers */
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) { 
-
       /* Get pointer to the fine-grid layer */
       flayer = layers[getLocalID(ilayer)];
 
@@ -322,6 +345,9 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
         exit(1); // TODO: Fix it!
       }
      
+      //printf("Fine   DT  %1.2e   TiK %1.2e   GDDT %1.2e   Activ %d    Type %d \n", flayer->getDt(), flayer->getGammaTik(), flayer->getGammaDDT(), flayer->getActivation(), flayer->getType() );
+      //printf("Coarse   DT  %1.2e   TiK %1.2e   GDDT %1.2e   Activ %d    Type %d \n\n", clayer_left->getDt(), clayer_left->getGammaTik(), clayer_left->getGammaDDT(), clayer_left->getActivation(), clayer_left->getType() );
+      //printf("Layer   %d    clayer   %d   localID   %d\n", ilayer, clayerID, getLocalID(ilayer));
       /* --- Interpolate the design and reset the gradient to 0 --- */
       nDim = clayer_left->getnDesign();
 
@@ -355,9 +381,13 @@ void Network::interpolateDesign(int rfactor, Network* coarse_net, int NI_interp_
       }
 
   }
-
+  
   /* Communicate ghost layers */
   MPI_CommunicateNeighbours();
+
+  /* Debug Print */
+  //coarse_net->toFile();
+  //this->toFile();
 }
 
 

@@ -263,6 +263,22 @@ int main(int argc, char *argv[]) {
       *
       */
      for (int iter = 0; iter < config->maxoptimiter[NI_iter]; iter++) {
+ 
+        if( iter < 3 ) {
+          int early_braid_iters = 10;
+          if( config->braid_maxiter > early_braid_iters ){
+             early_braid_iters = config->braid_maxiter;
+          }
+          primaltrainapp->getCore()->SetMaxIter(early_braid_iters);
+          adjointtrainapp->getCore()->SetMaxIter(early_braid_iters);
+          primalvalapp->getCore()->SetMaxIter(early_braid_iters);
+        }
+        else {
+          primaltrainapp->getCore()->SetMaxIter(config->braid_maxiter);
+          adjointtrainapp->getCore()->SetMaxIter(config->braid_maxiter);
+          primalvalapp->getCore()->SetMaxIter(config->braid_maxiter);
+        }
+
        /* Set up the current batch. Only those processors that store opening or classification layer */
        if (startlayerID == -1 || endlayerID == current_nhiddenlayers) 
           trainingdata->selectBatch(config->batch_type, MPI_COMM_WORLD);

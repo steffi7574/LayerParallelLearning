@@ -57,6 +57,7 @@ Config::Config() {
   activation = RELU;
   network_type = DENSE;
   openlayer_type = 0;
+  seed = 0;
   weights_open_init = 0.001;
   weights_init = 0.0;
   weights_class_init = 0.001;
@@ -259,6 +260,8 @@ int Config::readFromFile(char *configfilename) {
         MPI_Finalize();
         return (0);
       }
+    } else if (strcmp(co->key, "seed") == 0) {
+      seed = atoi(co->value);
     } else if (strcmp(co->key, "weights_init") == 0) {
       weights_init = atof(co->value);
     } else if (strcmp(co->key, "weights_class_init") == 0) {
@@ -440,6 +443,7 @@ int Config::writeToFile(FILE *outfile) {
   fprintf(outfile, "#                Activation           %s \n", activname);
   fprintf(outfile, "#                openlayer type       %d \n",
           openlayer_type);
+  fprintf(outfile, "#                Seed                 %d \n", seed);
   fprintf(outfile, "# N Iter setup:  NI levels            %d \n",
           NI_levels);
   fprintf(outfile, "#                NI rfactor           %d \n",

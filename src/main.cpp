@@ -204,8 +204,15 @@ int main(int argc, char *argv[]) {
 
      /* Initialize network weights */
      if (NI_iter == 0){
+        int seed;
+        if(config->seed == 0){
+           seed = 1;
+        }
+        else{
+           seed = time(NULL);
+        }
         /* Init coarsest grid with scaled random vars, or from file, if set */
-        vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init,  config->weights_class_init);
+        vnetworks[NI_iter]->setDesignRandom(config->weights_open_init, config->weights_init,  config->weights_class_init, seed);
         vnetworks[NI_iter]->setDesignFromFile(config->datafolder, config->weightsopenfile, NULL,  config->weightsclassificationfile);
      } else {      
         /* Interpolate from coarser to finer grid */

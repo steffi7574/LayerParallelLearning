@@ -237,13 +237,14 @@ Layer *Network::getLayer(int layerindex) {
 int Network::getnDesignLayermax() { return ndesign_layermax; }
 
 
-void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification) {
+void Network::setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification, int seed) {
   MyReal factor;
   MyReal *design_init=NULL;
 
   /* Create a random vector (do it on one processor for scaling test) */
   if (mpirank == 0) {
-    srand(1.0);
+    
+    srand(seed);
     design_init = new MyReal[ndesign_global];
     for (int i = 0; i < ndesign_global; i++) {
       design_init[i] = (MyReal)rand() / ((MyReal)RAND_MAX);

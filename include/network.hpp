@@ -106,7 +106,7 @@ class Network {
   /*
    * Sets the design vector of all layers to random values, scaled by the given factors
    */
-  void setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification);
+  void setDesignRandom(MyReal factor_open, MyReal factor_hidden, MyReal factor_classification, int seed);
 
 
   /*

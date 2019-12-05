@@ -60,6 +60,7 @@ class Config {
   int activation;
   int network_type;
   int openlayer_type;
+  int seed;
   MyReal weights_open_init;
   MyReal weights_init;
   MyReal weights_class_init;

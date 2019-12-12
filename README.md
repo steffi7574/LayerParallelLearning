@@ -18,9 +18,4 @@ Run the test cases by callying './main' with the corresponding configuration fil
 
 An optimization history file 'optim.dat' will be flushed to the examples subfolder.
 
-## Contributors
 
-* Stefanie Guenther <guenther5@llnl.gov>
-* Eric C. Cyr <eccyr@sandia.gov>
-* J.B. Schroder <jbschroder@unm.edu>
-* Roland A. Siegbert <roland.siegbert@rwth-aachen.de>

@@ -92,6 +92,10 @@ myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
   core->SetNRelax(-1, config->braid_nrelax);
   core->SetNRelax(0, config->braid_nrelax0);
   core->SetAbsTol(config->braid_abstol);
+
+  /* Enable Richardson error estimator in primal app. */
+  core->SetRichardsonEstimation(1, 0, 4); // 2 is the LOCAL order of the integration scheme (BE: local order 2)
+  core->SetSync();
 }
 
 myBraidApp::~myBraidApp() {
@@ -440,6 +444,53 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
   return 0;
 }
 
+
+
+braid_Int myBraidApp::Sync(BraidSyncStatus &sstatus){
+  int endlayerID = network->getEndLayerID();
+  int startlayerID = network->getStartLayerID();
+
+
+  /* Get error estimate from Richardson extrapolation */
+  int npoints;
+  sstatus.GetNumErrorEst(&npoints);
+  double* error_est = new double[npoints];
+  sstatus.GetAllErrorEst(error_est);
+
+  /* Measure weights and biases over time */
+  double* dWdt_norm = new double[endlayerID+1];
+  double* W_norm = new double[endlayerID+1];
+  int i=0;
+  for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
+    // || dW(t)dt ||
+    Layer* layer = network->getLayer(ilayer);
+    double tmp = layer->evalRegulDDT(network->getLayer(ilayer - 1), network->getDT());
+    double gamma = layer->getGammaDDT();
+    dWdt_norm[i] = 0.0;
+    if (gamma != 0.0 ) dWdt_norm[i] = sqrt(tmp / layer->getGammaDDT() * 2.0);
+    
+
+    // || W(t) || 
+    tmp = layer->evalTikh();
+    W_norm[i] = sqrt(tmp / layer->getGammaTik() * 2.0);
+    i++;
+  }
+
+  /* Output */
+  printf("Error measures:\n");
+  for (int ts = 0; ts < npoints; ts++) {
+    printf("%d: RE %1.3e,  W %1.3e,  dWdt %1.3e\n", ts, error_est[ts], W_norm[ts], dWdt_norm[ts]);
+  }
+  printf("\n");
+
+
+  delete [] error_est;
+  delete [] dWdt_norm;
+  delete [] W_norm;
+
+  return 0;
+}
+
 braid_Int myBraidApp::SetInitialCondition() {
   Layer *openlayer = network->getLayer(-1);
   int nbatch = data->getnBatch();
@@ -544,6 +595,11 @@ myAdjointBraidApp::myAdjointBraidApp(DataSet *Data, Network *Network,
 
   /* Revert processor ranks for solving adjoint with xbraid */
   core->SetRevertedRanks(1);
+
+
+  /* Disable Richardson error estimator in adjoint app. */
+  core->SetRichardsonEstimation(0, 0, 2); 
+  // core->SetSync();
 }
 
 myAdjointBraidApp::~myAdjointBraidApp() {}
@@ -715,6 +771,9 @@ braid_Int myAdjointBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
   return 0;
 }
 
+
+
+
 braid_Int myAdjointBraidApp::SetInitialCondition() {
   braid_BaseVector ubaseprimal, ubaseadjoint;
   // braid_Vector      uprimal, uadjoint;
@@ -789,5 +848,10 @@ braid_Int myAdjointBraidApp::EvaluateObjective() {
     openlayer->evalTikh_diff(1.0);
   }
 
+  return 0;
+}
+
+
+braid_Int myAdjointBraidApp::Sync(BraidSyncStatus &sstatus){
   return 0;
 }

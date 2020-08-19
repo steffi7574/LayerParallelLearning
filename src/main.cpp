@@ -139,6 +139,9 @@ int main(int argc, char *argv[]) {
   ndesign_local = network->getnDesignLocal();
   ndesign_global = network->getnDesignGlobal();
 
+  /* Read design from file */
+  read_vector("design_init.dat", network->getDesign(), ndesign_global);
+
   /* Print some neural network information */
   printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID,
          config->nlayers);
@@ -202,7 +205,9 @@ int main(int argc, char *argv[]) {
      *
      *  Algorithm (2): Step 1 and 2
      */
+    printf("Run FWD Train:\n");
     rnorm = primaltrainapp->run();
+    printf("Run BWD Train:\n");
     rnorm_adj = adjointtrainapp->run();
 
     /* Get output */
@@ -212,6 +217,7 @@ int main(int argc, char *argv[]) {
 
     /* --- Validation data: Get accuracy --- */
     if (config->validationlevel > 0) {
+      printf("Run FWD Validation:\n");
       primalvalapp->run();
       loss_val = network->getLoss();
       accur_val = network->getAccuracy();
@@ -347,7 +353,8 @@ int main(int argc, char *argv[]) {
     printf("Final validation accuracy:  %2.2f%%\n", accur_val);
   }
 
-  // write_vector("design.dat", design, ndesign);
+  write_vector("design_optim.dat", network->getDesign(), ndesign_global);
+  write_vector("gradient.dat", network->getGradient(), ndesign_global);
 
   /* Print some statistics */
   StopTime = MPI_Wtime();

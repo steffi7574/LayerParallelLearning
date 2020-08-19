@@ -124,6 +124,9 @@ class myBraidApp : public BraidApp {
   virtual braid_Int BufUnpack(void *buffer, braid_Vector *u_ptr,
                               BraidBufferStatus &bstatus);
 
+  /* Sync is called once per processor  once before the braid cycle and inside FRefine */
+  virtual braid_Int Sync(BraidSyncStatus &sstatus);
+
   /* Set the initial condition */
   virtual braid_Int SetInitialCondition();
 
@@ -176,4 +179,7 @@ class myAdjointBraidApp : public myBraidApp {
   /* evaluate objective function (being just the derivative of the opening
    * layer) */
   braid_Int EvaluateObjective();
+
+
+  braid_Int Sync(BraidSyncStatus &sstatus);
 };

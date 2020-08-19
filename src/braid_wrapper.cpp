@@ -94,7 +94,7 @@ myBraidApp::myBraidApp(DataSet *Data, Network *Network, Config *config,
   core->SetAbsTol(config->braid_abstol);
 
   /* Enable Richardson error estimator in primal app. */
-  core->SetRichardsonEstimation(1, 0, 4); // 2 is the LOCAL order of the integration scheme (BE: local order 2)
+  core->SetRichardsonEstimation(1, 0, 2); // 2 is the LOCAL order of the integration scheme (BE: local order 2)
   core->SetSync();
 }
 

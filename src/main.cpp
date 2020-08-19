@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   ndesign_global = network->getnDesignGlobal();
 
   /* Read design from file */
-  read_vector("design_init.dat", network->getDesign(), ndesign_global);
+  // read_vector("design_optim_N5.dat", network->getDesign(), ndesign_global);
 
   /* Print some neural network information */
   printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID,

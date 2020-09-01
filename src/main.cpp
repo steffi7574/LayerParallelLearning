@@ -372,6 +372,51 @@ int main(int argc, char *argv[]) {
     printf("\n");
   }
 
+
+#if FINITE_DIFFERENCE_TEST
+  /* #######################################################*/
+  /* Finite Difference Gradient Test (central, 2nd order) */
+  /* #######################################################*/
+
+  double EPS = 1e-5;
+
+  /* Compute gradient */
+  primaltrainapp->run();
+  double obj_orig = primaltrainapp->getObjective();
+  printf("obj_orig = %1.14e\n", obj_orig);
+  adjointtrainapp->run();
+
+  /* Loop over design vector */
+  printf("i   Gradient             FD                   error\n");
+  for (int idesign = 0; idesign < ndesign_local; idesign++) {
+    /* Store original design */
+    double design_orig = network->getDesign()[idesign];
+
+    /* Perturb forward: design + EPS */
+    network->getDesign()[idesign] = design_orig + EPS;
+    primaltrainapp->run();
+    double obj_perturb1 = primaltrainapp->getObjective();
+
+    /* Perturb backward: design - EPS */
+    network->getDesign()[idesign] = design_orig - EPS;
+    primaltrainapp->run();
+    double obj_perturb2 = primaltrainapp->getObjective();
+
+    /* Compute FD and error */
+    double FD_grad = (obj_perturb1 - obj_perturb2) / (2*EPS);
+    // double FD_grad = (obj_perturb1 - obj_orig) / (EPS);
+    double error = network->getGradient()[idesign] - FD_grad;
+    double err_rel = -1.0;
+    if (FD_grad != 0.0) err_rel = error / FD_grad;
+
+    printf("%d: %1.14e  %1.14e   %1.5e\n", idesign, network->getGradient()[idesign], FD_grad, err_rel);
+
+    /* Restore design */
+    network->getDesign()[idesign] = design_orig;
+  }
+
+#endif
+
   /* Clean up XBraid */
   delete network;
 

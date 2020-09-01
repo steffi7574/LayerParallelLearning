@@ -467,24 +467,21 @@ braid_Int myBraidApp::Sync(BraidSyncStatus &sstatus){
   for (int ilayer = startlayerID; ilayer <= endlayerID; ilayer++) {
     // || dW(t)dt ||
     Layer* layer = network->getLayer(ilayer);
-    double tmp = layer->evalRegulDDT(network->getLayer(ilayer - 1), network->getDT());
-    double gamma = layer->getGammaDDT();
-    dWdt_norm[i] = 0.0;
-    if (gamma != 0.0 ) dWdt_norm[i] = sqrt(tmp / layer->getGammaDDT() * 2.0);
+    double tmp = layer->DDT_normSq(network->getLayer(ilayer - 1), network->getDT());
+    dWdt_norm[i] = sqrt(tmp);
     
 
     // || W(t) || 
-    tmp = layer->evalTikh();
-    W_norm[i] = sqrt(tmp / layer->getGammaTik() * 2.0);
+    W_norm[i] = sqrt(layer->designNormSq());
     i++;
   }
 
   /* Output */
-  printf("Error measures:\n");
+  FILE* file = fopen("RE.dat", "w");
   for (int ts = 0; ts < npoints; ts++) {
-    printf("%d: RE %1.3e,  W %1.3e,  dWdt %1.3e\n", ts, error_est[ts], W_norm[ts], dWdt_norm[ts]);
+    fprintf(file, "%d: RE %1.3e,  W %1.3e,  dWdt %1.3e\n", ts, error_est[ts], W_norm[ts], dWdt_norm[ts]);
   }
-  printf("\n");
+  fclose(file);
 
 
   delete [] error_est;
@@ -535,9 +532,7 @@ braid_Int myBraidApp::EvaluateObjective() {
   /* Get range of locally stored layers */
   int startlayerID = network->getStartLayerID();
   int endlayerID = network->getEndLayerID();
-  if (startlayerID == 0)
-    startlayerID -=
-        1;  // this includes opening layer (id = -1) at first processor
+  if (startlayerID == 0) startlayerID -= 1;  // this includes opening layer (id = -1) at first processor
 
   /* Iterate over the local layers */
   regul = 0.0;
@@ -546,17 +541,18 @@ braid_Int myBraidApp::EvaluateObjective() {
     layer = network->getLayer(ilayer);
 
     /* Tikhonov - Regularization*/
-    regul += layer->evalTikh();
+    regul += layer->getGammaTik() / 2.0 * layer->designNormSq();
 
     /* DDT - Regularization on intermediate layers */
-    regul +=
-        layer->evalRegulDDT(network->getLayer(ilayer - 1), network->getDT());
+    if (ilayer > 0 && ilayer < network->getnLayersGlobal() - 2) {
+      regul += layer->getGammaDDT() / 2.0 * layer->DDT_normSq(network->getLayer(ilayer - 1), network->getDT());
+    }
 
     /* At last layer: Classification and Loss evaluation */
     if (ilayer == network->getnLayersGlobal() - 2) {
       _braid_UGetLast(core->GetCore(), &ubase);
       u = (myBraidVector *)ubase->userVector;
-      network->evalClassification(data, u->getState(), 0);
+      network->evalClassification(data, u->getState(), 1);
     }
     // printf("%d: layerid %d using %1.14e, tik %1.14e, ddt %1.14e, loss
     // %1.14e\n", app->myid, layer->getIndex(), layer->getWeights()[0],
@@ -662,15 +658,20 @@ braid_Int myAdjointBraidApp::Step(braid_Vector u_, braid_Vector ustop_,
   // uprimal->state[1][1], u->state[1][1], uprimal->layer->getWeightsBar()[0],
   // uprimal->layer->getnDesign());
 
-  /* Derivative of DDT-Regularization */
+  /* Derivative of DDT-Regularization on intermediate layers */
   if (compute_gradient) {
-    Layer *prev = network->getLayer(primaltimestep - 1);
-    Layer *next = network->getLayer(primaltimestep + 1);
-    uprimal->getLayer()->evalRegulDDT_diff(prev, next, network->getDT());
+    if (uprimal->getLayer()->getIndex() >= 0  && 
+        uprimal->getLayer()->getIndex() < network->getnLayersGlobal() - 2 ) {
+          Layer *prev = network->getLayer(primaltimestep-1);
+          Layer *next = network->getLayer(primaltimestep+1);
+          uprimal->getLayer()->DDT_normSq_diff(prev, next, network->getDT());
+    }
   }
 
   /* Derivative of tikhonov */
-  if (compute_gradient) uprimal->getLayer()->evalTikh_diff(1.0);
+  if (compute_gradient) {
+    uprimal->getLayer()->designNormSq_diff(uprimal->getLayer()->getGammaTik() / 2.0);
+  }
 
   /* no refinement */
   pstatus.SetRFactor(1);
@@ -706,7 +707,7 @@ braid_Int myAdjointBraidApp::Init(braid_Real t, braid_Vector *u_ptr) {
                                      1);
 
     /* Derivative of tikhonov regularization) */
-    uprimal->getLayer()->evalTikh_diff(1.0);
+    uprimal->getLayer()->designNormSq_diff(uprimal->getLayer()->getGammaTik() / 2.0);
 
     //    printf("%d: Init_adj Loss at %d, using %1.14e, primal %1.14e, adj
     //    %1.14e, grad[0] %1.14e\n", app->myid, layer->getIndex(),
@@ -813,7 +814,7 @@ braid_Int myAdjointBraidApp::SetInitialCondition() {
                                        uadjoint->getState(), 1);
 
       /* Derivative of tikhonov regularization) */
-      uprimal->getLayer()->evalTikh_diff(1.0);
+      uprimal->getLayer()->designNormSq_diff(uprimal->getLayer()->getGammaTik() / 2.0);
     }
   }
 
@@ -848,7 +849,7 @@ braid_Int myAdjointBraidApp::EvaluateObjective() {
     // ubase->userVector->state[1][1], openlayer->getWeightsBar()[0] );
 
     /* Derivative of Tikhonov Regularization */
-    openlayer->evalTikh_diff(1.0);
+    openlayer->designNormSq_diff(openlayer->getGammaTik() / 2.0);
   }
 
   return 0;

@@ -195,95 +195,65 @@ void Layer::unpackDesign(MyReal *buffer) {
 }
 
 
-MyReal Layer::evalTikh() {
-  MyReal tik = 0.0;
+MyReal Layer::designNormSq() {
+  MyReal norm = 0.0;
   for (int i = 0; i < nweights; i++) {
-    tik += pow(weights[i], 2);
+    norm += pow(weights[i], 2);
   }
   for (int i = 0; i < dim_Bias; i++) {
-    tik += pow(bias[i], 2);
+    norm += pow(bias[i], 2);
   }
 
-  return gamma_tik / 2.0 * tik;
+  return norm;
 }
 
-void Layer::evalTikh_diff(MyReal regul_bar) {
-  regul_bar = gamma_tik * regul_bar;
+void Layer::designNormSq_diff(MyReal regul_bar) {
 
   /* Derivative bias term */
   for (int i = 0; i < dim_Bias; i++) {
-    bias_bar[i] += bias[i] * regul_bar;
+    bias_bar[i] += 2. * bias[i] * regul_bar;
   }
   for (int i = 0; i < nweights; i++) {
-    weights_bar[i] += weights[i] * regul_bar;
+    weights_bar[i] += 2. * weights[i] * regul_bar;
   }
 }
 
-MyReal Layer::evalRegulDDT(Layer *layer_prev, MyReal deltat) {
+MyReal Layer::DDT_normSq(Layer *layer_prev, MyReal deltat) {
   if (layer_prev == NULL) return 0.0;  // this holds for opening layer
 
-  MyReal diff;
   MyReal regul_ddt = 0.0;
-
-  /* Compute ddt-regularization only if dimensions match  */
-  /* this excludes first intermediate layer and classification layer. */
-  if (layer_prev->getnDesign() == ndesign && layer_prev->getDimIn() == dim_In &&
-      layer_prev->getDimOut() == dim_Out &&
-      layer_prev->getDimBias() == dim_Bias &&
-      layer_prev->getnWeights() == nweights) {
-    for (int iw = 0; iw < nweights; iw++) {
-      diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
-      regul_ddt += pow(diff, 2);
-    }
-    for (int ib = 0; ib < dim_Bias; ib++) {
-      diff = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
-      regul_ddt += pow(diff, 2);
-    }
-    regul_ddt = gamma_ddt / 2.0 * regul_ddt;
+  for (int iw = 0; iw < nweights; iw++) {
+    MyReal diff = (getWeights()[iw] - layer_prev->getWeights()[iw]) / deltat;
+    regul_ddt += pow(diff, 2);
+  }
+  for (int ib = 0; ib < dim_Bias; ib++) {
+    MyReal diff = (getBias()[ib] - layer_prev->getBias()[ib]) / deltat;
+    regul_ddt += pow(diff, 2);
   }
 
   return regul_ddt;
 }
 
-void Layer::evalRegulDDT_diff(Layer *layer_prev, Layer *layer_next,
-                              MyReal deltat) {
-  if (layer_prev == NULL) return;
-  if (layer_next == NULL) return;
+void Layer::DDT_normSq_diff(Layer *layer_prev, Layer *layer_next, MyReal deltat) {
 
-  MyReal diff;
-  int regul_bar = gamma_ddt / (deltat * deltat);
-
-  /* Left sided derivative term */
-  if (layer_prev->getnDesign() == ndesign && layer_prev->getDimIn() == dim_In &&
-      layer_prev->getDimOut() == dim_Out &&
-      layer_prev->getDimBias() == dim_Bias &&
-      layer_prev->getnWeights() == nweights) {
-    for (int ib = 0; ib < dim_Bias; ib++) {
-      diff = getBias()[ib] - layer_prev->getBias()[ib];
-      getBiasBar()[ib] += diff * regul_bar;
+  double regul_bar = gamma_ddt / pow(deltat, 2.0) ; 
+  for (int ib = 0; ib < dim_Bias; ib++) {
+    MyReal diff = 0.0;
+    if (index != 0)   diff += getBias()[ib] - layer_prev->getBias()[ib];
+    if (layer_next->getType() != CLASSIFICATION) diff -= layer_next->getBias()[ib] - getBias()[ib]; 
+    getBiasBar()[ib] += diff * regul_bar;
+  }
+  for (int iw = 0; iw < nweights; iw++) {
+    MyReal diff = 0.0;
+    if (index != 0) {
+      diff += getWeights()[iw] - layer_prev->getWeights()[iw];
+    }  
+    if (layer_next->getType() != CLASSIFICATION) {
+      diff -= layer_next->getWeights()[iw] - getWeights()[iw]; 
     }
-
-    for (int iw = 0; iw < nweights; iw++) {
-      diff = getWeights()[iw] - layer_prev->getWeights()[iw];
-      getWeightsBar()[iw] += diff * regul_bar;
-    }
+    getWeightsBar()[iw] += diff * regul_bar;
   }
 
-  /* Right sided derivative term */
-  if (layer_next->getnDesign() == ndesign && layer_next->getDimIn() == dim_In &&
-      layer_next->getDimOut() == dim_Out &&
-      layer_next->getDimBias() == dim_Bias &&
-      layer_next->getnWeights() == nweights) {
-    for (int ib = 0; ib < dim_Bias; ib++) {
-      diff = getBias()[ib] - layer_next->getBias()[ib];
-      getBiasBar()[ib] += diff * regul_bar;
-    }
-
-    for (int iw = 0; iw < nweights; iw++) {
-      diff = getWeights()[iw] - layer_next->getWeights()[iw];
-      getWeightsBar()[iw] += diff * regul_bar;
-    }
-  }
 }
 
 void Layer::setExample(MyReal *example_ptr) {}
@@ -338,7 +308,7 @@ void DenseLayer::applyBWD(MyReal *state, MyReal *state_bar,
     for (int ii = 0; ii < dim_In; ii++) {
       if (compute_gradient)
         weights_bar[io * dim_In + ii] += state[ii] * update_bar[io];
-      state_bar[ii] += weights[io * dim_In + ii] * update_bar[io];
+        state_bar[ii] += weights[io * dim_In + ii] * update_bar[io];
     }
   }
 }

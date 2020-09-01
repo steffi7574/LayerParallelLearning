@@ -35,6 +35,7 @@
 #include "util.hpp"
 
 #define MASTER_NODE 0
+#define FINITE_DIFFERENCE_TEST 1
 
 int main(int argc, char *argv[]) {
   /* --- Data --- */
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
   ndesign_global = network->getnDesignGlobal();
 
   /* Read design from file */
-  // read_vector("design_optim_N5.dat", network->getDesign(), ndesign_global);
+  // read_vector("design_optim_test.dat", network->getDesign(), ndesign_global);
 
   /* Print some neural network information */
   printf("%d: Layer range: [%d, %d] / %d\n", myid, startlayerID, endlayerID,
@@ -214,6 +215,8 @@ int main(int argc, char *argv[]) {
     objective = primaltrainapp->getObjective();
     loss_train = network->getLoss();
     accur_train = network->getAccuracy();
+
+    printf("obj %1.14e loss %1.14e\n", objective, loss_train);
 
     /* --- Validation data: Get accuracy --- */
     if (config->validationlevel > 0) {
@@ -315,9 +318,9 @@ int main(int argc, char *argv[]) {
         primaltrainapp->getCore()->SetPrintLevel(config->braid_printlevel);
 
         test_obj = objective - ls_param * ls_stepsize * wolfe;
-        if (myid == MASTER_NODE)
-          printf("ls_iter = %d:\tls_objective = %1.14e\ttest_obj = %1.14e\n",
-                 ls_iter, ls_objective, test_obj);
+        // if (myid == MASTER_NODE)
+          // printf("ls_iter = %d:\tls_objective = %1.14e\ttest_obj = %1.14e\n",
+                //  ls_iter, ls_objective, test_obj);
         /* Test the wolfe condition */
         if (ls_objective <= test_obj) {
           /* Success, use this new design */

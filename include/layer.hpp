@@ -112,25 +112,25 @@ class Layer {
   void unpackDesign(MyReal *buffer);
 
   /**
-   * Evaluate Tikhonov Regularization
-   * Returns 1/2 * \|weights||^2 + 1/2 * \|bias\|^2
+   * Returns \|weights||^2 + \|bias\|^2
+   * used for tikhonov regularization of the network parameters
    */
-  MyReal evalTikh();
+  MyReal designNormSq();
 
   /**
    * Derivative of Tikhonov Regularization
    */
-  void evalTikh_diff(MyReal regul_bar);
+  void designNormSq_diff(MyReal regul_bar);
 
   /**
    * Regularization for the time-derivative of the layer weights
    */
-  MyReal evalRegulDDT(Layer *layer_prev, MyReal deltat);
+  MyReal DDT_normSq(Layer *layer_prev, MyReal deltat);
 
   /**
    * Derivative of ddt-regularization term
    */
-  void evalRegulDDT_diff(Layer *layer_prev, Layer *layer_next, MyReal deltat);
+  void DDT_normSq_diff(Layer *layer_prev, Layer *layer_next, MyReal deltat);
 
   /**
    * In opening layers: set pointer to the current example

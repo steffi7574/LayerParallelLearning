@@ -346,11 +346,11 @@ int main(int argc, char *argv[]) {
   if (config->validationlevel > -1) {
     if (myid == MASTER_NODE) printf("\n --- Run final validation ---\n");
 
-    primalvalapp->getCore()->SetPrintLevel(0);
+    // primalvalapp->getCore()->SetPrintLevel(0);
     primalvalapp->run();
     loss_val = network->getLoss();
 
-    printf("Final validation accuracy:  %2.2f%%\n", accur_val);
+    printf("Final validation loss:  %1.14e\n", loss_val);
   }
 
   write_vector("design_optim.dat", network->getDesign(), ndesign_global);

@@ -68,8 +68,7 @@ void Network::createLayerBlock(int StartLayerID, int EndLayerID, Config *config)
     /* Create a layer */
     Layer* newlayer = createLayer(ilayer, config);
     ndesign_local += newlayer->getnDesign();
-    // printf("creating hidden/class layer %d/%d, ndesign_local%d\n", ilayer,
-    // nlayers_local, layers[storeID]->getnDesign());
+    printf("Creating layer %d/%d, ndesign_local%d\n", ilayer, nlayers_local, newlayer->getnDesign());
 
     /* Update layermax */
     if (newlayer->getnDesign() > mylayermax && ilayer < nlayers_global - 2) 
@@ -175,7 +174,7 @@ Layer *Network::createLayer(int index, Config *config) {
     switch (config->network_type) {
       case DENSE:
         if (config->weights_open_init == 0.0) {
-          layer = new OpenExpandZero(config->nfeatures, nchannels);
+          layer = new OpenOne(config->nfeatures, nchannels);
         } else {
           layer = new OpenDenseLayer(config->nfeatures, nchannels,
                                      config->activation, config->gamma_tik);
@@ -209,8 +208,9 @@ Layer *Network::createLayer(int index, Config *config) {
     }
   } else if (index == nlayers_global - 2)  // Classification layer
   {
-    layer = new ClassificationLayer(index, nchannels, config->nclasses,
-                                    config->gamma_class);
+    if (config->nclasses == 1) layer = new L2Layer(index, nchannels, config->nclasses);
+    else layer = new ClassificationLayer(index, nchannels, config->nclasses, config->gamma_class);
+
   } else {
     layer = NULL;
   }
@@ -396,7 +396,7 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
 
   /* Get classification layer */
   classificationlayer =
-      dynamic_cast<ClassificationLayer *>(getLayer(nlayers_global - 2));
+      dynamic_cast<L2Layer *>(getLayer(nlayers_global - 2));
   if (classificationlayer == NULL) {
     printf("\n ERROR: Network can't access classification layer!\n\n");
     exit(1);
@@ -418,10 +418,11 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
     classificationlayer->setLabel(data->getLabel(iex));
     classificationlayer->applyFWD(tmpstate);
     /* Evaluate Loss */
-    loss += classificationlayer->crossEntropy(tmpstate);
+    loss += classificationlayer->Loss(tmpstate);
     success_local = classificationlayer->prediction(tmpstate, &class_id);
     success += success_local;
-    if (output) fprintf(classfile, "%d   %d\n", class_id, success_local);
+    // if (output) fprintf(classfile, "%d   %d\n", class_id, success_local);
+    if (output) fprintf(classfile, "%1.14e   %1.14e\n", data->getExample(iex)[0], classificationlayer->getAvg());
   }
   loss = 1. / data->getnBatch() * loss;
   accuracy = 100.0 * ((MyReal)success) / data->getnBatch();
@@ -430,7 +431,7 @@ void Network::evalClassification(DataSet *data, MyReal **state, int output) {
   // tmpstate[0]);
 
   if (output) fclose(classfile);
-  if (output) printf("Prediction file written: classprediction.dat\n");
+  // if (output) printf("Prediction file written: classprediction.dat\n");
 
   delete[] tmpstate;
 }
@@ -461,10 +462,8 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
     classificationlayer->applyFWD(tmpstate);
 
     /* Derivative of Loss and classification. */
-    classificationlayer->crossEntropy_diff(tmpstate, adjointstate[iex],
-                                           loss_bar);
-    classificationlayer->applyBWD(primalstate[iex], adjointstate[iex],
-                                  compute_gradient);
+    classificationlayer->Loss_diff(tmpstate, adjointstate[iex], loss_bar);
+    classificationlayer->applyBWD(primalstate[iex], adjointstate[iex], compute_gradient);
   }
   // printf("Classification_diff %d using layer %1.14e state %1.14e tmpstate
   // %1.14e biasbar[dimOut-1] %1.14e\n", getIndex(), weights[0],
@@ -472,5 +471,4 @@ void Network::evalClassification_diff(DataSet *data, MyReal **primalstate,
 
   delete[] tmpstate;
 }
-
 

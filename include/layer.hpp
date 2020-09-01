@@ -49,7 +49,8 @@ class Layer {
     CLASSIFICATION = 3,
     OPENCONV = 4,
     OPENCONVMNIST = 5,
-    CONVOLUTION = 6
+    CONVOLUTION = 6,
+    OPENONE = 7
   };
 
   Layer();
@@ -224,6 +225,26 @@ class OpenExpandZero : public Layer {
   void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
 };
 
+
+/*
+ * Opening layer that copies 1D-data to the network dimension
+ */
+class OpenOne: public Layer {
+ protected:
+  MyReal *example; /* Pointer to the current example data */
+ public:
+  OpenOne(int dimI, int dimO);
+  ~OpenOne();
+
+  void setExample(MyReal *example_ptr);
+
+  void applyFWD(MyReal *state);
+
+  void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
+};
+
+
+
 /**
  * Classification layer
  */
@@ -239,20 +260,19 @@ class ClassificationLayer : public Layer {
 
   void setLabel(MyReal *label_ptr);
 
-  void applyFWD(MyReal *state);
+  virtual void applyFWD(MyReal *state);
 
-  void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
+  virtual void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
 
   /**
-   * Evaluate the cross entropy function
+   * Evaluate the cross entropy loss function, 
    */
-  MyReal crossEntropy(MyReal *finalstate);
+  virtual MyReal Loss(MyReal *finalstate);
 
   /**
    * Algorithmic derivative of evaluating cross entropy loss
    */
-  void crossEntropy_diff(MyReal *data_Out, MyReal *data_Out_bar,
-                         MyReal loss_bar);
+  virtual void Loss_diff(MyReal *data_Out, MyReal *data_Out_bar, MyReal loss_bar);
 
   /**
    * Compute the class probabilities
@@ -271,7 +291,31 @@ class ClassificationLayer : public Layer {
    * Algorithmic derivative of the normalize funciton
    */
   void normalize_diff(MyReal *data, MyReal *data_bar);
+
+
+  virtual MyReal getAvg();
 };
+
+class L2Layer : public ClassificationLayer {
+  double avg;      // g(uT) = 1/d sum_j uT_j
+  double avg_bar;
+
+  public:
+    L2Layer(int idx, int dimI, int dimO);
+    ~L2Layer();
+
+    MyReal getAvg();
+
+    virtual void applyFWD(MyReal *state);
+
+    virtual void applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient);
+
+    virtual MyReal Loss(MyReal *finalstate);
+    virtual void Loss_diff(MyReal *data_Out, MyReal *data_Out_bar, MyReal loss_bar);
+
+
+};
+
 
 /**
  * Layer using a convolution C of size csize X csize,

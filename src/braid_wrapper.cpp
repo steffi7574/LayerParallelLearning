@@ -399,6 +399,9 @@ braid_Int myBraidApp::BufUnpack(void *buffer, braid_Vector *u_ptr,
     case Layer::OPENZERO:
       tmplayer = new OpenExpandZero(dimIn, dimOut);
       break;
+    case Layer::OPENONE:
+      tmplayer = new OpenOne(dimIn, dimOut);
+      break;
     case Layer::OPENDENSE:
       tmplayer = new OpenDenseLayer(dimIn, dimOut, activ, gammatik);
       break;

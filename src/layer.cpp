@@ -423,6 +423,32 @@ void OpenExpandZero::applyBWD(MyReal *state, MyReal *state_bar,
   }
 }
 
+
+OpenOne::OpenOne(int dimI, int dimO)
+    : Layer(-1, OPENONE, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0) {
+  /* this layer doesn't have any design variables. */
+  ndesign = 0;
+  nweights = 0;
+}
+
+OpenOne::~OpenOne() {}
+
+void OpenOne::setExample(MyReal *example_ptr) { example = example_ptr; }
+
+void OpenOne::applyFWD(MyReal *state) {
+  for (int ii = 0; ii < dim_Out; ii++) {
+    state[ii] = example[0];
+  }
+}
+
+void OpenOne::applyBWD(MyReal *state, MyReal *state_bar,
+                              int compute_gradient) {
+  for (int ii = 0; ii < dim_Out; ii++) {
+    state_bar[ii] = 0.0;
+  }
+}
+
+
 OpenConvLayer::OpenConvLayer(int dimI, int dimO)
     : Layer(-1, OPENCONV, dimI, dimO, 0, 0, 1.0, -1, 0.0, 0.0) {
   /* this layer doesn't have any design variables. */
@@ -490,6 +516,57 @@ void OpenConvLayerMNIST::applyBWD(MyReal *state, MyReal *state_bar,
   // Derivative of affine transformation
   // This is "0" because we have no bias or weights
 }
+
+L2Layer::L2Layer(int idx, int dimI, int dimO) : ClassificationLayer(idx, dimI, dimO, 0.0) {
+  ndesign = 0;
+  nweights = 0;
+  dim_Bias = 0;
+}
+L2Layer::~L2Layer(){}
+
+void L2Layer::applyFWD(MyReal *state){
+
+  /* Average state */
+  avg = 0.0;
+  for (int io = 0; io < dim_In; io++) {
+    avg += state[io];
+  }
+  avg = avg / dim_In;
+}
+
+void L2Layer::applyBWD(MyReal *state, MyReal *state_bar, int compute_gradient){
+
+  /* Apply backwards */
+  for (int io = 0; io < dim_In; io++) {
+    state_bar[io] = 1./dim_In * avg_bar;
+  }
+}
+
+MyReal ClassificationLayer::getAvg(){ return 0.0; }
+
+MyReal L2Layer::getAvg(){ return avg; }
+
+MyReal L2Layer::Loss(MyReal *finalstate){
+
+  return 1./2. * pow(label[0] - avg, 2);
+}
+
+
+void L2Layer::Loss_diff(MyReal *data_Out, MyReal *data_Out_bar, MyReal loss_bar){
+
+  /* Recompute average state */
+  avg = 0.0;
+  for (int io = 0; io < dim_In; io++) {
+    avg += data_Out[io];
+  }
+  avg = avg / dim_In;
+
+  /* Derivative of loss */
+  avg_bar = - (label[0] - avg) * loss_bar;
+}
+
+
+
 
 ClassificationLayer::ClassificationLayer(int idx, int dimI, int dimO,
                                          MyReal gammatik)
@@ -587,7 +664,7 @@ void ClassificationLayer::normalize_diff(MyReal *data, MyReal *data_bar) {
   data_bar[i_max] += max_b;
 }
 
-MyReal ClassificationLayer::crossEntropy(MyReal *data_Out) {
+MyReal ClassificationLayer::Loss(MyReal *data_Out) {
   MyReal label_pr, exp_sum;
   MyReal CELoss;
 
@@ -606,7 +683,7 @@ MyReal ClassificationLayer::crossEntropy(MyReal *data_Out) {
   return CELoss;
 }
 
-void ClassificationLayer::crossEntropy_diff(MyReal *data_Out,
+void ClassificationLayer::Loss_diff(MyReal *data_Out,
                                             MyReal *data_Out_bar,
                                             MyReal loss_bar) {
   MyReal exp_sum, exp_sum_bar;
